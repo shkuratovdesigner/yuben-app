@@ -41,7 +41,7 @@ The core signal is **VSR (views ÷ subscribers)**. A million views on a 24k-subs
 - **Outlier discovery** — VSR-ranked results with engagement sanity checks (likes-per-1k-views flags bought/promoted views).
 - **Recommended watch list** — a short, sequenced list of what to watch and what to take from each video.
 - **Title & script analysis** — common patterns, emotional triggers, and hook structures across the outlier set, with per-video transcripts when enabled.
-- **Two ways to bring a brain** — use the **Claude Code CLI** you already have, or paste an **Anthropic API key** for fully terminal-free onboarding. Both run behind the same adapter interface (a Gemini CLI adapter is stubbed).
+- **Bring your own model** — the LLM sits behind a small pluggable adapter interface, not a hardcoded vendor. Two adapters ship working today (Anthropic API key, Claude Code CLI), a Gemini CLI adapter is stubbed, and adding your own — Codex CLI, OpenAI API, a local model — is one small class. See [Model adapters](#model-adapters).
 - **Quota-aware** — shows the estimated YouTube API units before each run (~1.4k of the free 10k daily).
 - **Research history & export** — every run is stored locally (SQLite) and exportable.
 - **Mock-first UI** — the entire interface runs on bundled fixtures with no backend and no keys, so you can explore it in one command.
@@ -56,20 +56,33 @@ make install     # backend venv + frontend node deps
 make dev         # backend :8000 + frontend :5173 — UI in mock mode
 ```
 
-Open <http://localhost:5173>. That's the full UI running on fixtures — no API keys needed.
+Then open `http://localhost:5173` in your browser — the app runs entirely on your own machine (nothing is hosted). In mock mode that's the full UI on bundled fixtures, no API keys needed.
 
-For **live research**, run `make dev-live` and connect your keys in the app's onboarding flow:
+For **live research**, run `make dev-live` and connect two things in the app's onboarding flow:
 
-| Key | Used for | Where to get it |
+| What | Used for | Where to get it |
 |---|---|---|
-| YouTube Data API v3 | search + video/channel stats | [Google Cloud Console](https://console.cloud.google.com/) → enable *YouTube Data API v3* → create an API key |
-| Anthropic API key *(or a local Claude Code CLI)* | topic expansion + narrative analysis | [console.anthropic.com](https://console.anthropic.com/) |
+| YouTube Data API v3 key | search + video/channel stats | [Google Cloud Console](https://console.cloud.google.com/) → enable *YouTube Data API v3* → create an API key |
+| An LLM, via any [model adapter](#model-adapters) | topic expansion + narrative analysis | e.g. an [Anthropic API key](https://console.anthropic.com/) or a CLI agent you already have installed |
 
 ### Your keys stay on your machine
 
-- Everything runs on `localhost` — there is no hosted service and no telemetry.
+- Everything runs locally — there is no hosted service and no telemetry.
 - Keys are stored in your **OS keychain** (via `keyring`), never in the repo or a dotfile, and the store is **write-only** toward the UI: the frontend can set or test a key but can never read it back.
-- The Anthropic key is only ever sent to `api.anthropic.com`; the YouTube key only to `googleapis.com`.
+- Each key is only ever sent to its own provider's API — the YouTube key to `googleapis.com`, a model key to that model provider (e.g. `api.anthropic.com`).
+
+## Model adapters
+
+YuBen doesn't care which LLM writes the narrative — the model sits behind one small interface ([`backend/app/adapters/base.py`](backend/app/adapters/base.py)): `detect()`, `models()`, `check_env()`, `stream()`.
+
+| Adapter | How it connects | Status |
+|---|---|---|
+| **Anthropic API** | paste an API key in the UI — no terminal needed | ✅ working |
+| **Claude Code CLI** | uses the local CLI you already have | ✅ working |
+| **Gemini CLI** | local CLI | 🧩 stubbed — interface wired, run surface unfinished |
+| Codex CLI · OpenAI API · local models | your pick | 🗺️ planned — **adapter PRs very welcome** |
+
+To add one: implement the interface for your CLI or API of choice, register it in [`backend/app/adapters/__init__.py`](backend/app/adapters/__init__.py), and the UI picks it up automatically via `GET /api/adapters`. Whatever the adapter, the [trust rule](#how-it-works) holds — the model only ever contributes narrative, never data.
 
 ## Architecture
 
@@ -77,7 +90,7 @@ For **live research**, run `make dev-live` and connect your keys in the app's on
 flowchart LR
     UI["React SPA<br/>:5173"] -->|"JSON-Schema contracts"| API["FastAPI<br/>:8000"]
     API --> ORCH["Orchestrator"]
-    ORCH -->|"expand topic"| LLM["Adapter:<br/>Claude Code CLI · Anthropic API"]
+    ORCH -->|"expand topic"| LLM["Pluggable model adapter<br/>(Anthropic API · Claude Code CLI · yours)"]
     ORCH --> PIPE["Deterministic pipeline<br/>(Python scripts)"]
     PIPE --> YT["YouTube Data API v3"]
     ORCH -->|"narrate results"| LLM
