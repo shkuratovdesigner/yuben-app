@@ -1,0 +1,178 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+/* Self-hosted fonts (local-first: no runtime CDN calls). */
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/newsreader';
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * YuBen design system — tokens pulled from Figma node 1:12
+ * (file OG4eN9FgW3gnu88CRQRMGt) via the Figma MCP.
+ *
+ * shadcn's semantic variables are mapped to the exact brand values so the
+ * primitives (bg-primary, text-muted-foreground, border-border, …) render
+ * on-brand, with YuBen-specific extras (three teals, VSR tiers) layered on.
+ */
+:root {
+  --radius: 0.75rem; /* 12px — field radius */
+
+  /* shadcn semantic contract */
+  --background: #ffffff;
+  --foreground: #2b2d33; /* Brand / Primary */
+  --card: #ffffff;
+  --card-foreground: #2b2d33;
+  --popover: #ffffff;
+  --popover-foreground: #2b2d33;
+  --primary: #04607d; /* Continue button teal */
+  --primary-foreground: #ffffff;
+  --secondary: #e9eaea; /* tonal "Test now" button */
+  --secondary-foreground: #2b2d33;
+  --muted: #f8f8f8;
+  --muted-foreground: #777274; /* Colors/grey */
+  --accent: #f8f8f8;
+  --accent-foreground: #2b2d33;
+  --destructive: #b42318;
+  --destructive-foreground: #ffffff;
+  --border: #d5d5d6; /* Seattle / 30 */
+  --input: #d5d5d6;
+  --ring: #19b28d; /* selected-card border / focus */
+
+  /* YuBen brand extras */
+  --brand-teal: #04607d;
+  --brand-link: #00809c; /* links / accent text */
+  --brand-selected: #19b28d; /* active adapter card border */
+  --brand-grey: #777274;
+  --brand-muted: #808185; /* in-screen helper / sub text */
+  --brand-card: #fbfbfb; /* resting card surface */
+  --brand-card-active: #f8f8f8; /* selected card surface */
+
+  /* Outperformance (VSR) tiers — mirror build_html_report.py */
+  --tier-hot: #b45309; /* ≥5×  (amber) */
+  --tier-warm: #3f6212; /* 2–5× (green) */
+  --tier-cool: #9a9aa2; /* <1×  (grey) */
+}
+
+/*
+ * Dark theme (H4). Toggling `.dark` on <html> re-points every semantic + brand
+ * variable, so all primitives adapt with no per-component `dark:` classes. Same
+ * hues, lifted for legibility on a near-black canvas; the selected teal-green
+ * ring and VSR tiers keep their identity (tiers brightened for dark contrast).
+ */
+.dark {
+  --background: #141416;
+  --foreground: #e8e8ea;
+  --card: #1c1c1f;
+  --card-foreground: #e8e8ea;
+  --popover: #1c1c1f;
+  --popover-foreground: #e8e8ea;
+  --primary: #0f7ea0; /* teal, lifted so the button pops on dark */
+  --primary-foreground: #ffffff;
+  --secondary: #2a2a2e;
+  --secondary-foreground: #e8e8ea;
+  --muted: #1e1e21;
+  --muted-foreground: #9a9aa2;
+  --accent: #1e1e21;
+  --accent-foreground: #e8e8ea;
+  --destructive: #f26359; /* lifted red for dark contrast */
+  --destructive-foreground: #ffffff;
+  --border: #2c2c30;
+  --input: #34343a;
+  --ring: #19b28d;
+
+  --brand-teal: #3aa5c4;
+  --brand-link: #45b3d1;
+  --brand-selected: #19b28d;
+  --brand-grey: #9a9aa2;
+  --brand-muted: #86868c;
+  --brand-card: #1c1c1f;
+  --brand-card-active: #26262b;
+
+  --tier-hot: #f59e0b; /* ≥5×  (amber, brightened) */
+  --tier-warm: #a3e635; /* 2–5× (lime, brightened) */
+  --tier-cool: #a1a1aa; /* <1×  (grey) */
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-brand-teal: var(--brand-teal);
+  --color-brand-link: var(--brand-link);
+  --color-brand-selected: var(--brand-selected);
+  --color-brand-grey: var(--brand-grey);
+  --color-brand-muted: var(--brand-muted);
+  --color-brand-card: var(--brand-card);
+  --color-brand-card-active: var(--brand-card-active);
+  --color-tier-hot: var(--tier-hot);
+  --color-tier-warm: var(--tier-warm);
+  --color-tier-cool: var(--tier-cool);
+
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Newsreader Variable', Georgia, 'Times New Roman', serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Label Large (Figma): 14 / 20 / 0.1 */
+  --text-label-lg: 14px;
+  --text-label-lg--line-height: 20px;
+  --text-label-lg--letter-spacing: 0.1px;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-card: 16px;
+  --radius-field: 12px;
+  --radius-pill: 100px;
+}
+
+@layer base {
+  *,
+  ::after,
+  ::before {
+    border-color: var(--color-border);
+  }
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    margin: 0;
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+  }
+  /* Serif display for H1s (Times Now feel via Newsreader). */
+  .font-display {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* Indeterminate loader bar (Progress `indeterminate`). */
+@keyframes progress-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}

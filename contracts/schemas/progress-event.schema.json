@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yuben.dev/schemas/progress-event.schema.json",
+  "title": "ProgressEvent",
+  "description": "SSE event -> loader. One tick of run progress (CONTRACTS.md §3).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["run_id", "phase", "label", "ts"],
+  "properties": {
+    "run_id": { "type": "string" },
+    "phase": {
+      "type": "string",
+      "enum": ["queued", "expanding", "searching", "enriching", "scoring", "analyzing", "verifying", "done", "error"]
+    },
+    "label": { "type": "string" },
+    "pct": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 100,
+      "description": "null when the phase is indeterminate."
+    },
+    "detail": { "type": ["string", "null"], "description": "e.g. 'keyword 7 / 20'." },
+    "counts": {
+      "type": ["object", "null"],
+      "additionalProperties": { "type": "integer", "minimum": 0 },
+      "description": "Live tallies, e.g. { found, longform, curated }."
+    },
+    "error": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": ["quota_exceeded", "cli_missing", "cli_failed", "no_results", "invalid_output", "cancelled", "unknown"]
+        },
+        "message": { "type": "string" }
+      },
+      "description": "Present only on terminal phase:'error'."
+    },
+    "ts": { "type": "string", "format": "date-time" }
+  }
+}

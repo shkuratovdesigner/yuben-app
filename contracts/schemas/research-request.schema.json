@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yuben.dev/schemas/research-request.schema.json",
+  "title": "ResearchRequest",
+  "description": "Composer -> backend. Describes one research run (CONTRACTS.md §2).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "query", "format", "upload_date", "outperformance", "analyze_titles", "analyze_scripts", "model"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0" },
+    "query": { "type": "string", "minLength": 1, "description": "Required, non-empty topic." },
+    "format": { "type": "string", "enum": ["longform", "shorts"] },
+    "upload_date": {
+      "type": "string",
+      "enum": ["all", "24h", "7d", "30d", "90d", "6m", "1y"],
+      "description": "Maps to days + published-after floor."
+    },
+    "outperformance": {
+      "type": "string",
+      "enum": ["any", "2x", "5x", "10x", "highest"],
+      "description": "Maps to VSR/multiplier threshold + sort."
+    },
+    "analyze_titles": { "type": "boolean" },
+    "analyze_scripts": { "type": "boolean" },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adapter", "model"],
+      "properties": {
+        "adapter": { "type": "string", "description": "e.g. 'claude-code' | 'gemini-cli'." },
+        "model": { "type": "string", "description": "Adapter-specific model id or 'default'." }
+      }
+    },
+    "max_results": { "type": "integer", "minimum": 1, "maximum": 100, "default": 15 }
+  }
+}

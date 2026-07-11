@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yuben.dev/schemas/adapter.schema.json",
+  "title": "Adapter",
+  "description": "One installed/available agent adapter (GET /api/adapters returns Adapter[]) (CONTRACTS.md §6).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "installed", "version", "models"],
+  "properties": {
+    "id": { "type": "string", "description": "e.g. 'claude-code' | 'gemini-cli'." },
+    "name": { "type": "string", "description": "Display name, e.g. 'Claude Code'." },
+    "installed": { "type": "boolean" },
+    "version": { "type": ["string", "null"], "description": "Detected CLI version, or null when not installed." },
+    "models": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Selectable model ids for this adapter (may be empty when not installed)."
+    }
+  }
+}

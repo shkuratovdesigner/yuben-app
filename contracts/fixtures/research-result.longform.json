@@ -1,0 +1,566 @@
+{
+  "schema_version": "1.0",
+  "run_id": "r_fixture_longform",
+  "created_at": "2026-07-10T15:39:00Z",
+  "request": {
+    "schema_version": "1.0",
+    "query": "how to promote your airbnb",
+    "format": "longform",
+    "upload_date": "all",
+    "outperformance": "highest",
+    "analyze_titles": true,
+    "analyze_scripts": true,
+    "model": {
+      "adapter": "claude-code",
+      "model": "default"
+    },
+    "max_results": 15
+  },
+  "topic_title": "How to Promote Your Airbnb: Marketing, Direct Bookings & Content That Converts",
+  "summary": "Across the long-form field, specific and personal marketing systems win — direct-booking playbooks and repeatable content engines beat generic 'grow your short-term rental' advice.",
+  "meta": {
+    "window": "All time",
+    "filter": "long-form ≥120s",
+    "keywords": [
+      "how to promote your airbnb",
+      "airbnb marketing strategy",
+      "how to market your airbnb",
+      "how to get more airbnb bookings",
+      "short term rental marketing",
+      "how to get direct bookings airbnb",
+      "airbnb direct booking website",
+      "airbnb social media marketing",
+      "instagram reels for airbnb",
+      "how to create content for your airbnb",
+      "airbnb branding",
+      "vacation rental marketing",
+      "airbnb superhost tips",
+      "how to stand out on airbnb",
+      "airbnb content ideas",
+      "how to make your airbnb go viral",
+      "airbnb hosting tips for beginners",
+      "marketing your short term rental",
+      "how to promote your vacation rental",
+      "grow your airbnb business"
+    ],
+    "ranking": "by views; VSR shown",
+    "counts": {
+      "unique": 767,
+      "longform": 371,
+      "curated": 15
+    }
+  },
+  "top_videos": [
+    {
+      "video_id": "116cwKs2XQs",
+      "title": "The Money-Making Secrets Behind Hotel Design | WSJ Pro Perfected",
+      "url": "https://www.youtube.com/watch?v=116cwKs2XQs",
+      "watch_url": "https://www.youtube.com/watch?v=116cwKs2XQs",
+      "thumbnail_url": "https://i.ytimg.com/vi/116cwKs2XQs/hqdefault.jpg",
+      "channel_id": "UCK7tptUDHh-RYDsdxO1-5QQ",
+      "channel_name": "The Wall Street Journal",
+      "subscriber_count": 6630000,
+      "view_count": 2819786,
+      "like_count": 41494,
+      "comment_count": 2175,
+      "vsr": 0.43,
+      "multiplier": null,
+      "eng_per_1k": 14.72,
+      "engagement_flag": "ok",
+      "published_at": "2025-07-29T14:00:01Z",
+      "duration_seconds": 399,
+      "duration_label": "6:39",
+      "link_status": "verified"
+    },
+    {
+      "video_id": "JqxZGXQf0qg",
+      "title": "Truth About Making Money in India - Attention, Branding & 2026 Strategy | Rajiv | FO457 Raj Shamani",
+      "url": "https://www.youtube.com/watch?v=JqxZGXQf0qg",
+      "watch_url": "https://www.youtube.com/watch?v=JqxZGXQf0qg",
+      "thumbnail_url": "https://i.ytimg.com/vi/JqxZGXQf0qg/hqdefault.jpg",
+      "channel_id": "UCzwCEE_PchiBULMnAJqhGVg",
+      "channel_name": "Raj Shamani",
+      "subscriber_count": 18400000,
+      "view_count": 2124850,
+      "like_count": 45517,
+      "comment_count": 1285,
+      "vsr": 0.12,
+      "multiplier": null,
+      "eng_per_1k": 21.42,
+      "engagement_flag": "ok",
+      "published_at": "2026-01-13T15:39:00Z",
+      "duration_seconds": 7244,
+      "duration_label": "2:00:44",
+      "link_status": "verified"
+    },
+    {
+      "video_id": "08uzmMQ3-RI",
+      "title": "How She Turned 1 Car Into A 100-Car Business ($250K/Month)",
+      "url": "https://www.youtube.com/watch?v=08uzmMQ3-RI",
+      "watch_url": "https://www.youtube.com/watch?v=08uzmMQ3-RI",
+      "thumbnail_url": "https://i.ytimg.com/vi/08uzmMQ3-RI/hqdefault.jpg",
+      "channel_id": "UChFahjDeMBV67DSXiF5pwBA",
+      "channel_name": "UpFlip",
+      "subscriber_count": 1700000,
+      "view_count": 2113891,
+      "like_count": 8360,
+      "comment_count": 354,
+      "vsr": 1.24,
+      "multiplier": null,
+      "eng_per_1k": 3.95,
+      "engagement_flag": "ok",
+      "published_at": "2025-10-13T17:00:00Z",
+      "duration_seconds": 2620,
+      "duration_label": "43:40",
+      "link_status": "verified"
+    },
+    {
+      "video_id": "OBX843W7ml4",
+      "title": "Airbnb Superhost - SNL",
+      "url": "https://www.youtube.com/watch?v=OBX843W7ml4",
+      "watch_url": "https://www.youtube.com/watch?v=OBX843W7ml4",
+      "thumbnail_url": "https://i.ytimg.com/vi/OBX843W7ml4/hqdefault.jpg",
+      "channel_id": "UCqFzWxSCi39LnW1JKFR3efg",
+      "channel_name": "Saturday Night Live",
+      "subscriber_count": 17200000,
+      "view_count": 1951931,
+      "like_count": 29792,
+      "comment_count": 1183,
+      "vsr": 0.11,
+      "multiplier": null,
+      "eng_per_1k": 15.26,
+      "engagement_flag": "ok",
+      "published_at": "2026-04-05T05:48:52Z",
+      "duration_seconds": 286,
+      "duration_label": "4:46",
+      "link_status": "verified"
+    },
+    {
+      "video_id": "NFZv8TPkwfo",
+      "title": "Лучшие идеи звучат как бред. Уроки успеха основателей Airbnb.",
+      "url": "https://www.youtube.com/watch?v=NFZv8TPkwfo",
+      "watch_url": "https://www.youtube.com/watch?v=NFZv8TPkwfo",
+      "thumbnail_url": "https://i.ytimg.com/vi/NFZv8TPkwfo/hqdefault.jpg",
+      "channel_id": "UCzrbx3JCty2-Fyf4sVQRLtw",
+      "channel_name": "Денис Викторов | Инвестиции",
+      "subscriber_count": 25200,
+      "view_count": 1048791,
+      "like_count": 21714,
+      "comment_count": 435,
+      "vsr": 41.62,
+      "multiplier": null,
+      "eng_per_1k": 20.7,
+      "engagement_flag": "ok",
+      "published_at": "2026-02-05T15:03:14Z",
+      "duration_seconds": 180,
+      "duration_label": "3:00",
+      "link_status": "verified"
+    },
+    {
+      "video_id": "BcrYCWOd3ss",
+      "title": "Asking RICH Digital Nomads What They Do For a Living (Bali, Indonesia)",
+      "url": "https://www.youtube.com/watch?v=BcrYCWOd3ss",
+      "watch_url": "https://www.youtube.com/watch?v=BcrYCWOd3ss",
+      "thumbnail_url": "https://i.ytimg.com/vi/BcrYCWOd3ss/hqdefault.jpg",
+      "channel_id": "UCTQuKo8v0PaPCvk5aRxc_Yg",
+      "channel_name": "Charlie Chang",
+      "subscriber_count": 1440000,
+      "view_count": 1021830,
+      "like_count": 17204,
+      "comment_count": 1166,
+      "vsr": 0.71,
+      "multiplier": null,
+      "eng_per_1k": 16.84,
+      "engagement_flag": "ok",
+      "published_at": "2025-08-04T18:23:28Z",
+      "duration_seconds": 2207,
+      "duration_label": "36:47",
+      "link_status": "verified"
+    },
+    {
+      "video_id": "U81bsDC8oP0",
+      "title": "How I Brainwashed Myself to Be a Millionaire at 20",
+      "url": "https://www.youtube.com/watch?v=U81bsDC8oP0",
+      "watch_url": "https://www.youtube.com/watch?v=U81bsDC8oP0",
+      "thumbnail_url": "https://i.ytimg.com/vi/U81bsDC8oP0/hqdefault.jpg",
+      "channel_id": "UCD9NudCDI_nGk8F0WflzXaA",
+      "channel_name": "Inayah McMillan",
+      "subscriber_count": 243000,
+      "view_count": 970878,
+      "like_count": 52751,
+      "comment_count": 1728,
+      "vsr": 4,
+      "multiplier": null,
+      "eng_per_1k": 54.33,
+      "engagement_flag": "ok",
+      "published_at": "2025-09-13T18:50:12Z",
+      "duration_seconds": 1165,
+      "duration_label": "19:25",
+      "link_status": "verified"
+    },
+    {
+      "video_id": "NQlYXMGhS_c",
+      "title": "Why The Airbnb Market Has COLLAPSED in 2026",
+      "url": "https://www.youtube.com/watch?v=NQlYXMGhS_c",
+      "watch_url": "https://www.youtube.com/watch?v=NQlYXMGhS_c",
+      "thumbnail_url": "https://i.ytimg.com/vi/NQlYXMGhS_c/hqdefault.jpg",
+      "channel_id": "UCsfasHJphdMDFkcse5sQ9Uw",
+      "channel_name": "Zac Rios",
+      "subscriber_count": 428000,
+      "view_count": 864401,
+      "like_count": 18565,
+      "comment_count": 5249,
+      "vsr": 2.02,
+      "multiplier": null,
+      "eng_per_1k": 21.48,
+      "engagement_flag": "ok",
+      "published_at": "2026-04-05T18:01:01Z",
+      "duration_seconds": 1423,
+      "duration_label": "23:43",
+      "link_status": "verified"
+    },
+    {
+      "video_id": "zf6CU2EGsr8",
+      "title": "Why The Airbnb Market Has COLLAPSED in 2025",
+      "url": "https://www.youtube.com/watch?v=zf6CU2EGsr8",
+      "watch_url": "https://www.youtube.com/watch?v=zf6CU2EGsr8",
+      "thumbnail_url": "https://i.ytimg.com/vi/zf6CU2EGsr8/hqdefault.jpg",
+      "channel_id": "UCsfasHJphdMDFkcse5sQ9Uw",
+      "channel_name": "Zac Rios",
+      "subscriber_count": 428000,
+      "view_count": 719247,
+      "like_count": 14710,
+      "comment_count": 4707,
+      "vsr": 1.68,
+      "multiplier": null,
+      "eng_per_1k": 20.45,
+      "engagement_flag": "ok",
+      "published_at": "2025-10-30T18:01:18Z",
+      "duration_seconds": 1442,
+      "duration_label": "24:02",
+      "link_status": "verified"
+    },
+    {
+      "video_id": "e9wIj_6UJE8",
+      "title": "The REAL Reason Why The Airbnb Market Has COLLAPSED in 2025",
+      "url": "https://www.youtube.com/watch?v=e9wIj_6UJE8",
+      "watch_url": "https://www.youtube.com/watch?v=e9wIj_6UJE8",
+      "thumbnail_url": "https://i.ytimg.com/vi/e9wIj_6UJE8/hqdefault.jpg",
+      "channel_id": "UC7_oZZSBEnyzlEzCaRDvEAA",
+      "channel_name": "Sam Dolciné",
+      "subscriber_count": 69400,
+      "view_count": 700433,
+      "like_count": 11361,
+      "comment_count": 5624,
+      "vsr": 10.09,
+      "multiplier": null,
+      "eng_per_1k": 16.22,
+      "engagement_flag": "ok",
+      "published_at": "2025-11-08T17:55:00Z",
+      "duration_seconds": 1165,
+      "duration_label": "19:25",
+      "link_status": "verified"
+    },
+    {
+      "video_id": "HU8btnvtfsQ",
+      "title": "At 27, Airbnb से 4 लाख हर महीने का Profit - कैसे चालू करें Airbnb? | Rahul Jain",
+      "url": "https://www.youtube.com/watch?v=HU8btnvtfsQ",
+      "watch_url": "https://www.youtube.com/watch?v=HU8btnvtfsQ",
+      "thumbnail_url": "https://i.ytimg.com/vi/HU8btnvtfsQ/hqdefault.jpg",
+      "channel_id": "UClCXx0-gDBPWsdGDfj21y_w",
+      "channel_name": "Good 2 Great By Rahul Jain",
+      "subscriber_count": 46600,
+      "view_count": 671021,
+      "like_count": 10314,
+      "comment_count": 544,
+      "vsr": 14.4,
+      "multiplier": null,
+      "eng_per_1k": 15.37,
+      "engagement_flag": "ok",
+      "published_at": "2026-02-26T15:18:08Z",
+      "duration_seconds": 2472,
+      "duration_label": "41:12",
+      "link_status": "verified"
+    },
+    {
+      "video_id": "M2W0APGwQMI",
+      "title": "I Built an Airbnb Business on UNWANTED Land! (And So Should You)",
+      "url": "https://www.youtube.com/watch?v=M2W0APGwQMI",
+      "watch_url": "https://www.youtube.com/watch?v=M2W0APGwQMI",
+      "thumbnail_url": "https://i.ytimg.com/vi/M2W0APGwQMI/hqdefault.jpg",
+      "channel_id": "UC5fI3kxC-ewZ6ZXEYgznM7g",
+      "channel_name": "Codie Sanchez",
+      "subscriber_count": 2210000,
+      "view_count": 651684,
+      "like_count": 16176,
+      "comment_count": 812,
+      "vsr": 0.29,
+      "multiplier": null,
+      "eng_per_1k": 24.82,
+      "engagement_flag": "ok",
+      "published_at": "2025-07-20T16:00:35Z",
+      "duration_seconds": 1248,
+      "duration_label": "20:48",
+      "link_status": "verified"
+    },
+    {
+      "video_id": "sQweshdUWdI",
+      "title": "Interview Secrets That Make YOU the Top Candidate",
+      "url": "https://www.youtube.com/watch?v=sQweshdUWdI",
+      "watch_url": "https://www.youtube.com/watch?v=sQweshdUWdI",
+      "thumbnail_url": "https://i.ytimg.com/vi/sQweshdUWdI/hqdefault.jpg",
+      "channel_id": "UCUApm5FZ_Z523Tr45rWZxog",
+      "channel_name": "Emily Durham",
+      "subscriber_count": 131000,
+      "view_count": 608832,
+      "like_count": 25231,
+      "comment_count": 940,
+      "vsr": 4.65,
+      "multiplier": null,
+      "eng_per_1k": 41.44,
+      "engagement_flag": "ok",
+      "published_at": "2025-11-04T19:25:59Z",
+      "duration_seconds": 626,
+      "duration_label": "10:26",
+      "link_status": "verified"
+    },
+    {
+      "video_id": "d9oQ9mudR-o",
+      "title": "How I Used AI To Make $2000 PROFIT in 1 week",
+      "url": "https://www.youtube.com/watch?v=d9oQ9mudR-o",
+      "watch_url": "https://www.youtube.com/watch?v=d9oQ9mudR-o",
+      "thumbnail_url": "https://i.ytimg.com/vi/d9oQ9mudR-o/hqdefault.jpg",
+      "channel_id": "UCslKd2KuhMeg7-oaoBXlPgg",
+      "channel_name": "Mikey Again",
+      "subscriber_count": 151000,
+      "view_count": 450859,
+      "like_count": 15488,
+      "comment_count": 683,
+      "vsr": 2.99,
+      "multiplier": null,
+      "eng_per_1k": 34.35,
+      "engagement_flag": "ok",
+      "published_at": "2025-09-17T16:01:22Z",
+      "duration_seconds": 678,
+      "duration_label": "11:18",
+      "link_status": "verified"
+    },
+    {
+      "video_id": "fL_l8mxU148",
+      "title": "The 5 Best AI Business Ideas For Beginners In 2026",
+      "url": "https://www.youtube.com/watch?v=fL_l8mxU148",
+      "watch_url": "https://www.youtube.com/watch?v=fL_l8mxU148",
+      "thumbnail_url": "https://i.ytimg.com/vi/fL_l8mxU148/hqdefault.jpg",
+      "channel_id": "UCC8wczy7734jKPhiR2UkS9A",
+      "channel_name": "Wholesale Ted",
+      "subscriber_count": 1480000,
+      "view_count": 440199,
+      "like_count": 15406,
+      "comment_count": 491,
+      "vsr": 0.3,
+      "multiplier": null,
+      "eng_per_1k": 35.0,
+      "engagement_flag": "ok",
+      "published_at": "2025-12-26T18:20:38Z",
+      "duration_seconds": 1318,
+      "duration_label": "21:58",
+      "link_status": "verified"
+    }
+  ],
+  "watch_list": [
+    {
+      "video_id": "116cwKs2XQs",
+      "learning_goal": "See the highest-ceiling example in the space",
+      "why": "The Wall Street Journal — 2,819,786 views at 0.43× its channel size. Watch how “The Money-Making Secrets Behind Hotel Design | WSJ Pro Perfected” is framed.",
+      "rank": 1
+    },
+    {
+      "video_id": "JqxZGXQf0qg",
+      "learning_goal": "Study a specific, personal marketing system",
+      "why": "Raj Shamani — 2,124,850 views at 0.12× its channel size. Watch how “Truth About Making Money in India - Attention, Branding & 2026 Strateg” is framed.",
+      "rank": 2
+    },
+    {
+      "video_id": "08uzmMQ3-RI",
+      "learning_goal": "Model a direct-booking / get-found playbook",
+      "why": "UpFlip — 2,113,891 views at 1.24× its channel size. Watch how “How She Turned 1 Car Into A 100-Car Business ($250K/Month)” is framed.",
+      "rank": 3
+    },
+    {
+      "video_id": "OBX843W7ml4",
+      "learning_goal": "Copy a content-engine format that compounds",
+      "why": "Saturday Night Live — 1,951,931 views at 0.11× its channel size. Watch how “Airbnb Superhost - SNL” is framed.",
+      "rank": 4
+    },
+    {
+      "video_id": "NFZv8TPkwfo",
+      "learning_goal": "Learn the hook that broke this creator out",
+      "why": "Денис Викторов | Инвестиции — 1,048,791 views at 41.62× its channel size. Watch how “Лучшие идеи звучат как бред. Уроки успеха основателей Airbnb.” is framed.",
+      "rank": 5
+    },
+    {
+      "video_id": "BcrYCWOd3ss",
+      "learning_goal": "Understand what over-saturation looks like",
+      "why": "Charlie Chang — 1,021,830 views at 0.71× its channel size. Watch how “Asking RICH Digital Nomads What They Do For a Living (Bali, Indonesia)” is framed.",
+      "rank": 6
+    }
+  ],
+  "title_analysis": {
+    "common_features": [
+      {
+        "n": 1,
+        "pattern": "Names the platform",
+        "note": "Puts 'airbnb' / 'short-term rental' in the title.",
+        "count": 278
+      },
+      {
+        "n": 2,
+        "pattern": "Money / real number",
+        "note": "A concrete $ or figure signals proof.",
+        "count": 164
+      },
+      {
+        "n": 3,
+        "pattern": "How-to / explainer",
+        "note": "Names the payoff up front ('how to …').",
+        "count": 88
+      },
+      {
+        "n": 4,
+        "pattern": "Question hook",
+        "note": "Opens a curiosity gap with a question.",
+        "count": 15
+      }
+    ],
+    "emotional_triggers": [
+      {
+        "n": 1,
+        "trigger": "Curiosity / secret reveal",
+        "example": "\"The Money-Making Secrets Behind Hotel Design | WSJ Pro Perfe\""
+      },
+      {
+        "n": 2,
+        "trigger": "Aspiration (wealth / freedom)",
+        "example": "\"How She Turned 1 Car Into A 100-Car Business ($250K/Month)\""
+      },
+      {
+        "n": 3,
+        "trigger": "Fear of getting it wrong",
+        "example": "\"Why The Airbnb Market Has COLLAPSED in 2026\""
+      },
+      {
+        "n": 4,
+        "trigger": "Social proof / transformation",
+        "example": "\"How She Turned 1 Car Into A 100-Car Business ($250K/Month)\""
+      }
+    ]
+  },
+  "script_analysis": {
+    "duration_sweet_spot": [
+      {
+        "label": "Median duration of qualifying videos",
+        "value": "13.8 minutes"
+      },
+      {
+        "label": "Range",
+        "value": "2:01 – 5:22:27"
+      },
+      {
+        "label": "Sample size",
+        "value": "371 videos"
+      }
+    ],
+    "structure_patterns": [
+      {
+        "name": "\"Show my setup\" (highest engagement)",
+        "note": "Screen/room walkthroughs of a real listing beat talking-head advice."
+      },
+      {
+        "name": "One specific number, early",
+        "note": "A concrete result ($/month, occupancy %) in the first 30s earns the watch."
+      },
+      {
+        "name": "Problem → system → proof",
+        "note": "Name the pain, show the repeatable system, then the receipts."
+      }
+    ],
+    "hook_breakdown": [
+      {
+        "rank": 1,
+        "title": "The Money-Making Secrets Behind Hotel Design | WSJ Pro Perfe (0.43×)",
+        "hook": "Opens by naming the outcome the viewer wants, then promises the exact steps.",
+        "video_id": "116cwKs2XQs"
+      },
+      {
+        "rank": 2,
+        "title": "Truth About Making Money in India - Attention, Branding & 20 (0.12×)",
+        "hook": "Opens by naming the outcome the viewer wants, then promises the exact steps.",
+        "video_id": "JqxZGXQf0qg"
+      },
+      {
+        "rank": 3,
+        "title": "How She Turned 1 Car Into A 100-Car Business ($250K/Month) (1.24×)",
+        "hook": "Opens by naming the outcome the viewer wants, then promises the exact steps.",
+        "video_id": "08uzmMQ3-RI"
+      },
+      {
+        "rank": 4,
+        "title": "Airbnb Superhost - SNL (0.11×)",
+        "hook": "Opens by naming the outcome the viewer wants, then promises the exact steps.",
+        "video_id": "OBX843W7ml4"
+      }
+    ],
+    "what_to_avoid": [
+      "Generic 'grow your Airbnb' advice — the market is saturated with it.",
+      "Burying the payoff; the first 30 seconds decide retention.",
+      "No proof — claims without a real number read as fluff."
+    ]
+  },
+  "title_formulas": [
+    {
+      "shape": "How to [outcome] on Airbnb (without [pain])",
+      "proof_video_id": "116cwKs2XQs",
+      "tailored": "How to Fill Your Airbnb Calendar Without Discounting"
+    },
+    {
+      "shape": "The [surprising number] behind [result]",
+      "proof_video_id": "JqxZGXQf0qg",
+      "tailored": "The 3 Reels That Booked My Airbnb Solid"
+    }
+  ],
+  "game_plan": {
+    "outline": [
+      {
+        "t": "0:00",
+        "beat": "Hook: name the outcome (a full calendar) + the one number."
+      },
+      {
+        "t": "0:30",
+        "beat": "Show the real listing / setup on screen."
+      },
+      {
+        "t": "3:00",
+        "beat": "The repeatable system, step by step."
+      },
+      {
+        "t": "8:00",
+        "beat": "Proof: bookings / occupancy after applying it."
+      },
+      {
+        "t": "10:30",
+        "beat": "CTA: the free direct-booking checklist."
+      }
+    ],
+    "title_options": [
+      "How I Fill My Airbnb Without Airbnb Fees",
+      "The Reel Formula That Booked My Rental Solid",
+      "Direct Bookings 101: Get Found Without Getting Banned"
+    ],
+    "thumbnail_concepts": [
+      "Split screen: empty calendar → fully booked.",
+      "Host on camera + bold '£0 in ads' overlay."
+    ],
+    "do": "Show a real listing and one concrete result on screen.",
+    "dont": "Ship another generic 'grow your STR' explainer."
+  }
+}

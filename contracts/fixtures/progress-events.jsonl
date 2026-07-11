@@ -1,0 +1,9 @@
+{"run_id": "r_fixture_longform", "phase": "queued", "label": "Queued", "pct": 0, "ts": "2026-07-11T10:00:00Z"}
+{"run_id": "r_fixture_longform", "phase": "expanding", "label": "Expanding your topic into search terms", "pct": 8, "ts": "2026-07-11T10:00:02Z", "detail": "18 keywords"}
+{"run_id": "r_fixture_longform", "phase": "searching", "label": "Searching YouTube", "pct": 30, "ts": "2026-07-11T10:00:07Z", "detail": "keyword 7 / 18", "counts": {"found": 214}}
+{"run_id": "r_fixture_longform", "phase": "searching", "label": "Searching YouTube", "pct": 48, "ts": "2026-07-11T10:00:12Z", "detail": "keyword 14 / 18", "counts": {"found": 356}}
+{"run_id": "r_fixture_longform", "phase": "enriching", "label": "Pulling channel sizes & stats", "pct": 62, "ts": "2026-07-11T10:00:18Z", "detail": "212 channels", "counts": {"found": 412, "longform": 180}}
+{"run_id": "r_fixture_longform", "phase": "scoring", "label": "Scoring outliers (views vs. channel size)", "pct": 74, "ts": "2026-07-11T10:00:22Z", "counts": {"found": 412, "longform": 180}}
+{"run_id": "r_fixture_longform", "phase": "analyzing", "label": "Analyzing titles & scripts", "pct": 86, "ts": "2026-07-11T10:00:27Z", "counts": {"longform": 180, "curated": 15}}
+{"run_id": "r_fixture_longform", "phase": "verifying", "label": "Verifying every link", "pct": 95, "ts": "2026-07-11T10:00:31Z", "detail": "verifying 15 links", "counts": {"curated": 15}}
+{"run_id": "r_fixture_longform", "phase": "done", "label": "Done", "pct": 100, "ts": "2026-07-11T10:00:33Z", "counts": {"curated": 15}}

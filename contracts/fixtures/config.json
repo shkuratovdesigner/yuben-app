@@ -1,0 +1,8 @@
+{
+  "schema_version": "1.0",
+  "adapter": "claude-code",
+  "model": "default",
+  "youtube_key_present": true,
+  "anthropic_key_present": true,
+  "onboarding_complete": true
+}

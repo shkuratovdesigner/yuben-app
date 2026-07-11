@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yuben.dev/schemas/research-result.schema.json",
+  "title": "ResearchResult",
+  "description": "Backend -> results screens. The full validated research report (CONTRACTS.md §5).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run_id", "created_at", "request", "topic_title", "summary", "meta", "top_videos", "watch_list", "title_analysis", "script_analysis"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0" },
+    "run_id": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "request": { "$ref": "https://yuben.dev/schemas/research-request.schema.json" },
+    "topic_title": { "type": "string" },
+    "summary": { "type": "string" },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["window", "filter", "keywords", "ranking", "counts"],
+      "properties": {
+        "window": { "type": "string", "description": "Human window label, e.g. 'All time'." },
+        "filter": { "type": "string", "description": "e.g. 'long-form ≥120s'." },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "ranking": { "type": "string" },
+        "counts": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 },
+          "description": "e.g. { unique, longform, curated }."
+        }
+      }
+    },
+    "top_videos": {
+      "type": "array",
+      "description": "Section A — ranked outliers (grid/list).",
+      "items": { "$ref": "https://yuben.dev/schemas/video.schema.json" }
+    },
+    "watch_list": {
+      "type": "array",
+      "description": "Section B — recommended watch list by learning goal.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["video_id", "learning_goal", "why", "rank"],
+        "properties": {
+          "video_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{11}$" },
+          "learning_goal": { "type": "string" },
+          "why": { "type": "string" },
+          "rank": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "title_analysis": {
+      "description": "Section C tab 1. null when analyze_titles was off.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["common_features", "emotional_triggers"],
+          "properties": {
+            "common_features": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["n", "pattern", "note", "count"],
+                "properties": {
+                  "n": { "type": "integer", "minimum": 1 },
+                  "pattern": { "type": "string" },
+                  "note": { "type": "string" },
+                  "count": { "type": "integer", "minimum": 0 }
+                }
+              }
+            },
+            "emotional_triggers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["n", "trigger", "example"],
+                "properties": {
+                  "n": { "type": "integer", "minimum": 1 },
+                  "trigger": { "type": "string" },
+                  "example": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "script_analysis": {
+      "description": "Section C tab 2. null when analyze_scripts was off.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["duration_sweet_spot", "structure_patterns", "hook_breakdown", "what_to_avoid"],
+          "properties": {
+            "duration_sweet_spot": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["label", "value"],
+                "properties": {
+                  "label": { "type": "string" },
+                  "value": { "type": "string" }
+                }
+              }
+            },
+            "structure_patterns": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "note"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "note": { "type": "string" }
+                }
+              }
+            },
+            "hook_breakdown": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["rank", "title", "hook", "video_id"],
+                "properties": {
+                  "rank": { "type": "integer", "minimum": 1 },
+                  "title": { "type": "string" },
+                  "hook": { "type": "string" },
+                  "video_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{11}$" }
+                }
+              }
+            },
+            "what_to_avoid": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      ]
+    },
+    "title_formulas": {
+      "type": ["array", "null"],
+      "description": "Optional game-plan input.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["shape", "proof_video_id", "tailored"],
+        "properties": {
+          "shape": { "type": "string" },
+          "proof_video_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{11}$" },
+          "tailored": { "type": "string" }
+        }
+      }
+    },
+    "game_plan": {
+      "description": "Optional.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["outline", "title_options", "thumbnail_concepts", "do", "dont"],
+          "properties": {
+            "outline": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["t", "beat"],
+                "properties": {
+                  "t": { "type": "string" },
+                  "beat": { "type": "string" }
+                }
+              }
+            },
+            "title_options": { "type": "array", "items": { "type": "string" } },
+            "thumbnail_concepts": { "type": "array", "items": { "type": "string" } },
+            "do": { "type": "string" },
+            "dont": { "type": "string" }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,23 @@
+# YuBen backend — core web stack + contract validation + tests.
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7
+python-dotenv>=1.0
+jsonschema>=4.21
+httpx>=0.27
+pytest>=8.0
+
+# Pipeline deps (B3 pipeline-wrapper, Phase 1 Wave 2):
+#   google-api-python-client — YouTube Data API v3 (search / videos / channels) used
+#     by the Gen-2 research scripts and the key-test probe (app/pipeline).
+#   youtube-transcript-api    — transcript fetch for analyze_scripts (no API quota).
+#   keyring                   — OS-keychain backend for the local YouTube-key store
+#     (app/store/secrets.py; B1 deferred it here — file-store fallback still works).
+google-api-python-client>=2.100
+youtube-transcript-api>=1.2.4
+keyring>=24.0
+
+# Phase 4 direct adapter (DirectAnthropicAdapter): the official Anthropic SDK,
+# used for the terminal-free Messages-API path (keyword expansion + narrative).
+# The import is lazy, so the backend still starts if it's missing.
+anthropic>=0.40

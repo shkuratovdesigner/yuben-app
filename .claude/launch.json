@@ -1,0 +1,26 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "yuben-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "frontend",
+      "port": 5173
+    },
+    {
+      "name": "yuben-frontend-live",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:live"],
+      "cwd": "frontend",
+      "port": 5173
+    },
+    {
+      "name": "yuben-backend",
+      "runtimeExecutable": ".venv/bin/uvicorn",
+      "runtimeArgs": ["app.main:app", "--port", "8000"],
+      "cwd": "backend",
+      "port": 8000
+    }
+  ]
+}

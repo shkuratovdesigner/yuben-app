@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yuben.dev/schemas/video.schema.json",
+  "title": "Video",
+  "description": "Unified video shape. Normalizes Gen-2 script rows (longform + shorts). ALL fields here are authoritative from the script JSON + backend derivation — never from agent free-text (CONTRACTS.md §4).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "video_id",
+    "title",
+    "url",
+    "watch_url",
+    "thumbnail_url",
+    "channel_id",
+    "channel_name",
+    "subscriber_count",
+    "view_count",
+    "like_count",
+    "comment_count",
+    "vsr",
+    "multiplier",
+    "eng_per_1k",
+    "engagement_flag",
+    "published_at",
+    "duration_seconds",
+    "duration_label",
+    "link_status"
+  ],
+  "properties": {
+    "video_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{11}$",
+      "description": "Canonical 11-char YouTube video id."
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "url": { "type": "string", "format": "uri", "description": "Canonical watch URL." },
+    "watch_url": { "type": "string", "format": "uri" },
+    "thumbnail_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Derived: https://i.ytimg.com/vi/<id>/hqdefault.jpg"
+    },
+    "channel_id": { "type": "string" },
+    "channel_name": { "type": "string" },
+    "subscriber_count": { "type": "integer", "minimum": 0 },
+    "view_count": { "type": "integer", "minimum": 0 },
+    "like_count": { "type": ["integer", "null"], "minimum": 0 },
+    "comment_count": { "type": ["integer", "null"], "minimum": 0 },
+    "vsr": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "views / subscriber_count — primary outlier signal. null when subs are 0/hidden."
+    },
+    "multiplier": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "views / channel_median — only when medians were computed, else null."
+    },
+    "eng_per_1k": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Computed: like_count / view_count * 1000."
+    },
+    "engagement_flag": {
+      "type": "string",
+      "enum": ["ok", "promoted"],
+      "description": "'promoted' when eng_per_1k < 1.5 (possible bought/dead engagement)."
+    },
+    "published_at": { "type": "string", "format": "date-time" },
+    "duration_seconds": { "type": "integer", "minimum": 0 },
+    "duration_label": { "type": "string", "description": "Derived H:MM:SS / M:SS from duration_seconds." },
+    "link_status": {
+      "type": "string",
+      "enum": ["verified", "embed_disabled", "dead"],
+      "description": "Backend link verification result (oEmbed + existence)."
+    }
+  }
+}

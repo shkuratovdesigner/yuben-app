@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yuben.dev/schemas/config.schema.json",
+  "title": "Config",
+  "description": "GET /api/config. NEVER contains the key value — only a presence flag (CONTRACTS.md §6).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "adapter", "model", "youtube_key_present", "anthropic_key_present", "onboarding_complete"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0" },
+    "adapter": { "type": ["string", "null"], "description": "Selected adapter id, or null if unset." },
+    "model": { "type": ["string", "null"] },
+    "youtube_key_present": { "type": "boolean", "description": "Whether a YouTube Data API key is stored locally. The value is never returned." },
+    "anthropic_key_present": { "type": "boolean", "description": "Whether an Anthropic API key is stored locally (direct adapter). The value is never returned." },
+    "onboarding_complete": { "type": "boolean" }
+  }
+}

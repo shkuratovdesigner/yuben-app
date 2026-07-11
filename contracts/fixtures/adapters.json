@@ -1,0 +1,34 @@
+[
+  {
+    "id": "anthropic-api",
+    "name": "Anthropic API",
+    "installed": true,
+    "version": "0.116.0",
+    "models": [
+      "default",
+      "claude-opus-4-8",
+      "claude-sonnet-5",
+      "claude-haiku-4-5",
+      "claude-fable-5"
+    ]
+  },
+  {
+    "id": "claude-code",
+    "name": "Claude Code",
+    "installed": true,
+    "version": "1.0.0",
+    "models": [
+      "default",
+      "claude-opus-4-8",
+      "claude-sonnet-5",
+      "claude-haiku-4-5"
+    ]
+  },
+  {
+    "id": "gemini-cli",
+    "name": "Gemini CLI",
+    "installed": false,
+    "version": null,
+    "models": []
+  }
+]

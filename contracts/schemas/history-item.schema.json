@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yuben.dev/schemas/history-item.schema.json",
+  "title": "HistoryItem",
+  "description": "One saved run summary (GET /api/history returns HistoryItem[]) (CONTRACTS.md §6).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["run_id", "topic_title", "query", "format", "created_at", "counts", "outperformance"],
+  "properties": {
+    "run_id": { "type": "string" },
+    "topic_title": { "type": "string" },
+    "query": { "type": "string" },
+    "format": { "type": "string", "enum": ["longform", "shorts"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "counts": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 },
+      "description": "At least { curated }.",
+      "required": ["curated"],
+      "properties": { "curated": { "type": "integer", "minimum": 0 } }
+    },
+    "outperformance": { "type": "string", "enum": ["any", "2x", "5x", "10x", "highest"] }
+  }
+}
