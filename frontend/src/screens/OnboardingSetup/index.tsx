@@ -26,7 +26,7 @@ import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 
 // v1: the "Detailed guide" opens the repo README (external). See PRD §10 Q1.
-const DETAILED_GUIDE_URL = 'https://github.com/shkuratovdesigner/YuBen#readme'
+const DETAILED_GUIDE_URL = 'https://github.com/shkuratovdesigner/yuben-app#readme'
 // Where a free key comes from — referenced by the key-field helper text.
 const GOOGLE_CONSOLE_URL = 'https://console.cloud.google.com/apis/credentials'
 
@@ -76,7 +76,12 @@ export default function OnboardingSetup() {
   const trimmedKey = key.trim()
   const isValidFormat = KEY_FORMAT.test(trimmedKey)
   const canTest = trimmedKey.length > 0 && !testing
-  const canFinish = isValidFormat && !finishing
+  // The key must actually PASS, not merely look like a key. Format alone let a
+  // rejected key finish onboarding, after which every research run failed with
+  // no explanation — and step 1 already gates Continue on its env-check passing,
+  // so gating here keeps both steps honest. Editing the key clears testResult
+  // (handleKeyChange), which correctly re-arms this gate.
+  const canFinish = isValidFormat && testResult?.ok === true && !finishing
 
   /** Write the current key locally (write-only) if it changed. Returns ok. */
   async function ensureStored(): Promise<boolean> {
@@ -240,6 +245,15 @@ export default function OnboardingSetup() {
         <Button onClick={handleFinish} disabled={!canFinish}>
           {finishing ? 'Finishing…' : 'Finish Setup'}
         </Button>
+        {!canFinish && !finishing ? (
+          <p className="text-center text-[13px] text-brand-muted">
+            {!isValidFormat
+              ? 'Enter your YouTube key to continue.'
+              : testResult && !testResult.ok
+                ? 'That key was rejected — fix it and test again.'
+                : 'Test your key to continue.'}
+          </p>
+        ) : null}
         {finishError && (
           <p role="alert" className="text-sm text-destructive">
             {finishError}

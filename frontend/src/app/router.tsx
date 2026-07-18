@@ -16,9 +16,11 @@
  *   Both screens read their data from `useRun(id)` themselves.
  *
  * ONBOARDING GATE
- *   Onboarding routes are always reachable. The app routes (/, /run/:id,
- *   /history) are wrapped in <RequireOnboarding/>: while config loads it renders
- *   nothing; if `onboarding_complete` is false it redirects to /onboarding/model.
+ *   Step 1 (/onboarding/model) is always reachable; step 2 (/onboarding/setup)
+ *   sits behind <RequireAdapter/> because it presumes step 1 chose an adapter.
+ *   The app routes (/, /run/:id, /history) are wrapped in <RequireOnboarding/>:
+ *   while config loads it renders nothing; if `onboarding_complete` is false it
+ *   redirects to /onboarding/model.
  */
 import { Navigate, Outlet, Route, Routes, useParams } from 'react-router-dom'
 
@@ -42,6 +44,19 @@ function RequireOnboarding() {
   return <Outlet />
 }
 
+/**
+ * Gate for onboarding step 2: it presumes step 1 picked an adapter. Reaching
+ * /onboarding/setup directly (typed URL, bookmark, back-button) and finishing
+ * there used to set onboarding_complete with adapter still null — leaving the
+ * Composer with no model to run and no way to pick one. Send them to step 1.
+ */
+function RequireAdapter() {
+  const { config, loading } = useConfig()
+  if (loading || !config) return null
+  if (!config.adapter) return <Navigate to="/onboarding/model" replace />
+  return <Outlet />
+}
+
 /** Loader while the run isn't done; Results once it is (see switching contract). */
 function RunRoute() {
   const { id } = useParams<{ id: string }>()
@@ -54,9 +69,11 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-        {/* Onboarding — always reachable (not gated). */}
+        {/* Onboarding — step 1 always reachable; step 2 needs step 1's adapter. */}
         <Route path="/onboarding/model" element={<OnboardingModel />} />
-        <Route path="/onboarding/setup" element={<OnboardingSetup />} />
+        <Route element={<RequireAdapter />}>
+          <Route path="/onboarding/setup" element={<OnboardingSetup />} />
+        </Route>
 
         {/* App — gated behind completed onboarding. */}
         <Route element={<RequireOnboarding />}>
