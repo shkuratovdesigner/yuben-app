@@ -13,8 +13,16 @@ Sources (real data/*.json):
   longform  <- data/property_raw.json      (Airbnb / short-term-rental marketing)
   shorts    <- data/airbnb_promo_raw.json  (Airbnb tour / promo Shorts)
 
-Usage:  python contracts/build_fixtures.py          (from repo root)
-        make fixtures
+LEGACY — NOT the path that produced the committed fixtures. ``data/`` is
+gitignored and absent from a fresh clone, so this script cannot run there; it
+also rebuilds the old Airbnb-themed demo, which would overwrite the current
+YouTube-growth fixtures. Kept for when raw pipeline output is on hand.
+
+The committed fixtures are built by ``build_mock_fixtures.py`` from the curated,
+oEmbed-verified video set in ``contracts/mock_videos/`` and checked by
+``validate_fixtures.py`` — that pair is what ``make fixtures`` runs.
+
+Usage:  python contracts/build_fixtures.py          (from repo root, needs data/)
 """
 from __future__ import annotations
 

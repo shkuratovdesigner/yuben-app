@@ -53,8 +53,10 @@ def test_adapters_fixture_loads():
 
 
 def test_history_fixture_loads():
+    # The demo ships a single seeded run (the long-form one) — mock mode adds
+    # any further rows at runtime as you research.
     items = [HistoryItem.model_validate(h) for h in _load("history.json")]
-    assert len(items) >= 2
+    assert len(items) == 1
 
 
 def test_progress_events_fixture_loads():

@@ -1,0 +1,219 @@
+{
+  "longform": {
+    "run_id": "r_fixture_longform",
+    "created_at": "2026-07-15T11:20:00Z",
+    "request": {
+      "schema_version": "1.0",
+      "query": "how to become a best youtuber",
+      "format": "longform",
+      "upload_date": "all",
+      "outperformance": "highest",
+      "analyze_titles": true,
+      "analyze_scripts": true,
+      "model": { "adapter": "claude-code", "model": "default" },
+      "max_results": 15
+    },
+    "topic_title": "How to Become a Better YouTuber: Packaging, Retention & Your First 1,000 Subs",
+    "summary": "Across the long-form field, packaging beats production — the videos that break out teach one repeatable system (idea, title, thumbnail, hook) instead of narrating a personal YouTube journey. Generic 'grow fast' advice is the most saturated and worst-performing shape in the set.",
+    "meta_extra": {
+      "window": "All time",
+      "filter": "long-form ≥120s",
+      "ranking": "by views; VSR shown",
+      "sample_key": "longform",
+      "counts": { "unique": 812, "longform": 394 },
+      "keywords": [
+        "how to become a best youtuber",
+        "how to grow a youtube channel",
+        "youtube growth strategy",
+        "how to get more subscribers",
+        "youtube algorithm explained",
+        "how to get your first 1000 subscribers",
+        "youtube thumbnail tips",
+        "how to write better youtube titles",
+        "youtube packaging strategy",
+        "how to hook viewers on youtube",
+        "youtube audience retention tips",
+        "small youtuber advice",
+        "how to start a youtube channel",
+        "youtube tips for beginners",
+        "why my youtube channel is not growing",
+        "how to go viral on youtube",
+        "youtube content strategy",
+        "how to find your youtube niche",
+        "youtube click through rate tips",
+        "how to stay consistent on youtube"
+      ]
+    },
+    "goals": [
+      "See the highest-ceiling example in the space",
+      "Study a repeatable packaging system",
+      "Model a first-1,000-subscribers playbook",
+      "Copy a format that compounds across uploads",
+      "Learn the hook that broke this creator out",
+      "Understand what over-saturation looks like"
+    ],
+    "hooks": [
+      "Opens by naming the outcome the viewer wants, then promises the exact steps.",
+      "Leads with a specific number as proof before any advice lands.",
+      "Names the mistake the viewer is probably making right now.",
+      "Contradicts the common advice in the first line to open a curiosity gap.",
+      "Shows the result on screen first, then rewinds to how it was built."
+    ],
+    "title_analysis": {
+      "common_features": [
+        { "n": 1, "pattern": "Names the platform", "note": "Puts 'YouTube' or 'channel' directly in the title.", "count": 331 },
+        { "n": 2, "pattern": "Concrete milestone", "note": "A specific subscriber or view figure signals proof.", "count": 187 },
+        { "n": 3, "pattern": "How-to / explainer", "note": "Names the payoff up front ('how to …').", "count": 154 },
+        { "n": 4, "pattern": "Negative framing", "note": "Warns what NOT to do — 'never', 'mistakes', 'stop'.", "count": 62 }
+      ],
+      "emotional_triggers": [
+        { "trigger": "Curiosity / insider knowledge", "example_rank": 1 },
+        { "trigger": "Aspiration (making it as a creator)", "example_rank": 3 },
+        { "trigger": "Fear of wasting years on the wrong thing", "example_rank": 4 },
+        { "trigger": "Social proof / transformation", "example_rank": 2 }
+      ]
+    },
+    "structure_patterns": [
+      { "name": "\"Show the analytics\" (highest engagement)", "note": "Real retention graphs and CTR screenshots beat talking-head opinion." },
+      { "name": "One specific number, early", "note": "A concrete result (subs gained, CTR %) in the first 30s earns the watch." },
+      { "name": "Mistake → fix → proof", "note": "Name what the viewer is doing wrong, show the fix, then the receipts." }
+    ],
+    "what_to_avoid": [
+      "Generic 'grow your channel fast' advice — it is the most saturated shape in the set.",
+      "Burying the payoff; the first 30 seconds decide retention.",
+      "Story-time about your own journey with no transferable system."
+    ],
+    "title_formulas_spec": [
+      { "shape": "How to [outcome] without [the thing they dread]", "proof_rank": 0, "tailored": "How to Grow on YouTube Without Posting Every Day" },
+      { "shape": "The [number] [things] that [changed the result]", "proof_rank": 1, "tailored": "The 3 Thumbnail Changes That Doubled My CTR" }
+    ],
+    "game_plan": {
+      "outline": [
+        { "t": "0:00", "beat": "Hook: name the outcome (first 1,000 subs) + the one number." },
+        { "t": "0:30", "beat": "Show the real analytics screen — CTR and retention." },
+        { "t": "3:00", "beat": "The repeatable packaging system, step by step." },
+        { "t": "8:00", "beat": "Proof: the before/after on a real upload." },
+        { "t": "10:30", "beat": "CTA: the free title + thumbnail checklist." }
+      ],
+      "title_options": [
+        "How I Got My First 1,000 Subs (The Only 3 Things That Mattered)",
+        "The Packaging System That Fixed My Channel",
+        "Why Your Videos Aren't Growing — It's Not the Algorithm"
+      ],
+      "thumbnail_concepts": [
+        "Split screen: flat retention graph → the same graph climbing.",
+        "Face + bold '0 → 1,000' overlay with the subscriber counter visible."
+      ],
+      "do": "Show one real analytics screen and one concrete number on camera.",
+      "dont": "Ship another generic 'how to grow on YouTube' explainer."
+    }
+  },
+  "shorts": {
+    "run_id": "r_fixture_shorts",
+    "created_at": "2026-07-15T11:24:00Z",
+    "request": {
+      "schema_version": "1.0",
+      "query": "youtube growth tips shorts",
+      "format": "shorts",
+      "upload_date": "all",
+      "outperformance": "highest",
+      "analyze_titles": true,
+      "analyze_scripts": false,
+      "model": { "adapter": "claude-code", "model": "default" },
+      "max_results": 15
+    },
+    "topic_title": "YouTube Growth Shorts: The Creator Advice That Actually Travels",
+    "summary": "In short-form, one tactic per clip wins. The Shorts that break out state a single fixable mistake in the first two seconds — multi-tip 'ultimate guide' Shorts underperform badly against their channel size.",
+    "meta_extra": {
+      "window": "All time",
+      "filter": "Shorts ≤65s",
+      "ranking": "by views; VSR shown",
+      "sample_key": "shorts",
+      "counts": { "unique": 754, "shorts": 361 },
+      "keywords": [
+        "youtube growth tips shorts",
+        "youtube tips short",
+        "how to grow on youtube shorts",
+        "youtube shorts strategy",
+        "thumbnail tips short",
+        "youtube title tips",
+        "get more subscribers fast",
+        "small youtuber tips",
+        "youtube algorithm short",
+        "creator advice shorts",
+        "how to get views on youtube",
+        "youtube mistakes to avoid",
+        "first 1000 subscribers tips",
+        "youtube hook tips",
+        "how to post consistently",
+        "youtube ctr short",
+        "content strategy shorts",
+        "youtube retention short",
+        "shorts to long form funnel",
+        "youtube niche advice"
+      ]
+    },
+    "goals": [
+      "See the highest-ceiling Short in the space",
+      "Study a single-tactic clip that travels",
+      "Model an on-screen-proof format",
+      "Copy a hook that works without sound",
+      "Learn the pattern interrupt that stops the scroll",
+      "Understand what over-saturation looks like"
+    ],
+    "hooks": [
+      "States one fixable mistake in the first two seconds.",
+      "Opens on the result, then explains it in a single sentence.",
+      "Asks the question the viewer is already asking themselves.",
+      "Contradicts the common advice immediately.",
+      "Shows the before/after on screen with no preamble."
+    ],
+    "title_analysis": {
+      "common_features": [
+        { "n": 1, "pattern": "Single-tactic promise", "note": "One idea per Short, named in the title.", "count": 289 },
+        { "n": 2, "pattern": "Imperative opening", "note": "Starts with a verb — 'stop', 'do', 'try'.", "count": 163 },
+        { "n": 3, "pattern": "Names the platform", "note": "Puts 'YouTube' or 'Shorts' in the title.", "count": 141 },
+        { "n": 4, "pattern": "Question hook", "note": "Opens a curiosity gap with a question.", "count": 57 }
+      ],
+      "emotional_triggers": [
+        { "trigger": "Instant fixability", "example_rank": 1 },
+        { "trigger": "Insider knowledge", "example_rank": 3 },
+        { "trigger": "Fear of doing it wrong", "example_rank": 0 },
+        { "trigger": "Validation for small creators", "example_rank": 2 }
+      ]
+    },
+    "structure_patterns": [
+      { "name": "One tactic, one clip (highest engagement)", "note": "Single-idea Shorts outperform multi-tip rundowns at every channel size." },
+      { "name": "On-screen text carries it", "note": "The tip reads without sound — captions do the work in the feed." },
+      { "name": "Mistake → fix, under 30 seconds", "note": "Name it, fix it, stop. The shortest clips hold the highest completion." }
+    ],
+    "what_to_avoid": [
+      "Multi-tip 'ultimate guide' Shorts — they underperform at every channel size here.",
+      "Slow intros; the first two seconds decide whether the scroll stops.",
+      "Advice with no on-screen proof — it reads as recycled."
+    ],
+    "title_formulas_spec": [
+      { "shape": "Stop [common mistake]", "proof_rank": 0, "tailored": "Stop Ending Your Videos Like This" },
+      { "shape": "[Number] seconds to fix your [thing]", "proof_rank": 1, "tailored": "30 Seconds to Fix Your Thumbnail" }
+    ],
+    "game_plan": {
+      "outline": [
+        { "t": "0:00", "beat": "Name the mistake in one sentence, on screen." },
+        { "t": "0:05", "beat": "Show the wrong version." },
+        { "t": "0:15", "beat": "Show the fix side by side." },
+        { "t": "0:30", "beat": "One-line takeaway, hard cut out." }
+      ],
+      "title_options": [
+        "Stop Making This Thumbnail Mistake",
+        "Your First 3 Seconds Are Killing Your Views",
+        "The 1 Title Fix That Doubled My CTR"
+      ],
+      "thumbnail_concepts": [
+        "Big red X over the wrong thumbnail, green check over the fix.",
+        "Split frame: 2% CTR → 9% CTR in bold numerals."
+      ],
+      "do": "Make the tip readable with the sound off.",
+      "dont": "Cram five tips into one Short."
+    }
+  }
+}

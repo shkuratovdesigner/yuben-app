@@ -1,35 +1,13 @@
 [
   {
     "run_id": "r_fixture_longform",
-    "topic_title": "How to Promote Your Airbnb: Marketing, Direct Bookings & Content That Converts",
-    "query": "how to promote your airbnb",
+    "topic_title": "How to Become a Better YouTuber: Packaging, Retention & Your First 1,000 Subs",
+    "query": "how to become a best youtuber",
     "format": "longform",
-    "created_at": "2026-07-10T15:39:00Z",
+    "created_at": "2026-07-15T11:20:00Z",
     "counts": {
       "curated": 15
     },
     "outperformance": "highest"
-  },
-  {
-    "run_id": "r_fixture_shorts",
-    "topic_title": "Airbnb Tours & Promo Shorts: What Makes a Rental Reel Go Viral",
-    "query": "aesthetic airbnb tour reels",
-    "format": "shorts",
-    "created_at": "2026-07-10T15:39:30Z",
-    "counts": {
-      "curated": 15
-    },
-    "outperformance": "highest"
-  },
-  {
-    "run_id": "r_fixture_older",
-    "topic_title": "Best Niches for New Creators in 2026",
-    "query": "best youtube niches 2026",
-    "format": "longform",
-    "created_at": "2026-07-08T23:52:00Z",
-    "counts": {
-      "curated": 12
-    },
-    "outperformance": "5x"
   }
 ]

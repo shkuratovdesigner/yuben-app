@@ -7,7 +7,8 @@ PY       := $(BACKEND)/.venv/bin/python
 PIP      := $(BACKEND)/.venv/bin/pip
 
 .PHONY: help install install-backend install-frontend dev dev-live dev-backend \
-        dev-frontend dev-frontend-live build typecheck test test-backend fixtures clean
+        dev-frontend dev-frontend-live build typecheck test test-backend fixtures \
+        validate-fixtures clean
 
 help:
 	@echo "YuBen dev commands:"
@@ -16,7 +17,8 @@ help:
 	@echo "  make dev-live    Run backend + frontend in LIVE mode (VITE_USE_MOCKS=0)"
 	@echo "  make build       Production build of the frontend (tsc -b && vite build)"
 	@echo "  make test        Backend pytest + frontend typecheck"
-	@echo "  make fixtures    Regenerate contract fixtures from data/*.json"
+	@echo "  make fixtures    Rebuild demo fixtures from contracts/mock_videos/, then validate"
+	@echo "  make validate-fixtures  Contract-check the committed fixtures"
 
 install: install-backend install-frontend
 
@@ -59,9 +61,14 @@ test: test-backend typecheck
 test-backend:
 	cd $(BACKEND) && .venv/bin/pytest
 
-# Regenerate research-result.*.json (+ progress/adapters/history/config) fixtures.
+# Rebuild the demo fixtures from the curated video set, then contract-check them.
 fixtures:
-	$(PY) contracts/build_fixtures.py
+	$(PY) contracts/build_mock_fixtures.py
+	$(PY) contracts/validate_fixtures.py
+
+# Contract-check the committed fixtures without rebuilding them.
+validate-fixtures:
+	$(PY) contracts/validate_fixtures.py
 
 clean:
 	rm -rf $(FRONTEND)/dist $(FRONTEND)/node_modules/.vite
