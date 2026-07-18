@@ -1,7 +1,8 @@
 /**
  * Global app chrome (Figma node 1:12): a top bar over an <Outlet/> canvas.
  *   • top-left  — YuBen play-mark + wordmark (links home).
- *   • top-right — "built by shkuratovdesigner" + GitHub / YouTube / LinkedIn.
+ *   • top-right — "built by shkuratovdesigner" + GitHub / LinkedIn / Instagram / YouTube
+ *     as the design's brand-colour badges.
  * Neutral white canvas (--background), 24px inset, generous whitespace. Each
  * screen owns its own content column (~664px centered for onboarding/composer;
  * wide + horizontally scrollable for results) — the layout doesn't constrain it.
@@ -9,16 +10,18 @@
 import { Link, Outlet } from 'react-router-dom'
 
 import logoMark from '@/assets/brand/logo-mark.svg'
-import { GithubIcon, LinkedinIcon, YoutubeIcon } from '@/app/social-icons'
+import { GithubIcon, InstagramIcon, LinkedinIcon, YoutubeIcon } from '@/app/social-icons'
 import { ThemeToggle } from '@/app/ThemeToggle'
 
 // Attribution + social links. Placeholder profile URLs — swap for the real
 // shkuratovdesigner handles when known. They open in a new tab.
 const PROFILE_URL = 'https://github.com/'
+// Order mirrors the design (Figma node 141:221).
 const SOCIALS = [
   { label: 'GitHub', href: 'https://github.com/', Icon: GithubIcon },
-  { label: 'YouTube', href: 'https://youtube.com/', Icon: YoutubeIcon },
   { label: 'LinkedIn', href: 'https://www.linkedin.com/', Icon: LinkedinIcon },
+  { label: 'Instagram', href: 'https://www.instagram.com/evgeny.shkuratov', Icon: InstagramIcon },
+  { label: 'YouTube', href: 'https://youtube.com/', Icon: YoutubeIcon },
 ] as const
 
 function TopBar() {
@@ -51,9 +54,11 @@ function TopBar() {
               target="_blank"
               rel="noreferrer noopener"
               aria-label={label}
-              className="flex size-8 items-center justify-center rounded-full text-brand-grey transition-colors hover:bg-muted hover:text-foreground"
+              // The badge fills the target, so hover lifts opacity rather than
+              // painting a background behind an already-opaque circle.
+              className="flex size-8 rounded-full transition-opacity hover:opacity-80"
             >
-              <Icon className="size-5" />
+              <Icon className="size-8" />
             </a>
           ))}
         </nav>

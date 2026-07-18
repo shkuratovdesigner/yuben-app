@@ -47,6 +47,11 @@
   --brand-card: #fbfbfb; /* resting card surface */
   --brand-card-active: #f8f8f8; /* selected card surface */
 
+  /* GitHub's social badge, per the design. The other three brand marks clear
+     both canvases unaided; this one is near-black and needs to invert on dark. */
+  --social-github-bg: #181717;
+  --social-github-fg: #ffffff;
+
   /* Outperformance (VSR) tiers — mirror build_html_report.py */
   --tier-hot: #b45309; /* ≥5×  (amber) */
   --tier-warm: #3f6212; /* 2–5× (green) */
@@ -87,6 +92,10 @@
   --brand-muted: #86868c;
   --brand-card: #1c1c1f;
   --brand-card-active: #26262b;
+
+  /* Inverted: a light badge with the dark glyph, so GitHub reads on #141416. */
+  --social-github-bg: #e8e8ea;
+  --social-github-fg: #181717;
 
   --tier-hot: #f59e0b; /* ≥5×  (amber, brightened) */
   --tier-warm: #a3e635; /* 2–5× (lime, brightened) */
