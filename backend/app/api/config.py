@@ -60,6 +60,18 @@ class EnvCheckBody(BaseModel):
     model: Optional[str] = None
 
 
+class EnvCheckRemedy(BaseModel):
+    """What the user should DO about a failed check (see adapters/base.remedy)."""
+
+    model_config = ConfigDict(extra="forbid")
+    #: "install" | "sign_in"
+    kind: str
+    label: str
+    #: Server-defined command the remedy endpoint may run. Never client-supplied.
+    command: Optional[str] = None
+    url: Optional[str] = None
+
+
 class EnvCheckResult(BaseModel):
     """Mirror of the TS ``EnvCheckResult`` (frontend/src/lib/types.ts)."""
 
@@ -68,6 +80,7 @@ class EnvCheckResult(BaseModel):
     adapter: str = ""
     version: Optional[str] = None
     message: str
+    remedy: Optional[EnvCheckRemedy] = None
 
 
 class KeyTestResult(BaseModel):
@@ -99,19 +112,27 @@ def update_config(body: ConfigUpdate) -> Config:
     )
 
 
-# Provider ids that route to the Anthropic secret (the rest default to YouTube).
-_ANTHROPIC_PROVIDERS = {"anthropic", "anthropic-api", "claude"}
+# Which stored secret each provider id writes to. Ids not listed here fall back
+# to the YouTube key, preserving the original single-provider behaviour.
+_KEY_WRITERS = {
+    "anthropic": secrets.set_anthropic_key,
+    "anthropic-api": secrets.set_anthropic_key,
+    "claude": secrets.set_anthropic_key,
+    "openai": secrets.set_openai_key,
+    "openai-api": secrets.set_openai_key,
+    "gpt": secrets.set_openai_key,
+    "openrouter": secrets.set_openrouter_key,
+    "open-router": secrets.set_openrouter_key,
+}
 
 
 @router.post("/config/key", response_model=OkResponse)
 def set_key(body: KeyBody) -> OkResponse:
     # Write-only: store and acknowledge. Never echo or log the key value.
     provider = (body.provider or "youtube").strip().lower()
+    write = _KEY_WRITERS.get(provider, secrets.set_youtube_key)
     try:
-        if provider in _ANTHROPIC_PROVIDERS:
-            secrets.set_anthropic_key(body.key)
-        else:
-            secrets.set_youtube_key(body.key)
+        write(body.key)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     return OkResponse(ok=True)
@@ -134,6 +155,58 @@ def env_check(body: Optional[EnvCheckBody] = None) -> EnvCheckResult:
     except Exception as exc:  # never leak a stack trace to the UI
         return EnvCheckResult(ok=False, adapter=requested, version=None, message=str(exc))
     return _coerce_env_check(raw, requested)
+
+
+class RemedyBody(BaseModel):
+    """POST /api/config/remedy body — an adapter id, never a command."""
+
+    model_config = ConfigDict(extra="ignore")
+    adapter: Optional[str] = None
+
+
+class RemedyResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ok: bool
+    message: str
+    #: Echoed so the UI can offer "copy this and run it yourself" when ok is false.
+    command: Optional[str] = None
+
+
+@router.post("/config/remedy", response_model=RemedyResult)
+def run_remedy(body: Optional[RemedyBody] = None) -> RemedyResult:
+    """Run the selected adapter's sign-in command in a terminal the user can see.
+
+    SAFETY: the request carries only an adapter id. The command is whatever that
+    adapter's own ``check_env`` remedy declared (``adapters/base.remedy``), so
+    this endpoint cannot be coaxed into running arbitrary input. Auth flows are
+    interactive by design — the point is to hand the user a ready terminal, not
+    to authenticate on their behalf.
+    """
+    requested = (body.adapter if body else None) or config_store.get_config().adapter or ""
+    try:
+        from app.adapters import check_env  # type: ignore
+    except Exception:
+        return RemedyResult(ok=False, message="Adapter layer unavailable.")
+
+    try:
+        raw = check_env(requested, None)
+    except Exception as exc:
+        return RemedyResult(ok=False, message=str(exc))
+
+    result = _coerce_env_check(raw, requested)
+    if result.ok:
+        return RemedyResult(ok=True, message="Already connected — nothing to do.")
+    if not result.remedy or not result.remedy.command:
+        return RemedyResult(
+            ok=False,
+            message=result.message or "There's no automatic fix for this one.",
+        )
+
+    command = result.remedy.command
+    from app.adapters.terminal import launch_in_terminal
+
+    launched, message = launch_in_terminal(command)
+    return RemedyResult(ok=launched, message=message, command=command)
 
 
 @router.post("/config/key-test", response_model=KeyTestResult)
@@ -165,18 +238,26 @@ def _as_dict(raw: Any) -> Dict[str, Any]:
             pass
     return {
         k: getattr(raw, k)
-        for k in ("ok", "adapter", "version", "message")
+        for k in ("ok", "adapter", "version", "message", "remedy")
         if hasattr(raw, k)
     }
 
 
 def _coerce_env_check(raw: Any, requested: str) -> EnvCheckResult:
     data = _as_dict(raw)
+    raw_remedy = data.get("remedy")
+    parsed: Optional[EnvCheckRemedy] = None
+    if isinstance(raw_remedy, dict) and raw_remedy.get("kind"):
+        try:
+            parsed = EnvCheckRemedy(**raw_remedy)
+        except Exception:  # a malformed remedy must never break the check itself
+            parsed = None
     return EnvCheckResult(
         ok=bool(data.get("ok", False)),
         adapter=str(data.get("adapter") or requested or ""),
         version=data.get("version"),
         message=str(data.get("message", "")),
+        remedy=parsed,
     )
 
 

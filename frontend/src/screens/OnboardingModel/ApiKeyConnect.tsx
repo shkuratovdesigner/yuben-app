@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 
-import type { EnvCheckResult } from '@/lib/types'
+import type { EnvCheckResult, KeyProvider } from '@/lib/types'
 import { useConfig } from '@/app/stores/config-store'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -9,26 +9,47 @@ import { KeyInput } from '@/components/ui/key-input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 
-// Where a key comes from — referenced by the key-field helper text.
-const CONSOLE_KEYS_URL = 'https://console.anthropic.com/settings/keys'
-
 interface ApiKeyConnectProps {
+  /** Adapter this key belongs to — only used to shape the local reset verdict. */
+  adapterId: string
+  /** Which secret the backend should write (write-only POST body). */
+  provider: KeyProvider
+  /** Field label, e.g. "OpenAI API key". */
+  label: string
+  /** Masked-input placeholder hinting the key's shape, e.g. "sk-…". */
+  placeholder: string
+  /** Where to create a key, and what to call that place in the helper text. */
+  consoleUrl: string
+  consoleName: string
   /** Bubble the outcome up so the screen can gate Continue on a passing test. */
   onResult: (result: EnvCheckResult) => void
 }
 
 /**
- * F1 — the Anthropic API connect block (Phase 4). Replaces the CLI env-check for
- * the "Anthropic API (key)" path: paste a key, click Test, and a cheap real
- * Messages "reply hello" ping turns it green — no terminal, no `claude login`.
+ * F1 — the key-paste connect block, for every API-based adapter.
+ *
+ * Replaces the CLI env-check on the key paths (Anthropic, OpenAI, OpenRouter):
+ * paste a key, click Test, and a cheap real "reply hello" call turns it green —
+ * no terminal, no `claude login`. Originally Anthropic-only; the provider is now
+ * a prop because all these adapters connect identically and only the label,
+ * placeholder and console link differ.
  *
  * SECRET RULE: the key lives only in local component state and travels solely
- * through storeKey()'s POST body (write-only, provider="anthropic"). It's masked
- * (KeyInput), never logged, and never placed in a URL. The verdict is whatever
- * the backend's live probe returns — no fact is invented here.
+ * through storeKey()'s POST body (write-only). It's masked (KeyInput), never
+ * logged, and never placed in a URL. The verdict is whatever the backend's live
+ * probe returns — no fact is invented here.
  */
-export function ApiKeyConnect({ onResult }: ApiKeyConnectProps) {
+export function ApiKeyConnect({
+  adapterId,
+  provider,
+  label,
+  placeholder,
+  consoleUrl,
+  consoleName,
+  onResult,
+}: ApiKeyConnectProps) {
   const { storeKey, runEnvCheck } = useConfig()
+  const fieldId = `${provider}-key`
 
   const [key, setKey] = useState('')
   const [testing, setTesting] = useState(false)
@@ -39,7 +60,7 @@ export function ApiKeyConnect({ onResult }: ApiKeyConnectProps) {
 
   /** A local "reset the gate" verdict when the key text changes after a test. */
   function reset(): EnvCheckResult {
-    return { ok: false, adapter: 'anthropic-api', version: null, message: '' }
+    return { ok: false, adapter: adapterId, version: null, message: '' }
   }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -56,11 +77,11 @@ export function ApiKeyConnect({ onResult }: ApiKeyConnectProps) {
     setResult(null)
     try {
       // Store write-only first (the backend probe reads the stored key), then ping.
-      const stored = await storeKey(trimmed, 'anthropic')
+      const stored = await storeKey(trimmed, provider)
       if (!stored.ok) {
         const failed: EnvCheckResult = {
           ok: false,
-          adapter: 'anthropic-api',
+          adapter: adapterId,
           version: null,
           message: 'Could not store the key locally. Is the backend running?',
         }
@@ -87,26 +108,25 @@ export function ApiKeyConnect({ onResult }: ApiKeyConnectProps) {
 
   return (
     <div className="flex w-full flex-col gap-4">
-      {/* Anthropic key field (masked, local-only) */}
+      {/* Provider key field (masked, local-only) */}
       <div className="flex w-full flex-col gap-3">
-        <Label htmlFor="anthropic-key">Anthropic API key</Label>
+        <Label htmlFor={fieldId}>{label}</Label>
         <KeyInput
-          id="anthropic-key"
-          placeholder="sk-ant-…"
+          id={fieldId}
+          placeholder={placeholder}
           value={key}
           onChange={handleChange}
-          aria-describedby="anthropic-key-helper"
+          aria-describedby={`${fieldId}-helper`}
         />
-        <p id="anthropic-key-helper" className="text-sm leading-5 text-brand-muted">
-          Stored only on your machine and used to run the model — no terminal needed. Create one in
-          the{' '}
+        <p id={`${fieldId}-helper`} className="text-sm leading-5 text-brand-muted">
+          Stored only on your machine and used to run the model — no terminal needed. Create one in{' '}
           <a
-            href={CONSOLE_KEYS_URL}
+            href={consoleUrl}
             target="_blank"
             rel="noreferrer noopener"
             className="text-brand-link underline underline-offset-2"
           >
-            Anthropic Console
+            {consoleName}
           </a>
           .
         </p>

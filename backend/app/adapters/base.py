@@ -146,6 +146,38 @@ def which(binary: str) -> Optional[str]:
     return shutil.which(binary)
 
 
+# --------------------------------------------------------------------------- #
+# Remedies — what the user should DO about a failed env-check.
+# --------------------------------------------------------------------------- #
+#
+# A failing check used to surface one generic "Install guide" link, which is
+# actively misleading when the CLI is installed and the real problem is a stale
+# login. An adapter now says which of these applies, and the UI renders the
+# matching action instead of guessing.
+
+#: The tool isn't on PATH — link to its install page.
+REMEDY_INSTALL = "install"
+#: The tool is installed but not usable until the user authenticates. ``command``
+#: is run for them (in a terminal) by POST /api/config/remedy.
+REMEDY_SIGN_IN = "sign_in"
+
+
+def remedy(
+    kind: str,
+    label: str,
+    *,
+    command: Optional[str] = None,
+    url: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Build the remedy payload carried on an EnvCheckResult.
+
+    ``command`` is always defined HERE, by the adapter — never accepted from the
+    client — so the run-remedy endpoint can only ever execute a command this
+    codebase chose.
+    """
+    return {"kind": kind, "label": label, "command": command, "url": url}
+
+
 def run_version(path: str, *, flag: str = "--version", timeout: float = 10.0) -> Optional[str]:
     """Run ``<path> <flag>`` and return a parsed version string, or ``None``.
 
@@ -176,6 +208,11 @@ def run_probe(
     Thin wrapper over :func:`subprocess.run`; the caller interprets the result.
     May raise :class:`subprocess.TimeoutExpired` / ``OSError`` — callers in
     ``check_env`` catch these and convert them to ``ok:false``.
+
+    ``stdin`` is closed explicitly: under uvicorn the child would otherwise
+    inherit a pipe that never delivers data, and agent CLIs stall waiting on it
+    (Claude Code burns 3s, then warns on stderr) — noise that used to mask the
+    real error. Every probe here is non-interactive, so DEVNULL is always right.
     """
     return subprocess.run(
         cmd,
@@ -183,6 +220,7 @@ def run_probe(
         text=True,
         timeout=timeout,
         cwd=cwd,
+        stdin=subprocess.DEVNULL,
     )
 
 
@@ -203,6 +241,7 @@ def stream_process(cmd: List[str], *, cwd: Optional[str] = None) -> Iterator[str
             text=True,
             bufsize=1,
             cwd=cwd,
+            stdin=subprocess.DEVNULL,  # see run_probe: never let the CLI wait on stdin
         )
     except FileNotFoundError as exc:
         raise AdapterError("CLI not found: {}".format(cmd[0])) from exc

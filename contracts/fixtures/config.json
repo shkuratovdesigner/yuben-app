@@ -4,5 +4,7 @@
   "model": "default",
   "youtube_key_present": true,
   "anthropic_key_present": true,
+  "openai_key_present": true,
+  "openrouter_key_present": true,
   "onboarding_complete": true
 }

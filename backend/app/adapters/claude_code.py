@@ -13,8 +13,11 @@ from __future__ import annotations
 from typing import Any, Dict, Iterator, List, Optional
 
 from app.adapters.base import (
+    REMEDY_INSTALL,
+    REMEDY_SIGN_IN,
     AdapterError,
     AgentAdapter,
+    remedy,
     run_probe,
     run_version,
     stream_process,
@@ -25,11 +28,19 @@ from app.adapters.base import (
 # so it gets a much longer ceiling (cold start + a round-trip).
 _DETECT_TIMEOUT = 10.0
 _PROBE_TIMEOUT = 90.0
+_AUTH_STATUS_TIMEOUT = 15.0
+
+_INSTALL_URL = "https://claude.com/claude-code"
+_SIGN_IN_COMMAND = "claude auth login"
 
 _INSTALL_HINT = (
     "We couldn't find the Claude Code CLI ('claude'). Install it from "
     "https://claude.com/claude-code, then run the environment check again."
 )
+
+# Substrings that mark a probe failure as "the CLI works, the credential doesn't"
+# rather than a crash. Matched case-insensitively against the CLI's own output.
+_AUTH_MARKERS = ("401", "authenticate", "unauthorized", "invalid authentication", "log in", "login")
 
 
 def _truncate(text: str, limit: int = 240) -> str:
@@ -62,11 +73,73 @@ class ClaudeCodeAdapter(AgentAdapter):
             return {"installed": False, "version": None}
         return {"installed": True, "version": run_version(path, timeout=_DETECT_TIMEOUT)}
 
+    # -- authentication state ------------------------------------------------
+    def auth_status(self) -> Optional[Dict[str, Any]]:
+        """Parse ``claude auth status`` (JSON), or None if it can't be read.
+
+        Worth the extra subprocess: it separates "never signed in" from "signed
+        in but the credential is stale", which produce the same 401 from the
+        probe yet need completely different instructions.
+        """
+        path = which(self.binary)
+        if not path:
+            return None
+        try:
+            proc = run_probe([path, "auth", "status"], timeout=_AUTH_STATUS_TIMEOUT)
+        except Exception:
+            return None
+        raw = (proc.stdout or "").strip()
+        if not raw:
+            return None
+        try:
+            import json
+
+            data = json.loads(raw)
+        except Exception:
+            return None
+        return data if isinstance(data, dict) else None
+
+    def _auth_failure(self, version: Optional[str], detail: str) -> Dict[str, Any]:
+        """Explain an auth failure using what ``auth status`` actually reports."""
+        status = self.auth_status()
+        sign_in = remedy(
+            REMEDY_SIGN_IN,
+            "Sign in to Claude Code",
+            command=_SIGN_IN_COMMAND,
+            url=_INSTALL_URL,
+        )
+        if status is None:
+            return self._result(
+                False, version,
+                "Claude Code couldn't authenticate. Sign in and run the check again.",
+                remedy=sign_in,
+            )
+        if not status.get("loggedIn"):
+            return self._result(
+                False, version,
+                "Claude Code isn't signed in yet. Sign in and run the check again.",
+                remedy=sign_in,
+            )
+        # Signed in on paper, rejected in practice — the confusing case. Name the
+        # account so it's obvious this isn't a "wrong tool installed" problem.
+        who = status.get("email") or status.get("orgName") or "your account"
+        return self._result(
+            False, version,
+            "Claude Code is signed in as {} but the API rejected the request "
+            "({}). The saved login has gone stale — sign in again to refresh it.".format(
+                who, _truncate(detail, 90)
+            ),
+            remedy=sign_in,
+        )
+
     # -- live "respond hello" probe -----------------------------------------
     def check_env(self, model: Optional[str] = None) -> Dict[str, Any]:
         path = which(self.binary)
         if not path:
-            return self._result(False, None, _INSTALL_HINT)
+            return self._result(
+                False, None, _INSTALL_HINT,
+                remedy=remedy(REMEDY_INSTALL, "Install Claude Code", url=_INSTALL_URL),
+            )
 
         version = run_version(path, timeout=_DETECT_TIMEOUT)
 
@@ -88,7 +161,14 @@ class ClaudeCodeAdapter(AgentAdapter):
 
         out = (proc.stdout or "").strip()
         if proc.returncode != 0:
-            err = (proc.stderr or "").strip() or out or "exit code {}".format(proc.returncode)
+            # stdout first: Claude Code prints its user-facing failure there
+            # ("Failed to authenticate. API Error: 401 …"), while stderr carries
+            # only incidental warnings. Preferring stderr hid the one message the
+            # user can act on. Fall back to stderr for crashes that print nothing.
+            err = out or (proc.stderr or "").strip() or "exit code {}".format(proc.returncode)
+            lowered = err.lower()
+            if any(marker in lowered for marker in _AUTH_MARKERS):
+                return self._auth_failure(version, err)
             return self._result(False, version, _truncate("Claude Code CLI error: " + err))
         if not out:
             return self._result(False, version, "Claude Code ran but returned no output.")
@@ -128,5 +208,17 @@ class ClaudeCodeAdapter(AgentAdapter):
         return stream_process(cmd, cwd=cwd)
 
     # -- helper --------------------------------------------------------------
-    def _result(self, ok: bool, version: Optional[str], message: str) -> Dict[str, Any]:
-        return {"ok": ok, "adapter": self.id, "version": version, "message": message}
+    def _result(
+        self,
+        ok: bool,
+        version: Optional[str],
+        message: str,
+        remedy: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        return {
+            "ok": ok,
+            "adapter": self.id,
+            "version": version,
+            "message": message,
+            "remedy": remedy,
+        }

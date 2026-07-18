@@ -21,3 +21,7 @@ keyring>=25.7.0
 # used for the terminal-free Messages-API path (keyword expansion + narrative).
 # The import is lazy, so the backend still starts if it's missing.
 anthropic>=0.116.0
+
+# OpenAI-compatible adapters (OpenAI, OpenRouter, Ollama) all speak the same
+# chat-completions protocol, so one SDK covers all three. Lazily imported too.
+openai>=2.9.0

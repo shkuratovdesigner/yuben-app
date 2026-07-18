@@ -418,6 +418,8 @@ def main() -> None:
         "model": "default",
         "youtube_key_present": True,
         "anthropic_key_present": True,
+        "openai_key_present": True,
+        "openrouter_key_present": True,
         "onboarding_complete": True,
     }
     adapters = [

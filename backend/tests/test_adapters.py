@@ -19,10 +19,15 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 import app.adapters as registry  # noqa: E402
 from app.adapters import (  # noqa: E402
+    CLI_SPECS,
     AdapterError,
     ClaudeCodeAdapter,
     DirectAnthropicAdapter,
     GeminiCliAdapter,
+    GenericCliAdapter,
+    OllamaAdapter,
+    OpenAIAdapter,
+    OpenRouterAdapter,
     check_env,
     get_adapter,
     list_adapters,
@@ -394,13 +399,222 @@ def test_get_adapter_and_aliases():
 def test_list_adapters_shape_and_order():
     adapters = list_adapters()
     ids = [a.id for a in adapters]
-    # Terminal-free Anthropic API path first (Phase 4), then the local CLIs.
-    assert ids == ["anthropic-api", "claude-code", "gemini-cli"]
+    # Key-paste API providers first (nothing to install), then the hand-written
+    # CLIs, then the spec-driven fleet in CLI_SPECS order.
+    assert ids[:6] == [
+        "anthropic-api",
+        "openai-api",
+        "openrouter",
+        "ollama",
+        "claude-code",
+        "gemini-cli",
+    ]
+    assert ids[6:] == [spec.id for spec in CLI_SPECS]
+    assert len(ids) == len(set(ids)), "adapter ids must be unique"
     for a in adapters:
         assert isinstance(a.installed, bool)
         assert isinstance(a.models, list)
     gem = next(a for a in adapters if a.id == "gemini-cli")
     assert gem.models == []
+
+
+def test_cli_specs_are_well_formed():
+    """Every spec must be dispatchable and reachable — the table is the API."""
+    for spec in CLI_SPECS:
+        assert spec.id and spec.name and spec.binary
+        assert spec.prompt_args, "a spec with no prompt args can't be invoked"
+        assert spec.install_url.startswith("https://")
+        assert isinstance(get_adapter(spec.id), GenericCliAdapter)
+
+
+def test_generic_cli_builds_expected_argv():
+    """The prompt lands in argv and the model flag is only added when asked for."""
+    codex = get_adapter("codex-cli")
+    assert codex._build_cmd("/bin/codex", "hi", None) == ["/bin/codex", "exec", "hi"]
+    assert codex._build_cmd("/bin/codex", "hi", "default") == ["/bin/codex", "exec", "hi"]
+    assert codex._build_cmd("/bin/codex", "hi", "o3") == ["/bin/codex", "exec", "hi", "-m", "o3"]
+    # extra_args ride after the prompt (Cursor forces plain-text output).
+    cursor = get_adapter("cursor-cli")
+    assert cursor._build_cmd("/bin/cursor-agent", "hi", None) == [
+        "/bin/cursor-agent", "-p", "hi", "--output-format", "text",
+    ]
+    # A spec with no model flag ignores the model rather than emitting a bare id.
+    amp = get_adapter("amp-cli")
+    assert amp._build_cmd("/bin/amp", "hi", "some-model") == ["/bin/amp", "-x", "hi"]
+
+
+def test_generic_cli_missing_binary_is_graceful(monkeypatch):
+    import app.adapters.cli_agents as cli_mod
+
+    monkeypatch.setattr(cli_mod, "which", lambda _b: None)
+    res = get_adapter("codex-cli").check_env()
+    assert res["ok"] is False
+    assert "codex" in res["message"].lower()
+
+
+def test_generic_cli_prefers_stdout_for_errors(monkeypatch):
+    """Same precedence fix as Claude Code: the actionable error is on stdout."""
+    import app.adapters.cli_agents as cli_mod
+
+    monkeypatch.setattr(cli_mod, "which", lambda _b: "/bin/codex")
+    monkeypatch.setattr(cli_mod, "run_version", lambda _p, **kw: "1.0.0")
+    monkeypatch.setattr(
+        cli_mod, "run_probe",
+        lambda cmd, **kw: _completed(1, "Not logged in. Run 'codex login'.", "warning: noise"),
+    )
+    res = get_adapter("codex-cli").check_env()
+    assert res["ok"] is False
+    assert "codex login" in res["message"]
+    assert "noise" not in res["message"]
+
+
+# --- env-check remedies -----------------------------------------------------
+def _claude_probe_fails(monkeypatch, stdout, auth_status):
+    """Claude Code present, probe fails with `stdout`, auth status as given."""
+    monkeypatch.setattr(claude_mod, "which", lambda _b: "/bin/claude")
+    monkeypatch.setattr(claude_mod, "run_version", lambda _p, **kw: "2.1.198")
+    monkeypatch.setattr(claude_mod, "run_probe", lambda cmd, **kw: _completed(1, stdout, ""))
+    adapter = ClaudeCodeAdapter()
+    monkeypatch.setattr(adapter, "auth_status", lambda: auth_status)
+    return adapter.check_env()
+
+
+def test_claude_stale_login_names_the_account(monkeypatch):
+    """The confusing case: signed in on paper, 401 in practice.
+
+    Reporting "install it" here (the old behaviour) is actively wrong — the CLI
+    is right there and the account is known. Say so, and offer a re-auth.
+    """
+    res = _claude_probe_fails(
+        monkeypatch,
+        "Failed to authenticate. API Error: 401 Invalid authentication credentials",
+        {"loggedIn": True, "email": "someone@example.com", "subscriptionType": "max"},
+    )
+    assert res["ok"] is False
+    assert "someone@example.com" in res["message"]
+    assert "stale" in res["message"].lower()
+    assert res["remedy"]["kind"] == "sign_in"
+    assert res["remedy"]["command"] == "claude auth login"
+
+
+def test_claude_signed_out_says_so(monkeypatch):
+    res = _claude_probe_fails(
+        monkeypatch, "API Error: 401 Unauthorized", {"loggedIn": False}
+    )
+    assert res["ok"] is False
+    assert "isn't signed in" in res["message"]
+    assert res["remedy"]["kind"] == "sign_in"
+
+
+def test_claude_non_auth_error_gets_no_remedy(monkeypatch):
+    """A crash isn't an auth problem — don't offer a sign-in that can't help."""
+    res = _claude_probe_fails(monkeypatch, "Segmentation fault", {"loggedIn": True})
+    assert res["ok"] is False
+    assert "Segmentation fault" in res["message"]
+    assert res["remedy"] is None
+
+
+def test_claude_missing_binary_offers_install(monkeypatch):
+    monkeypatch.setattr(claude_mod, "which", lambda _b: None)
+    res = ClaudeCodeAdapter().check_env()
+    assert res["ok"] is False
+    assert res["remedy"]["kind"] == "install"
+    assert res["remedy"]["command"] is None  # nothing to run — just a link
+
+
+def test_claude_auth_status_survives_garbage(monkeypatch):
+    """A CLI that prints non-JSON must not break the check."""
+    monkeypatch.setattr(claude_mod, "which", lambda _b: "/bin/claude")
+    monkeypatch.setattr(claude_mod, "run_probe", lambda cmd, **kw: _completed(0, "not json"))
+    assert ClaudeCodeAdapter().auth_status() is None
+
+
+def test_remedy_endpoint_ignores_client_supplied_command(monkeypatch):
+    """The endpoint takes an adapter id; the command comes from the adapter.
+
+    Guards the one genuinely dangerous shape here — a local endpoint that runs
+    shell commands must never take one from the request body.
+    """
+    captured = {}
+
+    def fake_launch(command):
+        captured["command"] = command
+        return True, "opened"
+
+    import app.api.config as config_api
+
+    monkeypatch.setattr(
+        config_api, "_coerce_env_check",
+        lambda raw, requested: config_api.EnvCheckResult(
+            ok=False, adapter="claude-code", version=None, message="nope",
+            remedy=config_api.EnvCheckRemedy(
+                kind="sign_in", label="Sign in", command="claude auth login", url=None
+            ),
+        ),
+    )
+    import app.adapters.terminal as term
+
+    monkeypatch.setattr(term, "launch_in_terminal", fake_launch)
+
+    resp = client.post(
+        "/api/config/remedy",
+        json={"adapter": "claude-code", "command": "rm -rf /", "kind": "sign_in"},
+    )
+    assert resp.status_code == 200
+    # The injected command is ignored entirely; the adapter's own one runs.
+    assert captured["command"] == "claude auth login"
+
+
+# --- OpenAI-compatible adapters ---------------------------------------------
+def test_openai_compatible_ids_and_key_requirements():
+    assert isinstance(get_adapter("openai-api"), OpenAIAdapter)
+    assert isinstance(get_adapter("openai"), OpenAIAdapter)  # alias
+    assert isinstance(get_adapter("openrouter"), OpenRouterAdapter)
+    assert isinstance(get_adapter("ollama"), OllamaAdapter)
+    # Ollama is the only one that needs no credential.
+    assert get_adapter("openai-api").requires_key is True
+    assert get_adapter("openrouter").requires_key is True
+    assert get_adapter("ollama").requires_key is False
+
+
+def test_openai_check_env_without_key_is_graceful(monkeypatch):
+    import app.adapters.openai_compatible as oai
+
+    monkeypatch.setattr(oai, "_sdk_version", lambda: "2.46.0")
+    adapter = OpenAIAdapter()
+    monkeypatch.setattr(adapter, "_stored_key", lambda: None)
+    res = adapter.check_env()
+    assert res["ok"] is False
+    assert "openai api key" in res["message"].lower()
+
+
+def test_openai_compatible_models_fall_back_without_live_fetch(monkeypatch):
+    """No key / no network ⇒ the static list, never an exception."""
+    import app.adapters.openai_compatible as oai
+
+    monkeypatch.setattr(oai, "_model_cache", {})
+    adapter = OpenAIAdapter()
+    monkeypatch.setattr(adapter, "_models_live", lambda: (_ for _ in ()).throw(RuntimeError("no net")))
+    assert adapter.models() == adapter.fallback_models
+    assert "default" in adapter.models()
+
+
+def test_ollama_resolves_to_an_installed_model(monkeypatch):
+    """A static default 404s on most machines — prefer what's actually pulled."""
+    adapter = OllamaAdapter()
+    monkeypatch.setattr(adapter, "models", lambda: ["default", "qwen2.5:14b"])
+    assert adapter._resolve_model(None) == "qwen2.5:14b"
+    # An explicit choice always wins over the local-library guess.
+    assert adapter._resolve_model("llama3.3") == "llama3.3"
+
+
+def test_ollama_check_env_without_binary_is_graceful(monkeypatch):
+    import app.adapters.openai_compatible as oai
+
+    monkeypatch.setattr(oai, "which", lambda _b: None)
+    res = OllamaAdapter().check_env()
+    assert res["ok"] is False
+    assert "ollama" in res["message"].lower()
 
 
 def test_check_env_dispatch(monkeypatch):
@@ -431,11 +645,13 @@ def test_get_adapters_route():
     resp = client.get("/api/adapters")
     assert resp.status_code == 200
     body = resp.json()
-    assert isinstance(body, list) and len(body) == 3
+    assert isinstance(body, list) and len(body) == len(list_adapters())
     by_id = {a["id"]: a for a in body}
-    assert set(by_id) == {"anthropic-api", "claude-code", "gemini-cli"}
+    assert set(by_id) == {a.id for a in list_adapters()}
+    # Every registered adapter is routable and shaped the same way.
+    for entry in body:
+        assert set(entry) == {"id", "name", "installed", "version", "models"}
     claude = by_id["claude-code"]
-    assert set(claude) == {"id", "name", "installed", "version", "models"}
     assert claude["name"] == "Claude Code"
     assert "default" in claude["models"]
     assert by_id["gemini-cli"]["installed"] is False

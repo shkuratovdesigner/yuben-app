@@ -39,6 +39,14 @@ interface ConfigContextValue {
 
 const ConfigContext = createContext<ConfigContextValue | null>(null)
 
+/** Which Config presence flag each stored key flips. Keys themselves never land here. */
+const PRESENCE_FLAG: Record<KeyProvider, keyof Config> = {
+  youtube: 'youtube_key_present',
+  anthropic: 'anthropic_key_present',
+  openai: 'openai_key_present',
+  openrouter: 'openrouter_key_present',
+}
+
 /** Fallback used only to merge a patch before the first config load resolves. */
 const EMPTY_CONFIG: Config = {
   schema_version: '1.0',
@@ -46,6 +54,8 @@ const EMPTY_CONFIG: Config = {
   model: null,
   youtube_key_present: false,
   anthropic_key_present: false,
+  openai_key_present: false,
+  openrouter_key_present: false,
   onboarding_complete: false,
 }
 
@@ -91,8 +101,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     const result = await api.postKey(key, provider)
     if (result.ok) {
       // Optimistically reflect presence; the value itself never lives here.
-      const flag = provider === 'anthropic' ? 'anthropic_key_present' : 'youtube_key_present'
-      setConfig((prev) => (prev ? { ...prev, [flag]: true } : prev))
+      setConfig((prev) => (prev ? { ...prev, [PRESENCE_FLAG[provider]]: true } : prev))
     }
     return result
   }, [])

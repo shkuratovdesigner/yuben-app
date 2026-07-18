@@ -30,6 +30,7 @@ import type {
   KeyTestResult,
   ProgressError,
   ProgressEvent,
+  RemedyResult,
   ResearchRequest,
   ResearchResult,
   StartRunResponse,
@@ -59,6 +60,11 @@ export interface ApiClient {
    */
   postKey(key: string, provider?: KeyProvider): Promise<{ ok: boolean }>
   envCheck(): Promise<EnvCheckResult>
+  /**
+   * Run the selected adapter's remedy (today: open a terminal on its sign-in
+   * command). Sends only an adapter id — the command lives on the backend.
+   */
+  runRemedy(adapter?: string): Promise<RemedyResult>
   keyTest(): Promise<KeyTestResult>
   getAdapters(): Promise<Adapter[]>
   startResearch(req: ResearchRequest): Promise<StartRunResponse>
@@ -86,6 +92,43 @@ const FIXTURE_ADAPTERS = adaptersJson as unknown as Adapter[]
 const FIXTURE_HISTORY = historyJson as unknown as HistoryItem[]
 const FIXTURE_LONGFORM = longformJson as unknown as ResearchResult
 const FIXTURE_SHORTS = shortsJson as unknown as ResearchResult
+
+/** Which Config presence flag each stored key flips (mirrors the config store). */
+const MOCK_PRESENCE_FLAG: Record<KeyProvider, keyof Config> = {
+  youtube: 'youtube_key_present',
+  anthropic: 'anthropic_key_present',
+  openai: 'openai_key_present',
+  openrouter: 'openrouter_key_present',
+}
+
+/**
+ * Adapters whose mock env-check hinges on a stored key rather than an installed
+ * CLI. Ollama is absent on purpose: it needs no key, so it follows the CLI path
+ * and its verdict comes from the adapter fixture's `installed` flag.
+ */
+const MOCK_KEY_ADAPTERS: Record<
+  string,
+  { flag: keyof Config; label: string; version: string; model: string }
+> = {
+  'anthropic-api': {
+    flag: 'anthropic_key_present',
+    label: 'Anthropic',
+    version: '0.117.0',
+    model: 'claude-opus-4-8',
+  },
+  'openai-api': {
+    flag: 'openai_key_present',
+    label: 'OpenAI',
+    version: '2.46.0',
+    model: 'gpt-4o-mini',
+  },
+  openrouter: {
+    flag: 'openrouter_key_present',
+    label: 'OpenRouter',
+    version: '2.46.0',
+    model: 'openai/gpt-4o-mini',
+  },
+}
 
 /** Parse the JSONL fixture once into an ordered ProgressEvent list. */
 const FIXTURE_EVENTS: ProgressEvent[] = eventsRaw
@@ -132,32 +175,28 @@ function createMockClient(): ApiClient {
       await delay(80)
       // Never store or echo the value in the mock; just flip the presence flag.
       const ok = key.trim().length > 0
-      if (ok) {
-        config =
-          provider === 'anthropic'
-            ? { ...config, anthropic_key_present: true }
-            : { ...config, youtube_key_present: true }
-      }
+      if (ok) config = { ...config, [MOCK_PRESENCE_FLAG[provider]]: true }
       return { ok }
     },
 
     async envCheck() {
       await delay(400)
       const adapterId = config.adapter ?? 'claude-code'
-      // Direct Anthropic API path: the "probe" needs a stored key, not a CLI.
-      if (adapterId === 'anthropic-api') {
-        return config.anthropic_key_present
+      // Key-paste API paths: the "probe" needs a stored key, not a CLI.
+      const keyPath = MOCK_KEY_ADAPTERS[adapterId]
+      if (keyPath) {
+        return config[keyPath.flag]
           ? {
               ok: true,
               adapter: adapterId,
-              version: '0.116.0',
-              message: 'Anthropic API responded (claude-opus-4-8).',
+              version: keyPath.version,
+              message: `${keyPath.label} responded (${keyPath.model}).`,
             }
           : {
               ok: false,
               adapter: adapterId,
-              version: '0.116.0',
-              message: 'Paste your Anthropic API key above, then run the check again.',
+              version: keyPath.version,
+              message: `Paste your ${keyPath.label} API key above, then run the check again.`,
             }
       }
       const adapter = FIXTURE_ADAPTERS.find((a) => a.id === adapterId)
@@ -174,6 +213,22 @@ function createMockClient(): ApiClient {
         adapter: adapterId,
         version: null,
         message: `Couldn't find the ${adapter?.name ?? adapterId} CLI. Install it, then run the check again.`,
+        remedy: {
+          kind: 'install' as const,
+          label: `Install ${adapter?.name ?? adapterId}`,
+          command: null,
+          url: 'https://claude.com/claude-code',
+        },
+      }
+    },
+
+    async runRemedy() {
+      await delay(200)
+      // No terminal to open in mock mode — say so plainly rather than pretending.
+      return {
+        ok: false,
+        message: 'Mock mode: connect a real backend to run the sign-in for you.',
+        command: null,
       }
     },
 
@@ -293,6 +348,13 @@ function createLiveClient(): ApiClient {
 
     envCheck() {
       return http<EnvCheckResult>('/api/config/env-check', { method: 'POST' })
+    },
+
+    runRemedy(adapter?: string) {
+      return http<RemedyResult>('/api/config/remedy', {
+        method: 'POST',
+        body: JSON.stringify({ adapter: adapter ?? null }),
+      })
     },
 
     keyTest() {

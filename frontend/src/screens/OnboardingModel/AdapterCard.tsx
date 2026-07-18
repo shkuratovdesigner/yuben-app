@@ -1,13 +1,17 @@
+import type { ComponentType, SVGProps } from 'react'
+
 import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import type { Adapter } from '@/lib/types'
 
 interface AdapterCardProps {
   adapter: Adapter
-  /** Static brand icon (adapter-claude.png / adapter-gemini.png). */
-  icon: string
+  /** Brand mark from `@/app/adapter-icons` — a component, so it inherits colour. */
+  Icon: ComponentType<SVGProps<SVGSVGElement>>
   /** Static one-line description ("Local Claude agent"). */
   description: string
+  /** True for adapters whose headless invocation hasn't been confirmed yet. */
+  experimental?: boolean
   selected: boolean
   onSelect: () => void
 }
@@ -18,7 +22,14 @@ interface AdapterCardProps {
  * TRUST RULE: `name`, `installed`, and `version` render straight from the
  * `Adapter` record in useConfig() — never fabricated here.
  */
-export function AdapterCard({ adapter, icon, description, selected, onSelect }: AdapterCardProps) {
+export function AdapterCard({
+  adapter,
+  Icon,
+  description,
+  experimental,
+  selected,
+  onSelect,
+}: AdapterCardProps) {
   const installedLabel = adapter.installed
     ? adapter.version
       ? `Installed · v${adapter.version}`
@@ -45,10 +56,17 @@ export function AdapterCard({ adapter, icon, description, selected, onSelect }: 
         !selected && 'hover:border-border',
       )}
     >
-      <img src={icon} alt="" className="size-14" />
+      <Icon className={cn('size-14', !selected && 'text-brand-grey')} />
       <div className="flex w-full flex-col gap-1.5">
         {/* Resting title is greyed (per Figma); selected goes full ink. */}
-        <CardTitle className={cn(!selected && 'text-brand-grey')}>{adapter.name}</CardTitle>
+        <CardTitle className={cn('flex items-center gap-2', !selected && 'text-brand-grey')}>
+          {adapter.name}
+          {experimental ? (
+            <span className="rounded-full border border-border px-1.5 py-px text-[11px] font-normal leading-4 text-brand-muted">
+              experimental
+            </span>
+          ) : null}
+        </CardTitle>
         <CardDescription>{description}</CardDescription>
         <span
           className={cn(

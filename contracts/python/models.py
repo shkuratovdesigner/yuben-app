@@ -189,9 +189,13 @@ class Config(Strict):
     adapter: Optional[str]
     model: Optional[str]
     youtube_key_present: bool
-    # Whether the user's Anthropic API key is stored (direct adapter, Phase 4).
-    # Defaulted for backward-compatible loads of pre-Phase-4 configs.
+    # Whether each LLM provider's API key is stored. All defaulted so older
+    # configs written before a provider existed still load (the Anthropic flag
+    # predates Phase 4; the OpenAI/OpenRouter flags arrived with the
+    # OpenAI-compatible adapters). Presence only — values are never returned.
     anthropic_key_present: bool = False
+    openai_key_present: bool = False
+    openrouter_key_present: bool = False
     onboarding_complete: bool
 
 

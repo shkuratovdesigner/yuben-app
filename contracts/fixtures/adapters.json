@@ -3,7 +3,7 @@
     "id": "anthropic-api",
     "name": "Anthropic API",
     "installed": true,
-    "version": "0.116.0",
+    "version": "0.117.0",
     "models": [
       "default",
       "claude-opus-4-8",
@@ -13,20 +13,99 @@
     ]
   },
   {
+    "id": "openai-api",
+    "name": "OpenAI API",
+    "installed": true,
+    "version": "2.46.0",
+    "models": [
+      "default",
+      "gpt-4o",
+      "gpt-4o-mini"
+    ]
+  },
+  {
+    "id": "openrouter",
+    "name": "OpenRouter",
+    "installed": true,
+    "version": "2.46.0",
+    "models": [
+      "default",
+      "ai21/jamba-large-1.7",
+      "aion-labs/aion-2.0",
+      "aion-labs/aion-3.0",
+      "aion-labs/aion-3.0-mini",
+      "aion-labs/aion-rp-llama-3.1-8b"
+    ]
+  },
+  {
+    "id": "ollama",
+    "name": "Ollama",
+    "installed": true,
+    "version": "0.30.11",
+    "models": [
+      "default",
+      "qwen2.5:14b",
+      "qwen2.5vl:7b"
+    ]
+  },
+  {
     "id": "claude-code",
     "name": "Claude Code",
     "installed": true,
-    "version": "1.0.0",
+    "version": "2.1.198",
     "models": [
       "default",
       "claude-opus-4-8",
       "claude-sonnet-5",
-      "claude-haiku-4-5"
+      "claude-haiku-4-5",
+      "claude-fable-5"
     ]
   },
   {
     "id": "gemini-cli",
     "name": "Gemini CLI",
+    "installed": false,
+    "version": null,
+    "models": []
+  },
+  {
+    "id": "codex-cli",
+    "name": "Codex CLI",
+    "installed": false,
+    "version": null,
+    "models": []
+  },
+  {
+    "id": "cursor-cli",
+    "name": "Cursor CLI",
+    "installed": false,
+    "version": null,
+    "models": []
+  },
+  {
+    "id": "opencode-cli",
+    "name": "opencode",
+    "installed": false,
+    "version": null,
+    "models": []
+  },
+  {
+    "id": "qwen-cli",
+    "name": "Qwen Code",
+    "installed": false,
+    "version": null,
+    "models": []
+  },
+  {
+    "id": "copilot-cli",
+    "name": "GitHub Copilot CLI",
+    "installed": false,
+    "version": null,
+    "models": []
+  },
+  {
+    "id": "amp-cli",
+    "name": "Amp",
     "installed": false,
     "version": null,
     "models": []

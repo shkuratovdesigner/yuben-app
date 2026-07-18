@@ -42,7 +42,7 @@ The core signal is **VSR (views ÷ subscribers)**. In the run above, a 140k-subs
 - **Recommended watch list** — a short, sequenced list of what to watch and what to take from each video.
 - **Grid or sortable table** — switch views, then sort by views, VSR multiple, engagement or duration. Each row keeps its original outlier rank, so re-sorting never restates the ranking.
 - **Title & script analysis** — common patterns, emotional triggers, and hook structures across the outlier set, with per-video transcripts when enabled.
-- **Bring your own model** — the LLM sits behind a small pluggable adapter interface, not a hardcoded vendor. Two adapters ship working today (Anthropic API key, Claude Code CLI), a Gemini CLI adapter is stubbed, and adding your own — Codex CLI, OpenAI API, a local model — is one small class. See [Model adapters](#model-adapters).
+- **Bring your own model** — the LLM sits behind a small pluggable adapter interface, not a hardcoded vendor. Twelve adapters ship: Anthropic, OpenAI, OpenRouter (~350 models on one key) and Ollama (local, free, no key) connect with a paste or nothing at all; Claude Code, Codex, Cursor, opencode and friends use a CLI you already have. See [Model adapters](#model-adapters).
 - **Quota-aware** — shows the estimated YouTube API units before each run (~1.4k of the free 10k daily).
 - **Research history & export** — every run is stored locally (SQLite) and exportable.
 - **Mock-first UI** — the entire interface runs on bundled fixtures with no backend and no keys, so you can explore it in one command.
@@ -82,16 +82,31 @@ For **live research**, run `make dev-live` and connect two things in the app's o
 
 ## Model adapters
 
-YuBen doesn't care which LLM writes the narrative — the model sits behind one small interface ([`backend/app/adapters/base.py`](backend/app/adapters/base.py)): `detect()`, `models()`, `check_env()`, `stream()`.
+YuBen doesn't care which LLM writes the narrative — the model sits behind one small interface ([`backend/app/adapters/base.py`](backend/app/adapters/base.py)): `detect()`, `models()`, `check_env()`, `stream()`. Twelve ship today.
 
-| Adapter | How it connects | Status |
+**Paste a key — no terminal, nothing to install:**
+
+| Adapter | Models | Status |
 |---|---|---|
-| **Anthropic API** | paste an API key in the UI — no terminal needed | ✅ working |
-| **Claude Code CLI** | uses the local CLI you already have | ✅ working |
-| **Gemini CLI** | local CLI | 🧩 stubbed — interface wired, run surface unfinished |
-| Codex CLI · OpenAI API · local models | your pick | 🗺️ planned — **adapter PRs very welcome** |
+| **Anthropic API** | Claude | ✅ working |
+| **OpenAI API** | GPT | ✅ working |
+| **OpenRouter** | ~350 models across every major vendor, one key | ✅ working |
+| **Ollama** | whatever you've pulled — local, free, **no key at all** | ✅ working |
 
-To add one: implement the interface for your CLI or API of choice, register it in [`backend/app/adapters/__init__.py`](backend/app/adapters/__init__.py), and the UI picks it up automatically via `GET /api/adapters`. Whatever the adapter, the [trust rule](#how-it-works) holds — the model only ever contributes narrative, never data.
+**Local agent CLIs:**
+
+| Adapter | Status |
+|---|---|
+| **Claude Code** | ✅ working |
+| **Codex CLI** · **Cursor CLI** · **opencode** | ✅ invocation per each tool's headless docs |
+| **Qwen Code** · **GitHub Copilot CLI** · **Amp** | ⚗️ experimental — flags follow each CLI's conventions but aren't confirmed end-to-end |
+| **Gemini CLI** | 🧩 stubbed — interface wired, run surface unfinished |
+
+Model lists are **fetched live** from each provider rather than hardcoded, so the picker shows what's actually available today (OpenRouter's and Ollama's need no credential; Ollama lists the models you've pulled). Nothing here goes stale as vendors ship new models.
+
+**Adding your own** is a table row, not a class: append a `CliSpec` to [`backend/app/adapters/cli_agents.py`](backend/app/adapters/cli_agents.py) for an agent CLI, or subclass `OpenAICompatibleAdapter` in [`openai_compatible.py`](backend/app/adapters/openai_compatible.py) for anything speaking the OpenAI protocol (most local servers do). Register it in [`__init__.py`](backend/app/adapters/__init__.py), add a mark to [`adapter-icons.tsx`](frontend/src/app/adapter-icons.tsx), and the UI picks it up automatically via `GET /api/adapters`. **Adapter PRs very welcome** — especially confirmations or fixes for the experimental three.
+
+Whatever the adapter, the [trust rule](#how-it-works) holds — the model only ever contributes narrative, never data.
 
 ## Architecture
 

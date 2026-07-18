@@ -12,6 +12,11 @@ Public surface consumed by the rest of the backend:
   ``app/api/config.py`` imports** (`from app.adapters import check_env`).
 
 Claude Code is the primary adapter and is registered first; Gemini is a stub.
+
+Registration order is display order, and it is deliberate: the key-paste API
+providers come first (nothing to install, so they're the shortest path for a new
+user), then the local CLIs. ``build_cli_adapters()`` expands the spec table in
+``cli_agents`` — adding another agent CLI means editing that table, not this file.
 """
 from __future__ import annotations
 
@@ -21,8 +26,15 @@ from contracts.python.models import Adapter
 
 from app.adapters.base import AdapterError, AgentAdapter
 from app.adapters.claude_code import ClaudeCodeAdapter
+from app.adapters.cli_agents import CLI_SPECS, CliSpec, GenericCliAdapter, build_cli_adapters
 from app.adapters.direct_anthropic import DirectAnthropicAdapter
 from app.adapters.gemini_cli import GeminiCliAdapter
+from app.adapters.openai_compatible import (
+    OllamaAdapter,
+    OpenAIAdapter,
+    OpenAICompatibleAdapter,
+    OpenRouterAdapter,
+)
 
 __all__ = [
     "get_adapter",
@@ -33,6 +45,13 @@ __all__ = [
     "ClaudeCodeAdapter",
     "DirectAnthropicAdapter",
     "GeminiCliAdapter",
+    "OpenAIAdapter",
+    "OpenAICompatibleAdapter",
+    "OpenRouterAdapter",
+    "OllamaAdapter",
+    "GenericCliAdapter",
+    "CliSpec",
+    "CLI_SPECS",
     "PRIMARY_ADAPTER_ID",
 ]
 
@@ -49,9 +68,15 @@ def _register(adapter: AgentAdapter) -> None:
     _ADAPTERS[adapter.id] = adapter
 
 
+# Key-paste API providers first (nothing to install), then the local CLIs.
 _register(DirectAnthropicAdapter())
+_register(OpenAIAdapter())
+_register(OpenRouterAdapter())
+_register(OllamaAdapter())
 _register(ClaudeCodeAdapter())
 _register(GeminiCliAdapter())
+for _cli in build_cli_adapters():
+    _register(_cli)
 
 # Tolerate a few id spellings the UI / stored config might send.
 _ALIASES: Dict[str, str] = {
@@ -65,6 +90,24 @@ _ALIASES: Dict[str, str] = {
     "anthropic_api": "anthropic-api",
     "anthropicapi": "anthropic-api",
     "api": "anthropic-api",
+    "openai": "openai-api",
+    "openai_api": "openai-api",
+    "openaiapi": "openai-api",
+    "gpt": "openai-api",
+    "open_router": "openrouter",
+    "openrouter_api": "openrouter",
+    "router": "openrouter",
+    "local": "ollama",
+    "codex": "codex-cli",
+    "cursor": "cursor-cli",
+    "cursor_agent": "cursor-cli",
+    "cursor-agent": "cursor-cli",
+    "opencode": "opencode-cli",
+    "qwen": "qwen-cli",
+    "qwen_code": "qwen-cli",
+    "copilot": "copilot-cli",
+    "github_copilot": "copilot-cli",
+    "amp": "amp-cli",
 }
 
 
@@ -121,6 +164,8 @@ def check_env(adapter: str, model: Optional[str] = None) -> Dict[str, Any]:
             "ok": False,
             "adapter": adapter or "",
             "version": None,
-            "message": "Unknown adapter {!r}. Choose Claude Code or Gemini CLI.".format(adapter),
+            "message": "Unknown adapter {!r}. Available: {}.".format(
+                adapter, ", ".join(_ADAPTERS)
+            ),
         }
     return impl.check_env(model)

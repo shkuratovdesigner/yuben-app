@@ -197,11 +197,15 @@ export interface Config {
   youtube_key_present: boolean
   /** Whether the user's Anthropic API key is stored (direct adapter, Phase 4). */
   anthropic_key_present: boolean
+  /** Whether the user's OpenAI API key is stored (OpenAI-compatible adapter). */
+  openai_key_present: boolean
+  /** Whether the user's OpenRouter API key is stored (one key, many vendors). */
+  openrouter_key_present: boolean
   onboarding_complete: boolean
 }
 
 /** Which local secret a POST /api/config/key writes. */
-export type KeyProvider = 'youtube' | 'anthropic'
+export type KeyProvider = 'youtube' | 'anthropic' | 'openai' | 'openrouter'
 
 export interface Adapter {
   id: string
@@ -241,11 +245,31 @@ export interface AgentResult {
 }
 
 // --- API envelopes ---------------------------------------------------------
+/**
+ * What the user should DO about a failed env-check, decided by the adapter.
+ * `sign_in` means the tool is installed but unauthenticated — the far more
+ * common failure — and `command` is the exact thing that fixes it.
+ */
+export interface EnvCheckRemedy {
+  kind: 'install' | 'sign_in'
+  label: string
+  /** Server-defined; the remedy endpoint runs this, never client input. */
+  command: string | null
+  url: string | null
+}
+
 export interface EnvCheckResult {
   ok: boolean
   adapter: string
   version: string | null
   message: string
+  remedy?: EnvCheckRemedy | null
+}
+
+export interface RemedyResult {
+  ok: boolean
+  message: string
+  command: string | null
 }
 
 export interface KeyTestResult {

@@ -33,6 +33,12 @@ _SERVICE = "yuben"
 # One (keyring-account, file-name, human-label) triple per stored secret.
 _YOUTUBE: Tuple[str, str, str] = ("youtube_api_key", "youtube_key.secret", "YouTube key")
 _ANTHROPIC: Tuple[str, str, str] = ("anthropic_api_key", "anthropic_key.secret", "Anthropic API key")
+_OPENAI: Tuple[str, str, str] = ("openai_api_key", "openai_key.secret", "OpenAI API key")
+_OPENROUTER: Tuple[str, str, str] = (
+    "openrouter_api_key",
+    "openrouter_key.secret",
+    "OpenRouter API key",
+)
 
 
 def _use_keyring() -> bool:
@@ -131,3 +137,35 @@ def get_anthropic_key() -> Optional[str]:
 def has_anthropic_key() -> bool:
     """True when an Anthropic key is stored. Safe to expose (boolean only)."""
     return bool(get_anthropic_key())
+
+
+# --- OpenAI API key (OpenAI-compatible adapter) -----------------------------
+def set_openai_key(value: str) -> None:
+    """Store the OpenAI API key locally (write-only). Raises ValueError on empty."""
+    _set_secret(_OPENAI, value)
+
+
+def get_openai_key() -> Optional[str]:
+    """BACKEND-INTERNAL: return the stored OpenAI key, or None. Never expose via HTTP."""
+    return _get_secret(_OPENAI)
+
+
+def has_openai_key() -> bool:
+    """True when an OpenAI key is stored. Safe to expose (boolean only)."""
+    return bool(get_openai_key())
+
+
+# --- OpenRouter API key (one key, many vendors) -----------------------------
+def set_openrouter_key(value: str) -> None:
+    """Store the OpenRouter API key locally (write-only). Raises ValueError on empty."""
+    _set_secret(_OPENROUTER, value)
+
+
+def get_openrouter_key() -> Optional[str]:
+    """BACKEND-INTERNAL: return the stored OpenRouter key, or None. Never expose via HTTP."""
+    return _get_secret(_OPENROUTER)
+
+
+def has_openrouter_key() -> bool:
+    """True when an OpenRouter key is stored. Safe to expose (boolean only)."""
+    return bool(get_openrouter_key())

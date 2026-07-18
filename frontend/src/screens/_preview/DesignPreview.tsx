@@ -1,8 +1,7 @@
 import { LayoutGrid, List } from 'lucide-react'
 
 import logoMark from '@/assets/brand/logo-mark.svg'
-import claudeIcon from '@/assets/brand/adapter-claude.png'
-import geminiIcon from '@/assets/brand/adapter-gemini.png'
+import { ClaudeMark, GeminiMark } from '@/app/adapter-icons'
 import { Button } from '@/components/ui/button'
 import { Badge, vsrTier } from '@/components/ui/badge'
 import { Card, CardDescription, CardTitle } from '@/components/ui/card'
@@ -109,12 +108,12 @@ export default function DesignPreview() {
       <Section title="Cards — adapter select (active vs resting)">
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <Card active className="p-6">
-            <img src={claudeIcon} alt="" className="mb-5 size-14" />
+            <ClaudeMark className="mb-5 size-14" />
             <CardTitle>Claude Code</CardTitle>
             <CardDescription>Local Claude agent</CardDescription>
           </Card>
           <Card className="p-6">
-            <img src={geminiIcon} alt="" className="mb-5 size-14" />
+            <GeminiMark className="mb-5 size-14" />
             <CardTitle className="text-[#55575c]">Gemini CLI</CardTitle>
             <CardDescription>Local Gemini agent</CardDescription>
           </Card>
