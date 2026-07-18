@@ -13,9 +13,9 @@ import logoMark from '@/assets/brand/logo-mark.svg'
 import { GithubIcon, InstagramIcon, LinkedinIcon, YoutubeIcon } from '@/app/social-icons'
 import { ThemeToggle } from '@/app/ThemeToggle'
 
-// Attribution + social links. Placeholder profile URLs — swap for the real
-// shkuratovdesigner handles when known. They open in a new tab.
-const PROFILE_URL = 'https://github.com/'
+// Attribution + social links, opened in a new tab. GitHub / LinkedIn / YouTube
+// below are still placeholder homepages — swap for the real handles when known.
+const PROFILE_URL = 'https://www.shkuratovdesigner.com/'
 // Order mirrors the design (Figma node 141:221).
 const SOCIALS = [
   { label: 'GitHub', href: 'https://github.com/', Icon: GithubIcon },
