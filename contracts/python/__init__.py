@@ -7,6 +7,5 @@ from contracts.python.models import (  # noqa: F401
     ProgressEvent,
     ResearchRequest,
     ResearchResult,
-    Suggestion,
     Video,
 )

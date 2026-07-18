@@ -10,11 +10,10 @@ together):
   * ``$YUBEN_DATA_DIR`` when set — used by tests for isolation; else
   * ``backend/.yuben`` (repo-relative), created lazily on first use.
 
-Schema — three tables:
+Schema — two tables:
   * ``config``      — single row (id = 1): adapter, model, onboarding_complete,
                       settings_json.
   * ``history``     — one row per saved run (mirrors contracts HistoryItem).
-  * ``suggestions`` — feature suggestions (text + created_at).
 """
 from __future__ import annotations
 
@@ -48,11 +47,6 @@ CREATE TABLE IF NOT EXISTS history (
     created_at      TEXT NOT NULL,
     counts_json     TEXT NOT NULL,
     outperformance  TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS suggestions (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    text        TEXT NOT NULL,
-    created_at  TEXT NOT NULL
 );
 """
 

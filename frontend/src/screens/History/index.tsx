@@ -21,8 +21,6 @@ import { Card } from '@/components/ui/card'
 import { useHistory } from '@/app/stores/history-store'
 import type { Format, HistoryItem, Outperformance } from '@/lib/types'
 
-import { SuggestFeature } from './SuggestFeature'
-
 const FORMAT_META: Record<Format, { label: string; Icon: LucideIcon }> = {
   longform: { label: 'Long-form', Icon: FileText },
   shorts: { label: 'Shorts', Icon: Film },
@@ -195,8 +193,6 @@ export default function History() {
           </ul>
         )}
       </section>
-
-      <SuggestFeature />
     </div>
   )
 }

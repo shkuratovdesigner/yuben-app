@@ -1,14 +1,13 @@
 /**
- * History store — past runs list + the lightweight "Suggest feature" capture.
+ * History store — the past runs list.
  *
- * WAVE-2 SCREENS CONSUME THIS (F7 History + Suggest):
+ * WAVE-2 SCREENS CONSUME THIS (F7 History):
  *
  *   useHistory(): {
  *     items: HistoryItem[]                       // past runs (newest-first as served)
  *     loading: boolean
  *     remove(runId: string): Promise<void>       // delete a saved run (optimistic)
  *     refresh(): Promise<void>                    // reload the list
- *     submitSuggestion(text: string): Promise<void>   // store a feature suggestion
  *   }
  *
  * Reopening a run is NOT done here — a History row links to `/run/:id`, and the
@@ -26,7 +25,6 @@ interface HistoryContextValue {
   loading: boolean
   remove: (runId: string) => Promise<void>
   refresh: () => Promise<void>
-  submitSuggestion: (text: string) => Promise<void>
 }
 
 const HistoryContext = createContext<HistoryContextValue | null>(null)
@@ -62,11 +60,9 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
     await api.deleteHistory(runId)
   }, [])
 
-  const submitSuggestion = useCallback((text: string) => api.postSuggestion(text), [])
-
   const value = useMemo<HistoryContextValue>(
-    () => ({ items, loading, remove, refresh, submitSuggestion }),
-    [items, loading, remove, refresh, submitSuggestion],
+    () => ({ items, loading, remove, refresh }),
+    [items, loading, remove, refresh],
   )
 
   return <HistoryContext.Provider value={value}>{children}</HistoryContext.Provider>

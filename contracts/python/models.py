@@ -183,7 +183,7 @@ class ResearchResult(Strict):
     game_plan: Optional[GamePlan] = None
 
 
-# --- Config / Adapter / History / Suggestion ------------------------------
+# --- Config / Adapter / History -------------------------------------------
 class Config(Strict):
     schema_version: Literal["1.0"]
     adapter: Optional[str]
@@ -211,11 +211,6 @@ class HistoryItem(Strict):
     created_at: str
     counts: Dict[str, int]
     outperformance: Outperformance
-
-
-class Suggestion(Strict):
-    text: str = Field(min_length=1, max_length=2000)
-    created_at: str
 
 
 # --- AgentResult (CLI -> backend; narrative + video_id refs only) ---------

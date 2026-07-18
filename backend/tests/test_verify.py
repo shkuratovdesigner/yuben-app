@@ -360,7 +360,7 @@ def test_get_research_result_not_found_is_404():
     assert resp.json()["detail"]["status"] == "not_found"
 
 
-# --- /api/history + /api/suggestions endpoints -------------------------------
+# --- /api/history endpoints ---------------------------------------------------
 def test_history_endpoints_roundtrip(tmp_path, monkeypatch):
     monkeypatch.setenv("YUBEN_DATA_DIR", str(tmp_path))
     from app.store import history_store
@@ -382,16 +382,3 @@ def test_history_endpoints_roundtrip(tmp_path, monkeypatch):
 
     # Second delete → 404 (already gone).
     assert client.delete("/api/history/r_api_hist").status_code == 404
-
-
-def test_suggestions_endpoint_roundtrip(tmp_path, monkeypatch):
-    monkeypatch.setenv("YUBEN_DATA_DIR", str(tmp_path))
-    resp = client.post("/api/suggestions", json={"text": "Add CSV export"})
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["text"] == "Add CSV export"
-    assert body["created_at"].endswith("Z")
-
-    # Contract bounds enforced as 422 before any write.
-    assert client.post("/api/suggestions", json={"text": ""}).status_code == 422
-    assert client.post("/api/suggestions", json={}).status_code == 422

@@ -1,12 +1,11 @@
 /**
  * Composer footer (Figma 27:529 resting = model switcher only · 36:2939
- * "home with history" = model switcher · Research history [n] · Suggest feature).
+ * "home with history" = model switcher · Research history [n]).
  *
  * The model switcher reflects the ACTIVE model from config (never a hardcoded
  * label) and, when the active adapter exposes models, lets the user switch it
- * (saveConfig). The history + suggest entries appear only after the first run
- * (historyCount > 0) and deep-link to /history, which owns the actual list and
- * the suggestion dialog.
+ * (saveConfig). The history entry appears only after the first run
+ * (historyCount > 0) and deep-links to /history, which owns the actual list.
  */
 import { Link } from 'react-router-dom'
 
@@ -63,26 +62,18 @@ export function ComposerFooter({
       )}
 
       {hasHistory && (
-        <>
-          <Link
-            to="/history"
-            className="flex items-center gap-2 text-brand-muted transition-colors hover:text-foreground"
+        <Link
+          to="/history"
+          className="flex items-center gap-2 text-brand-muted transition-colors hover:text-foreground"
+        >
+          <span>Research history</span>
+          <Badge
+            variant="count"
+            className="h-[22px] min-w-[22px] justify-center rounded-full px-1.5 text-[13px]"
           >
-            <span>Research history</span>
-            <Badge
-              variant="count"
-              className="h-[22px] min-w-[22px] justify-center rounded-full px-1.5 text-[13px]"
-            >
-              {historyCount}
-            </Badge>
-          </Link>
-          <Link
-            to="/history"
-            className="text-brand-muted transition-colors hover:text-foreground"
-          >
-            Suggest feature
-          </Link>
-        </>
+            {historyCount}
+          </Badge>
+        </Link>
       )}
     </footer>
   )

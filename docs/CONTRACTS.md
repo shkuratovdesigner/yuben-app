@@ -27,7 +27,6 @@ Base URL `http://localhost:8000`.
 | POST | `/api/research/{run_id}/cancel` | Cancel a running job. |
 | GET | `/api/history` | List **HistoryItem**. |
 | DELETE | `/api/history/{run_id}` | Delete a saved run. |
-| POST | `/api/suggestions` | Store a feature suggestion. |
 
 Secrets rule: keys are write-only through the API; no endpoint ever returns a key. Nothing sensitive in query strings.
 
@@ -169,7 +168,7 @@ Sections `title_analysis` / `script_analysis` are `null` when the matching toggl
 
 ---
 
-## 6. Config, Adapter, History, Suggestion
+## 6. Config, Adapter, History
 
 ```jsonc
 // GET /api/config  (key values are NEVER returned — only presence flags)
@@ -187,9 +186,6 @@ Sections `title_analysis` / `script_analysis` are `null` when the matching toggl
 // HistoryItem (GET /api/history)
 { "run_id":"r_…", "topic_title":"…", "query":"…", "format":"longform",
   "created_at":"…", "counts":{"curated":15}, "outperformance":"highest" }
-
-// POST /api/suggestions
-{ "text":"Add CSV export", "created_at":"…" }
 ```
 
 ---

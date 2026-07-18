@@ -77,7 +77,6 @@ export interface ApiClient {
   cancelRun(runId: string): Promise<void>
   getHistory(): Promise<HistoryItem[]>
   deleteHistory(runId: string): Promise<void>
-  postSuggestion(text: string): Promise<void>
 }
 
 // Cast fixtures through `unknown`: JSON imports widen literal unions (e.g.
@@ -103,7 +102,6 @@ function createMockClient(): ApiClient {
   // In-memory session state so writes reflect on later reads.
   let config: Config = { ...FIXTURE_CONFIG }
   let history: HistoryItem[] = FIXTURE_HISTORY.map((item) => ({ ...item }))
-  const suggestions: { text: string; created_at: string }[] = []
   // Remember each started run's format so getResult can serve the right fixture.
   const runFormat = new Map<string, ResearchRequest['format']>()
   let runCounter = 0
@@ -249,11 +247,6 @@ function createMockClient(): ApiClient {
       await delay(60)
       history = history.filter((item) => item.run_id !== runId)
     },
-
-    async postSuggestion(text) {
-      await delay(60)
-      suggestions.push({ text, created_at: new Date().toISOString() })
-    },
   }
 }
 
@@ -363,13 +356,6 @@ function createLiveClient(): ApiClient {
 
     async deleteHistory(runId) {
       await http<void>(`/api/history/${runId}`, { method: 'DELETE' })
-    },
-
-    async postSuggestion(text) {
-      await http<void>('/api/suggestions', {
-        method: 'POST',
-        body: JSON.stringify({ text, created_at: new Date().toISOString() }),
-      })
     },
   }
 }

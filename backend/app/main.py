@@ -6,8 +6,7 @@ shared ``contracts`` package imports when the app is launched from ``backend/``
 bootstrap at app startup"), (2) wires CORS for the Vite dev origin, and
 (3) registers the FULL router surface (CONTRACTS.md §1) so the app boots with
 every route present. Config is the real implementation; adapters / research /
-history / suggestions are Wave-1 stubs that B2–B5 fill in their own files —
-collision-free.
+history are Wave-1 stubs that B2–B5 fill in their own files — collision-free.
 """
 from __future__ import annotations
 
@@ -29,7 +28,6 @@ from app.api.health import router as health_router  # noqa: E402
 from app.api.history import router as history_router  # noqa: E402
 from app.api.research import router as research_router  # noqa: E402
 from app.api.research_result import router as research_result_router  # noqa: E402
-from app.api.suggestions import router as suggestions_router  # noqa: E402
 
 app = FastAPI(title="YuBen Backend", version="0.1.0")
 
@@ -53,4 +51,3 @@ app.include_router(adapters_router)
 app.include_router(research_router)
 app.include_router(research_result_router)
 app.include_router(history_router)
-app.include_router(suggestions_router)

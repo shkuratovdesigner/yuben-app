@@ -9,7 +9,7 @@ Single source of truth: [../docs/CONTRACTS.md](../docs/CONTRACTS.md).
 contracts/
 ├── schemas/            JSON Schema (draft 2020-12) — one file per object
 │                       (research-request, progress-event, video, research-result,
-│                        config, adapter, history-item, suggestion, agent-result)
+│                        config, adapter, history-item, agent-result)
 ├── python/             Pydantic models mirroring the schemas (imported by backend)
 ├── ts/                 Generated TypeScript types (also copied to frontend/src/lib/types.ts)
 ├── fixtures/           Realistic data built from ../data/*.json (frontend/fixtures -> here)

@@ -101,7 +101,7 @@ Six screens (five in Figma + one loader we design). Node IDs reference the Figma
   - **☐ Titles Analytic** checkbox.
   - **☐ Script analytics** checkbox.
   - **Send** button (arrow-up) — disabled until the input is non-empty (`29:135` shows the enabled/teal state).
-- **Footer:** model switcher **"Claude Opus 4.6 ▾"** (reflects/changes the active model). After the first run, the footer also shows **Research history [n]** and **Suggest feature** (see 4.6).
+- **Footer:** model switcher **"Claude Opus 4.6 ▾"** (reflects/changes the active model). After the first run, the footer also shows **Research history [n]** (see 4.6).
 
 ### 4.4 Loader — research in progress (design new)
 **Purpose:** show live scraping + analysis progress so a multi-minute run feels alive.
@@ -127,7 +127,6 @@ Six screens (five in Figma + one loader we design). Node IDs reference the Figma
 ### 4.6 Home with history (`36:2939`)
 Same composer as 4.3, but the footer now exposes:
 - **Research history [n]** — opens a list of past runs (topic, date, format, result counts); clicking reopens the saved result (no re-run).
-- **Suggest feature** — lightweight feedback capture (stored locally / opens a link).
 
 ---
 
@@ -142,8 +141,6 @@ Same composer as 4.3, but the footer now exposes:
 **FR-4 Render results.** Grid/list toggle, outperformance color tiers, Title/Script analysis tabs, watch links that open YouTube. Respect which analyses were requested.
 
 **FR-5 History.** List, open (from cache), and delete past runs. Never silently re-run.
-
-**FR-6 Suggest feature.** Capture a short suggestion locally (and/or open a repo issue link).
 
 **FR-7 Resilience.** Handle: CLI not installed, CLI/auth failure, YouTube 403 quota, zero results, malformed agent output (repair/fallback), and run cancellation — each with a clear message.
 

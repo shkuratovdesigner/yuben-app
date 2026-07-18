@@ -149,8 +149,8 @@ def test_key_test_graceful_stub(monkeypatch):
 def test_stub_routers_return_501():
     # /api/adapters is implemented by B2 (Wave 2) and now returns 200 — see
     # test_adapters.py. The B5 routes (GET /api/research/{id}, /api/history*,
-    # /api/suggestions) are implemented in Wave 2 too and now return real
-    # responses — see test_verify.py. B4's research lifecycle is now live too
+    # implemented in Wave 2 too and now return real responses — see
+    # test_verify.py. B4's research lifecycle is now live too
     # (see test_orchestrator.py): an empty body fails validation, and the
     # events/cancel routes 404 on an unknown run.
     assert client.post("/api/research", json={}).status_code == 422
@@ -203,15 +203,3 @@ def test_history_store_roundtrip():
     assert "r_test_hist" in ids
     assert history_store.delete_history("r_test_hist") is True
     assert history_store.delete_history("r_test_hist") is False
-
-
-def test_suggestions_store_validates_and_persists():
-    import pytest
-    from app.store import suggestions_store
-
-    s = suggestions_store.add_suggestion("Add CSV export")
-    assert s.text == "Add CSV export"
-    assert s.created_at.endswith("Z")
-    # Contract bound: empty text is rejected before any write.
-    with pytest.raises(Exception):
-        suggestions_store.add_suggestion("")

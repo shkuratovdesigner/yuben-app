@@ -189,7 +189,7 @@ export interface ResearchResult {
   game_plan?: GamePlan | null
 }
 
-// --- Config / Adapter / History / Suggestion ------------------------------
+// --- Config / Adapter / History -------------------------------------------
 export interface Config {
   schema_version: SchemaVersion
   adapter: string | null
@@ -219,11 +219,6 @@ export interface HistoryItem {
   created_at: string
   counts: Record<string, number>
   outperformance: Outperformance
-}
-
-export interface Suggestion {
-  text: string
-  created_at: string
 }
 
 // --- AgentResult (CLI -> backend; narrative + video_id refs only) ---------

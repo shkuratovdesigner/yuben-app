@@ -11,7 +11,7 @@ Related: [PRD.md](PRD.md) · [CONTRACTS.md](CONTRACTS.md)
 1. **Freeze contracts + fixtures + design system (Phase 0).** Small, fast, sequential-ish. Everything downstream depends on it.
 2. **Fan out (Phase 1).** Every screen is one frontend agent (builds against fixtures). Every backend capability is one agent (builds against the same contracts). Two tracks, fully parallel.
 3. **Integrate (Phase 2).** Swap fixtures for the live API; run one real end-to-end research with a real key + CLI; fix contract drift.
-4. **Harden (Phase 3).** Error/empty states, cost meter, export, a11y, dark mode, Suggest feature.
+4. **Harden (Phase 3).** Error/empty states, cost meter, export, a11y, dark mode.
 
 **Why this parallelizes cleanly:** the only shared surface is `contracts/`. Frontend agents import generated TS types + JSON fixtures; backend agents implement the same schemas in Pydantic. Neither waits on the other. Integration is mostly deleting the mock layer.
 
@@ -42,7 +42,7 @@ YuBen/
 │   └── fixtures/ -> ../contracts/fixtures
 ├── backend/                  # FastAPI
 │   ├── app/
-│   │   ├── api/               # routers: config, research, history, suggestions
+│   │   ├── api/               # routers: config, research, history
 │   │   ├── adapters/          # AgentAdapter, ClaudeCodeAdapter, GeminiCliAdapter
 │   │   ├── orchestrator/      # prompt build, run loop, SSE, validation/repair
 │   │   ├── pipeline/          # wrapper over existing scripts → unified Video
@@ -84,7 +84,7 @@ Dev ergonomics (Phase 0): `make dev` runs frontend (5173) + backend (8000); `VIT
                                                    ▼
                           ┌──────────── PHASE 3 (harden) ─────────────────┐
                           │  H1 Errors/empty  H2 Cost meter  H3 Export     │
-                          │  H4 a11y/dark     H5 Suggest feature           │
+                          │  H4 a11y/dark                                  │
                           └───────────────────────────────────────────────┘
 ```
 
@@ -115,7 +115,7 @@ Dev ergonomics (Phase 0): `make dev` runs frontend (5173) + backend (8000); `VIT
 | **F4** | **Loader**: phase checklist + progress bar + live counters + cancel + error state; consumes `progress-events` fixture. | new | Progress, list | W0.2–3 |
 | **F5** | **Results — Top videos**: header + grid/list toggle; grid cards; list table with VSR color tiers, Eng/1k, Watch links. | `31:184`,`31:843` | Toggle, Card, Table, Badge | W0.2–3 |
 | **F6** | **Results — Watch list + Analysis tabs**: Recommended Watch List table; Title/Script analysis tabs (features, triggers, duration sweet spot, hooks, what-to-avoid). | `31:843`,`35:2181` | Tabs, Table | W0.2–3 |
-| **F7** | **History**: history list (topic/date/counts), open-from-cache, delete; Suggest-feature entry in footer. | `36:2939` | List, Badge, Dialog | W0.2–3 |
+| **F7** | **History**: history list (topic/date/counts), open-from-cache, delete. | `36:2939` | List, Badge, Dialog | W0.2–3 |
 
 > F5+F6 both live under `screens/Results/` — split by distinct files (TopVideos vs AnalysisTabs) so the two agents don't collide; the Results container is owned by F5, imports F6's tab block.
 
@@ -127,7 +127,7 @@ Dev ergonomics (Phase 0): `make dev` runs frontend (5173) + backend (8000); `VIT
 | **B2** | **Adapter layer**: `AgentAdapter` iface; `ClaudeCodeAdapter` (headless `claude -p --output-format stream-json`) + `GeminiCliAdapter`; detect install/version; `check_env()` "respond hello"; `/api/adapters`, `/api/config/env-check`. | Env-check returns real pass/fail. | W0.1–2 |
 | **B3** | **Pipeline wrapper + normalizer**: import/shell existing `longform_research.py`/`shorts_research.py`; fix path/symlink quirk; map filters→params; normalize Gen-2 output → unified **Video**; compute Eng/1k, thumbnail, duration_label, VSR tiers; optional transcripts. | `run_pipeline(request) → Video[]` + meta. | W0.2 |
 | **B4** | **Orchestrator + prompt + SSE**: build agent prompt from ResearchRequest; spawn adapter; translate CLI stream → ProgressEvents; collect AgentResult; schema-validate + repair. | `/api/research` starts; `/events` streams. | B1,B2,B3 |
-| **B5** | **Research API + history + link verify**: assemble final ResearchResult (join agent refs → script videos, **drop fabricated IDs**, oEmbed + existence verify); persist; `/api/research/{id}`, `/cancel`, `/api/history*`, `/api/suggestions`. | End-to-end result JSON validates. | B4 |
+| **B5** | **Research API + history + link verify**: assemble final ResearchResult (join agent refs → script videos, **drop fabricated IDs**, oEmbed + existence verify); persist; `/api/research/{id}`, `/cancel`, `/api/history*`. | End-to-end result JSON validates. | B4 |
 
 **Review gate:** after Phase 1, one `code-reviewer` agent per track checks against PRD/CONTRACTS before integration.
 
@@ -152,7 +152,6 @@ Verification here is behavioral, not just tests: drive onboarding → compose �
 | **H2** | Cost meter: estimate YouTube API units from keyword count; warn before run; surface quota use. |
 | **H3** | Export results (reuse `build_html_report.py` / `promote_report_to_html.py`, add `.md`). |
 | **H4** | Accessibility pass + responsive + optional dark mode (VSR tiers already themed). |
-| **H5** | Suggest-feature capture (local store and/or open a repo issue). |
 
 ---
 
