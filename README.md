@@ -8,13 +8,13 @@
 ### Find the YouTube videos that massively outperform their channels — and learn exactly why.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-122%20passing-brightgreen.svg)](#development)
+[![Tests](https://img.shields.io/badge/tests-120%20passing-brightgreen.svg)](#development)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB.svg?logo=python&logoColor=white)](backend/pyproject.toml)
 [![React](https://img.shields.io/badge/React-19-61DAFB.svg?logo=react&logoColor=black)](frontend/package.json)
 [![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688.svg?logo=fastapi&logoColor=white)](backend/app/main.py)
 [![Local first](https://img.shields.io/badge/local--first-your%20keys%20stay%20home-8A2BE2.svg)](#your-keys-stay-on-your-machine)
 
-<img src="docs/assets/results-dark.png" alt="YuBen results screen — outlier videos ranked by VSR with a recommended watch list and title analysis" width="900" />
+<img src="docs/assets/results-light.png" alt="YuBen results screen — outlier videos for “how to become a better YouTuber”, ranked by VSR with a recommended watch list and title analysis" width="900" />
 
 </div>
 
@@ -22,12 +22,12 @@
 
 **YuBen** is a local-first web app for YouTube content research. Type a topic and it finds *outlier* videos — ones that earn far more views than their channel's subscriber count predicts — then explains what makes them win: a ranked watch list, title-pattern analysis, and a concrete game plan for your own video.
 
-The core signal is **VSR (views ÷ subscribers)**. A million views on a 24k-subscriber channel (41×) tells you the *idea* carried the video, not the audience. Those are the videos worth studying.
+The core signal is **VSR (views ÷ subscribers)**. In the run above, a 140k-subscriber channel pulled 2.1M views (15×) while a 6.2M-subscriber channel managed 4.1M on the same topic (0.6×) — the multiple, not the raw view count, tells you the *idea* carried the video rather than the audience. Those are the videos worth studying.
 
 ## How it works
 
 <div align="center">
-<img src="docs/assets/composer-dark.png" alt="YuBen composer — describe a topic, pick long-form or Shorts, choose an outperformance tier" width="820" />
+<img src="docs/assets/composer-light.png" alt="YuBen composer — describe a topic, pick long-form or Shorts, choose an outperformance tier" width="820" />
 </div>
 
 1. **Describe a topic** and pick your filters — long-form or Shorts, upload window, outperformance tier (any / 2× / 5× / highest).
@@ -40,12 +40,17 @@ The core signal is **VSR (views ÷ subscribers)**. A million views on a 24k-subs
 
 - **Outlier discovery** — VSR-ranked results with engagement sanity checks (likes-per-1k-views flags bought/promoted views).
 - **Recommended watch list** — a short, sequenced list of what to watch and what to take from each video.
+- **Grid or sortable table** — switch views, then sort by views, VSR multiple, engagement or duration. Each row keeps its original outlier rank, so re-sorting never restates the ranking.
 - **Title & script analysis** — common patterns, emotional triggers, and hook structures across the outlier set, with per-video transcripts when enabled.
 - **Bring your own model** — the LLM sits behind a small pluggable adapter interface, not a hardcoded vendor. Two adapters ship working today (Anthropic API key, Claude Code CLI), a Gemini CLI adapter is stubbed, and adding your own — Codex CLI, OpenAI API, a local model — is one small class. See [Model adapters](#model-adapters).
 - **Quota-aware** — shows the estimated YouTube API units before each run (~1.4k of the free 10k daily).
 - **Research history & export** — every run is stored locally (SQLite) and exportable.
 - **Mock-first UI** — the entire interface runs on bundled fixtures with no backend and no keys, so you can explore it in one command.
 - **Dark & light mode**, responsive, keyboard-accessible.
+
+<div align="center">
+<img src="docs/assets/results-list-light.png" alt="YuBen results in table view — sortable Views, Mult, Eng/1k and Duration columns, each with the outlier's original rank retained" width="900" />
+</div>
 
 ## Quickstart
 
