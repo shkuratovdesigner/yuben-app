@@ -9,7 +9,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-122%20passing-brightgreen.svg)](#development)
-[![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB.svg?logo=python&logoColor=white)](backend/pyproject.toml)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB.svg?logo=python&logoColor=white)](backend/pyproject.toml)
 [![React](https://img.shields.io/badge/React-19-61DAFB.svg?logo=react&logoColor=black)](frontend/package.json)
 [![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688.svg?logo=fastapi&logoColor=white)](backend/app/main.py)
 [![Local first](https://img.shields.io/badge/local--first-your%20keys%20stay%20home-8A2BE2.svg)](#your-keys-stay-on-your-machine)
@@ -48,6 +48,10 @@ The core signal is **VSR (views ÷ subscribers)**. A million views on a 24k-subs
 - **Dark & light mode**, responsive, keyboard-accessible.
 
 ## Quickstart
+
+Needs **Python 3.10+** and **Node 20+**. On macOS `python3` is still 3.9, so
+`make install` picks the newest suitable interpreter on your PATH — point it
+somewhere specific with `make install PYTHON=/path/to/python3.12`.
 
 ```bash
 git clone https://github.com/shkuratovdesigner/yuben-app.git

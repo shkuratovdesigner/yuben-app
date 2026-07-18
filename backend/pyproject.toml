@@ -2,7 +2,9 @@
 name = "yuben-backend"
 version = "0.1.0"
 description = "YuBen local-first backend — FastAPI wrapper over the YouTube research pipeline."
-requires-python = ">=3.9"
+# 3.10+ since fastapi 0.139 dropped 3.9. Note macOS still ships 3.9 as
+# `python3` — `make install` picks a suitable interpreter rather than assuming.
+requires-python = ">=3.10"
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

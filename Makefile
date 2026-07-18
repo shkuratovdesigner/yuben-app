@@ -6,6 +6,15 @@ BACKEND  := backend
 PY       := $(BACKEND)/.venv/bin/python
 PIP      := $(BACKEND)/.venv/bin/pip
 
+# The backend needs Python 3.10+ (fastapi 0.139 dropped 3.9). macOS still ships
+# 3.9 as `python3`, so pick the newest suitable interpreter on PATH instead of
+# assuming. Override with: make install PYTHON=/path/to/python3.12
+PYTHON ?= $(shell for p in python3.14 python3.13 python3.12 python3.11 python3.10 python3; do \
+	command -v $$p >/dev/null 2>&1 \
+	  && $$p -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' 2>/dev/null \
+	  && echo $$p && break; \
+	done)
+
 .PHONY: help install install-backend install-frontend dev dev-live dev-backend \
         dev-frontend dev-frontend-live build typecheck test test-backend fixtures \
         validate-fixtures clean
@@ -23,7 +32,15 @@ help:
 install: install-backend install-frontend
 
 install-backend:
-	python3 -m venv $(BACKEND)/.venv
+	@if [ -z "$(PYTHON)" ]; then \
+		echo "No Python 3.10+ found on PATH — the backend needs it (fastapi 0.139+)."; \
+		echo "macOS ships 3.9 as python3, so you may have to install a newer one."; \
+		echo "Already have one elsewhere? Point at it:"; \
+		echo "    make install PYTHON=/path/to/python3.12"; \
+		exit 1; \
+	fi
+	@echo "Backend venv using $(PYTHON) ($$($(PYTHON) --version 2>&1))"
+	$(PYTHON) -m venv $(BACKEND)/.venv
 	$(PIP) install --upgrade pip
 	$(PIP) install -r $(BACKEND)/requirements.txt
 
