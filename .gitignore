@@ -49,6 +49,9 @@ Desktop.ini
 *.swo
 *~
 
+# Agent tooling — launch.json is shared, local settings are personal.
+.claude/settings.local.json
+
 # Local data caches (review before un-ignoring tracked fixtures)
 data/*.db
 data/*.sqlite
