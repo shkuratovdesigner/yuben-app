@@ -16,13 +16,15 @@
 
 <img src="docs/assets/results-light.png" alt="YuBen results screen — outlier videos for “how to become a better YouTuber”, ranked by VSR with a recommended watch list and title analysis" width="900" />
 
+<sub><b>Demo data.</b> Video IDs, titles and channels are real; view, subscriber and like counts are representative sample values, not live API readings.</sub>
+
 </div>
 
 ---
 
 **YuBen** is a local-first web app for YouTube content research. Type a topic and it finds *outlier* videos — ones that earn far more views than their channel's subscriber count predicts — then explains what makes them win: a ranked watch list, title-pattern analysis, and a concrete game plan for your own video.
 
-The core signal is **VSR (views ÷ subscribers)**. In the run above, a 140k-subscriber channel pulled 2.1M views (15×) while a 6.2M-subscriber channel managed 4.1M on the same topic (0.6×) — the multiple, not the raw view count, tells you the *idea* carried the video rather than the audience. Those are the videos worth studying.
+The core signal is **VSR (views ÷ subscribers)**. In the demo run above, a 140k-subscriber channel pulled 2.1M views (15×) while a 6.2M-subscriber channel managed 4.1M on the same topic (0.6×) — the multiple, not the raw view count, tells you the *idea* carried the video rather than the audience. Those are the videos worth studying.
 
 ## How it works
 
