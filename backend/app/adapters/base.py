@@ -19,13 +19,94 @@ anything built on top of ``stream()``.
 """
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import threading
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterator, List, Optional
 
-__all__ = ["AgentAdapter", "AdapterError", "extract_version"]
+__all__ = [
+    "AgentAdapter",
+    "AdapterError",
+    "extract_version",
+    "terminate_for_thread",
+]
+
+
+# ---------------------------------------------------------------------------
+# Live child processes, keyed by the thread consuming them
+# ---------------------------------------------------------------------------
+#
+# Cancel used to be routed through ``generator.close()`` from the API thread.
+# That cannot work: the worker thread is blocked in ``for raw in proc.stdout``,
+# so closing its generator from elsewhere raises ``ValueError: generator already
+# executing``, which the caller swallowed — the CLI kept running and the UI
+# reported a successful cancel either way.
+#
+# A ``Popen`` handle, unlike a generator, is safe to signal from any thread.
+# ``stream_process`` runs its body on the consuming thread (the generator body
+# only advances on ``next()``), so registering under ``get_ident()`` at spawn
+# time gives the orchestrator a thread-addressable handle on the child.
+# Terminating it lands EOF on stdout, the worker's loop ends, and the existing
+# ``finally`` reaps the child on its own thread exactly as before.
+
+_LIVE_LOCK = threading.Lock()
+_LIVE: Dict[int, List["subprocess.Popen"]] = {}
+
+
+def _register_child(proc: "subprocess.Popen") -> None:
+    with _LIVE_LOCK:
+        _LIVE.setdefault(threading.get_ident(), []).append(proc)
+
+
+def _unregister_child(proc: "subprocess.Popen") -> None:
+    ident = threading.get_ident()
+    with _LIVE_LOCK:
+        procs = _LIVE.get(ident)
+        if not procs:
+            return
+        try:
+            procs.remove(proc)
+        except ValueError:  # pragma: no cover - already dropped
+            pass
+        if not procs:
+            _LIVE.pop(ident, None)
+
+
+def terminate_for_thread(ident: Optional[int]) -> int:
+    """Terminate every live child spawned by thread ``ident``. Returns the count.
+
+    Safe to call from any thread, and safe to call when nothing is running.
+    """
+    if ident is None:
+        return 0
+    with _LIVE_LOCK:
+        procs = list(_LIVE.get(ident, ()))
+    killed = 0
+    for proc in procs:
+        try:
+            if proc.poll() is None:
+                proc.terminate()
+                killed += 1
+        except Exception:  # pragma: no cover - process already reaped
+            pass
+    return killed
+
+
+#: Names scrubbed from the environment of *probe* spawns. A YouTube Data API
+#: key has no business reaching ``claude --version``; the agentic ``stream``
+#: path keeps it, because the CLI shells out to the research scripts, which
+#: read it at import (``config.py:60``). Provider keys are deliberately left
+#: alone — a vendor's own CLI legitimately reads its own credential.
+_PROBE_SCRUBBED_ENV = ("YOUTUBE_API_KEY",)
+
+
+def _probe_env() -> Dict[str, str]:
+    env = dict(os.environ)
+    for name in _PROBE_SCRUBBED_ENV:
+        env.pop(name, None)
+    return env
 
 
 class AdapterError(RuntimeError):
@@ -190,6 +271,7 @@ def run_version(path: str, *, flag: str = "--version", timeout: float = 10.0) ->
             capture_output=True,
             text=True,
             timeout=timeout,
+            env=_probe_env(),
         )
     except Exception:
         return None
@@ -221,6 +303,7 @@ def run_probe(
         timeout=timeout,
         cwd=cwd,
         stdin=subprocess.DEVNULL,
+        env=_probe_env(),
     )
 
 
@@ -248,6 +331,9 @@ def stream_process(cmd: List[str], *, cwd: Optional[str] = None) -> Iterator[str
     except OSError as exc:
         raise AdapterError("Could not launch CLI {}: {}".format(cmd[0], exc)) from exc
 
+    # Make the child reachable from other threads so cancel can stop it.
+    _register_child(proc)
+
     err_chunks: List[str] = []
 
     def _drain_stderr() -> None:
@@ -270,7 +356,9 @@ def stream_process(cmd: List[str], *, cwd: Optional[str] = None) -> Iterator[str
                 saw_output = True
                 yield line
     finally:
-        # Reap the child. If the consumer stopped early, ask it to stop.
+        # Reap the child. If the consumer stopped early — or cancel terminated
+        # it from another thread — this is where it gets waited on.
+        _unregister_child(proc)
         if proc.poll() is None:
             proc.terminate()
             try:
