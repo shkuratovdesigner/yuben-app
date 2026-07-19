@@ -155,3 +155,52 @@ def test_stream_process_child_still_sees_the_youtube_key(
         )
     )
     assert lines == ["AIzaSyD-needed-by-the-agent"]
+
+
+# ---------------------------------------------------------------------------
+# Stream watchdog
+# ---------------------------------------------------------------------------
+
+
+def test_idle_timeout_kills_a_silent_cli() -> None:
+    """A CLI that prints nothing must not hold a run open forever."""
+    cmd = [sys.executable, "-u", "-c", "import time; time.sleep(120)"]
+    t0 = time.monotonic()
+    with pytest.raises(Exception) as excinfo:
+        list(base.stream_process(cmd, idle_timeout=2.0, total_timeout=None))
+    assert "no output" in str(excinfo.value)
+    assert time.monotonic() - t0 < 30, "watchdog did not fire promptly"
+
+
+def test_total_timeout_kills_a_trickling_cli() -> None:
+    """The other wedge: output forever, never finishing."""
+    cmd = [
+        sys.executable,
+        "-u",
+        "-c",
+        "import time\nwhile True:\n    print('tick', flush=True)\n    time.sleep(0.2)",
+    ]
+    t0 = time.monotonic()
+    with pytest.raises(Exception) as excinfo:
+        list(base.stream_process(cmd, idle_timeout=None, total_timeout=2.0))
+    assert "time limit" in str(excinfo.value)
+    assert time.monotonic() - t0 < 30
+
+
+def test_watchdog_does_not_interrupt_a_healthy_run() -> None:
+    """Output well inside the idle bound must stream to completion untouched."""
+    cmd = [
+        sys.executable,
+        "-u",
+        "-c",
+        "import time\nfor i in range(5):\n    print(i, flush=True)\n    time.sleep(0.2)",
+    ]
+    lines = list(base.stream_process(cmd, idle_timeout=5.0, total_timeout=60.0))
+    assert lines == ["0", "1", "2", "3", "4"]
+
+
+def test_timeouts_can_be_disabled() -> None:
+    cmd = [sys.executable, "-u", "-c", "print('done')"]
+    assert list(
+        base.stream_process(cmd, idle_timeout=None, total_timeout=None)
+    ) == ["done"]
