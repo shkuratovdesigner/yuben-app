@@ -11,6 +11,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Dict, Optional
 
+from app.redact import redact
 from contracts.python.models import (
     ErrorCode,
     ProgressErrorDetail,
@@ -100,14 +101,21 @@ def make_event(
 
 
 def make_error_event(run_id: str, code: ErrorCode, message: str) -> ProgressEvent:
-    """Build the terminal ``phase:"error"`` event carrying ``error:{code,message}``."""
+    """Build the terminal ``phase:"error"`` event carrying ``error:{code,message}``.
+
+    The message is scrubbed here because this is the single funnel through which
+    every error reaches the browser. Call sites are expected to pass a clean,
+    human-authored string already — this is the backstop for the ones that
+    interpolate an external exception (see :mod:`app.redact`).
+    """
+    safe = redact(message)
     return ProgressEvent(
         run_id=run_id,
         phase="error",
         label=phase_label("error"),
         pct=None,
-        detail=message,
+        detail=safe,
         counts=None,
-        error=ProgressErrorDetail(code=code, message=message),
+        error=ProgressErrorDetail(code=code, message=safe),
         ts=now_iso(),
     )

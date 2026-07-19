@@ -21,7 +21,12 @@ if str(_REPO_ROOT) not in sys.path:
 
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.middleware.trustedhost import TrustedHostMiddleware  # noqa: E402
 
+from app.security import (  # noqa: E402
+    ALLOWED_HOSTS,
+    SameOriginGuardMiddleware,
+)
 from app.api.adapters import router as adapters_router  # noqa: E402
 from app.api.config import router as config_router  # noqa: E402
 from app.api.health import router as health_router  # noqa: E402
@@ -42,6 +47,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# CORS alone does not protect a localhost daemon: it governs whether a page may
+# *read* our response, not whether the side effect ran. These two close the gap
+# — see app/security.py for the full reasoning.
+#
+# Middleware runs outermost-registered-last in Starlette, so registering these
+# after CORS puts them *in front* of it: a rebound or cross-site request is
+# rejected before any route (or the CORS layer) sees it.
+app.add_middleware(SameOriginGuardMiddleware)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(ALLOWED_HOSTS))
 
 # Full route surface (CONTRACTS.md §1). Order is not significant — the paths are
 # disjoint (research lifecycle vs research result differ by segment depth).

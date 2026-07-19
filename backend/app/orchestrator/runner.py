@@ -23,6 +23,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from pydantic import ValidationError
 
 from contracts.python.models import AgentResult, ResearchRequest, Video
+from app.adapters.base import terminate_for_thread
+from app.redact import redact
 from app.store import run_store
 
 from app.orchestrator.events import make_error_event, make_event
@@ -187,7 +189,12 @@ def _classify_external_error(exc: Exception) -> Exception:
             "We couldn't find the agent CLI. Install it, then run the "
             "environment check again."
         )
-    return _CliFailed("The agent CLI failed: %s" % (str(exc) or type(exc).__name__))
+    # Never interpolate a raw external exception: googleapiclient's HttpError
+    # repr carries the request URI, which carries the API key. `redact` strips
+    # it; `make_error_event` scrubs again on the way out (app/redact.py).
+    return _CliFailed(
+        "The agent CLI failed: %s" % (redact(str(exc)) or type(exc).__name__)
+    )
 
 
 def _coerce_videos(rows: Any) -> List[Video]:
@@ -542,8 +549,15 @@ def launch(run_id: str, request: ResearchRequest, **deps: Any) -> _Handle:
 
 def request_cancel(run_id: str) -> bool:
     """Cancel a running job: flip the store status, signal the worker, terminate
-    the adapter subprocess (via the stream's ``close``), and emit a terminal
-    ``error{code:"cancelled"}`` (idempotent). No-op if already finished."""
+    the adapter subprocess, and emit a terminal ``error{code:"cancelled"}``
+    (idempotent). No-op if already finished.
+
+    The subprocess is terminated by handle, not by closing the stream generator.
+    Cancel arrives on the API thread while the worker sits blocked reading the
+    child's stdout, and closing a generator that another thread is executing
+    raises ``ValueError`` — so the old ``closer()`` call could never do the one
+    thing it was there for. Killing the child instead lands EOF on stdout and
+    lets the worker unwind through ``stream_process``'s own cleanup."""
     if not run_store.has_run(run_id):
         return False
     status = run_store.get_status(run_id).get("status")
@@ -556,10 +570,18 @@ def request_cancel(run_id: str) -> bool:
     run_store.cancel_run(run_id)  # sticky "cancelled" status
     if handle is not None:
         handle.cancelled.set()
+        # Kill the child first: it is what the worker is blocked on.
+        thread = handle.thread
+        terminate_for_thread(thread.ident if thread is not None else None)
+        # Still close the generator when we can. It is a no-op mid-iteration
+        # (the ValueError below), but it is the correct unwind if the worker is
+        # between lines, and it keeps non-subprocess adapters cancellable.
         closer = handle.closer
         if closer is not None:
             try:
-                closer()  # GeneratorExit into the adapter -> kill subprocess
+                closer()
+            except (ValueError, RuntimeError):
+                pass  # generator already executing / already closed
             except Exception:
                 pass
     if not already:

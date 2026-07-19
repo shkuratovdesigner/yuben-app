@@ -19,13 +19,95 @@ anything built on top of ``stream()``.
 """
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import threading
+import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterator, List, Optional
 
-__all__ = ["AgentAdapter", "AdapterError", "extract_version"]
+__all__ = [
+    "AgentAdapter",
+    "AdapterError",
+    "extract_version",
+    "terminate_for_thread",
+]
+
+
+# ---------------------------------------------------------------------------
+# Live child processes, keyed by the thread consuming them
+# ---------------------------------------------------------------------------
+#
+# Cancel used to be routed through ``generator.close()`` from the API thread.
+# That cannot work: the worker thread is blocked in ``for raw in proc.stdout``,
+# so closing its generator from elsewhere raises ``ValueError: generator already
+# executing``, which the caller swallowed — the CLI kept running and the UI
+# reported a successful cancel either way.
+#
+# A ``Popen`` handle, unlike a generator, is safe to signal from any thread.
+# ``stream_process`` runs its body on the consuming thread (the generator body
+# only advances on ``next()``), so registering under ``get_ident()`` at spawn
+# time gives the orchestrator a thread-addressable handle on the child.
+# Terminating it lands EOF on stdout, the worker's loop ends, and the existing
+# ``finally`` reaps the child on its own thread exactly as before.
+
+_LIVE_LOCK = threading.Lock()
+_LIVE: Dict[int, List["subprocess.Popen"]] = {}
+
+
+def _register_child(proc: "subprocess.Popen") -> None:
+    with _LIVE_LOCK:
+        _LIVE.setdefault(threading.get_ident(), []).append(proc)
+
+
+def _unregister_child(proc: "subprocess.Popen") -> None:
+    ident = threading.get_ident()
+    with _LIVE_LOCK:
+        procs = _LIVE.get(ident)
+        if not procs:
+            return
+        try:
+            procs.remove(proc)
+        except ValueError:  # pragma: no cover - already dropped
+            pass
+        if not procs:
+            _LIVE.pop(ident, None)
+
+
+def terminate_for_thread(ident: Optional[int]) -> int:
+    """Terminate every live child spawned by thread ``ident``. Returns the count.
+
+    Safe to call from any thread, and safe to call when nothing is running.
+    """
+    if ident is None:
+        return 0
+    with _LIVE_LOCK:
+        procs = list(_LIVE.get(ident, ()))
+    killed = 0
+    for proc in procs:
+        try:
+            if proc.poll() is None:
+                proc.terminate()
+                killed += 1
+        except Exception:  # pragma: no cover - process already reaped
+            pass
+    return killed
+
+
+#: Names scrubbed from the environment of *probe* spawns. A YouTube Data API
+#: key has no business reaching ``claude --version``; the agentic ``stream``
+#: path keeps it, because the CLI shells out to the research scripts, which
+#: read it at import (``config.py:60``). Provider keys are deliberately left
+#: alone — a vendor's own CLI legitimately reads its own credential.
+_PROBE_SCRUBBED_ENV = ("YOUTUBE_API_KEY",)
+
+
+def _probe_env() -> Dict[str, str]:
+    env = dict(os.environ)
+    for name in _PROBE_SCRUBBED_ENV:
+        env.pop(name, None)
+    return env
 
 
 class AdapterError(RuntimeError):
@@ -190,6 +272,7 @@ def run_version(path: str, *, flag: str = "--version", timeout: float = 10.0) ->
             capture_output=True,
             text=True,
             timeout=timeout,
+            env=_probe_env(),
         )
     except Exception:
         return None
@@ -221,10 +304,25 @@ def run_probe(
         timeout=timeout,
         cwd=cwd,
         stdin=subprocess.DEVNULL,
+        env=_probe_env(),
     )
 
 
-def stream_process(cmd: List[str], *, cwd: Optional[str] = None) -> Iterator[str]:
+#: A research run is minutes, not hours. These bound the two ways an agent CLI
+#: wedges: producing nothing at all, and producing a trickle forever. Both are
+#: generous — they exist to stop a hung process holding a run open indefinitely,
+#: not to cut short a slow-but-working one.
+STREAM_IDLE_TIMEOUT = 300.0   # no stdout line for 5 minutes
+STREAM_TOTAL_TIMEOUT = 3600.0  # 1 hour wall clock, whatever it is doing
+
+
+def stream_process(
+    cmd: List[str],
+    *,
+    cwd: Optional[str] = None,
+    idle_timeout: Optional[float] = STREAM_IDLE_TIMEOUT,
+    total_timeout: Optional[float] = STREAM_TOTAL_TIMEOUT,
+) -> Iterator[str]:
     """Popen ``cmd`` and yield decoded, newline-stripped stdout lines.
 
     Drains stderr on a daemon thread (so a chatty CLI cannot deadlock on a full
@@ -232,6 +330,13 @@ def stream_process(cmd: List[str], *, cwd: Optional[str] = None) -> Iterator[str
     :class:`AdapterError` if the process could not start or exited non-zero
     without producing any stdout. This is the engine behind every adapter's
     :meth:`AgentAdapter.stream`.
+
+    Unlike :func:`run_probe`, this cannot pass ``timeout=`` to subprocess — it
+    yields lines as they arrive rather than running to completion — so a
+    watchdog thread enforces the bounds instead. Killing the child lands EOF on
+    stdout and the loop below ends normally; ``AdapterError`` is then raised
+    from the timeout branch so the caller can tell a hang from a clean exit.
+    Pass ``None`` for either bound to disable it.
     """
     try:
         proc = subprocess.Popen(
@@ -248,6 +353,9 @@ def stream_process(cmd: List[str], *, cwd: Optional[str] = None) -> Iterator[str
     except OSError as exc:
         raise AdapterError("Could not launch CLI {}: {}".format(cmd[0], exc)) from exc
 
+    # Make the child reachable from other threads so cancel can stop it.
+    _register_child(proc)
+
     err_chunks: List[str] = []
 
     def _drain_stderr() -> None:
@@ -261,16 +369,52 @@ def stream_process(cmd: List[str], *, cwd: Optional[str] = None) -> Iterator[str
     drainer = threading.Thread(target=_drain_stderr, daemon=True)
     drainer.start()
 
+    # Watchdog: the reader below blocks in the kernel, so the only way to bound
+    # it is from another thread. `timed_out` is set before the kill so the
+    # timeout branch can distinguish this from an ordinary exit.
+    started_at = time.monotonic()
+    last_output_at = [started_at]
+    timed_out: List[str] = []
+    watchdog_stop = threading.Event()
+
+    def _watchdog() -> None:
+        while not watchdog_stop.wait(1.0):
+            if proc.poll() is not None:
+                return
+            now = time.monotonic()
+            if total_timeout is not None and now - started_at > total_timeout:
+                timed_out.append(
+                    "CLI exceeded the {:.0f}s time limit".format(total_timeout)
+                )
+            elif idle_timeout is not None and now - last_output_at[0] > idle_timeout:
+                timed_out.append(
+                    "CLI produced no output for {:.0f}s".format(idle_timeout)
+                )
+            else:
+                continue
+            try:
+                proc.terminate()
+            except Exception:  # pragma: no cover - already gone
+                pass
+            return
+
+    watchdog = threading.Thread(target=_watchdog, daemon=True)
+    watchdog.start()
+
     saw_output = False
     try:
         assert proc.stdout is not None
         for raw in proc.stdout:
+            last_output_at[0] = time.monotonic()
             line = raw.rstrip("\n")
             if line:
                 saw_output = True
                 yield line
     finally:
-        # Reap the child. If the consumer stopped early, ask it to stop.
+        watchdog_stop.set()
+        # Reap the child. If the consumer stopped early — or cancel terminated
+        # it from another thread — this is where it gets waited on.
+        _unregister_child(proc)
         if proc.poll() is None:
             proc.terminate()
             try:
@@ -284,6 +428,10 @@ def stream_process(cmd: List[str], *, cwd: Optional[str] = None) -> Iterator[str
         else:
             proc.wait()
         drainer.join(timeout=1)
+        watchdog.join(timeout=2)
+
+    if timed_out:
+        raise AdapterError(timed_out[0])
 
     if proc.returncode not in (0, None) and not saw_output:
         raise AdapterError(

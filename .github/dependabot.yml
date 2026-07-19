@@ -1,7 +1,12 @@
 version: 2
 updates:
+  # Python. `/` is the root scripts' requirements.txt; `/backend` is the real
+  # dependency set (FastAPI, the provider SDKs, the Google API client). Only `/`
+  # was listed before, so the manifest that actually matters went unwatched.
   - package-ecosystem: "pip"
-    directory: "/"
+    directories:
+      - "/"
+      - "/backend"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -13,6 +18,24 @@ updates:
     labels:
       - "dependencies"
       - "python"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # The frontend had no entry at all — 160 packages, none of them watched.
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    groups:
+      npm-dependencies:
+        patterns:
+          - "*"
+    labels:
+      - "dependencies"
+      - "javascript"
     commit-message:
       prefix: "deps"
       include: "scope"

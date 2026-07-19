@@ -8,7 +8,7 @@
 ### Find the YouTube videos that massively outperform their channels — and learn exactly why.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-120%20passing-brightgreen.svg)](#development)
+[![CI](https://github.com/shkuratovdesigner/yuben-app/actions/workflows/ci.yml/badge.svg)](https://github.com/shkuratovdesigner/yuben-app/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB.svg?logo=python&logoColor=white)](backend/pyproject.toml)
 [![React](https://img.shields.io/badge/React-19-61DAFB.svg?logo=react&logoColor=black)](frontend/package.json)
 [![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688.svg?logo=fastapi&logoColor=white)](backend/app/main.py)
@@ -16,13 +16,15 @@
 
 <img src="docs/assets/results-light.png" alt="YuBen results screen — outlier videos for “how to become a better YouTuber”, ranked by VSR with a recommended watch list and title analysis" width="900" />
 
+<sub><b>Demo data.</b> Video IDs, titles and channels are real; view, subscriber and like counts are representative sample values, not live API readings.</sub>
+
 </div>
 
 ---
 
 **YuBen** is a local-first web app for YouTube content research. Type a topic and it finds *outlier* videos — ones that earn far more views than their channel's subscriber count predicts — then explains what makes them win: a ranked watch list, title-pattern analysis, and a concrete game plan for your own video.
 
-The core signal is **VSR (views ÷ subscribers)**. In the run above, a 140k-subscriber channel pulled 2.1M views (15×) while a 6.2M-subscriber channel managed 4.1M on the same topic (0.6×) — the multiple, not the raw view count, tells you the *idea* carried the video rather than the audience. Those are the videos worth studying.
+The core signal is **VSR (views ÷ subscribers)**. In the demo run above, a 140k-subscriber channel pulled 2.1M views (15×) while a 6.2M-subscriber channel managed 4.1M on the same topic (0.6×) — the multiple, not the raw view count, tells you the *idea* carried the video rather than the audience. Those are the videos worth studying.
 
 ## How it works
 
@@ -77,7 +79,7 @@ For **live research**, run `make dev-live` and connect two things in the app's o
 ### Your keys stay on your machine
 
 - Everything runs locally — there is no hosted service and no telemetry.
-- Keys are stored in your **OS keychain** (via `keyring`), never in the repo or a dotfile, and the store is **write-only** toward the UI: the frontend can set or test a key but can never read it back.
+- Keys are stored in your **OS keychain** (via `keyring`), and the store is **write-only** toward the UI: the frontend can set or test a key but can never read it back. If the keychain is unavailable (headless Linux, CI), it falls back to a `0600` file under `backend/.yuben/`, which is gitignored — never the repo, never a dotfile in your home directory.
 - Each key is only ever sent to its own provider's API — the YouTube key to `googleapis.com`, a model key to that model provider (e.g. `api.anthropic.com`).
 
 ## Model adapters
@@ -102,7 +104,7 @@ YuBen doesn't care which LLM writes the narrative — the model sits behind one 
 | **Qwen Code** · **GitHub Copilot CLI** · **Amp** | ⚗️ experimental — flags follow each CLI's conventions but aren't confirmed end-to-end |
 | **Gemini CLI** | 🧩 stubbed — interface wired, run surface unfinished |
 
-Model lists are **fetched live** from each provider rather than hardcoded, so the picker shows what's actually available today (OpenRouter's and Ollama's need no credential; Ollama lists the models you've pulled). Nothing here goes stale as vendors ship new models.
+Model lists are **fetched live** for the API-based adapters — OpenAI, OpenRouter and Ollama — so those pickers show what's actually available today (OpenRouter's and Ollama's need no credential; Ollama lists the models you've pulled). The Anthropic and Claude Code adapters ship a short hardcoded list, and the agent CLIs expose a single `default` entry, since the CLI decides its own model.
 
 **Adding your own** is a table row, not a class: append a `CliSpec` to [`backend/app/adapters/cli_agents.py`](backend/app/adapters/cli_agents.py) for an agent CLI, or subclass `OpenAICompatibleAdapter` in [`openai_compatible.py`](backend/app/adapters/openai_compatible.py) for anything speaking the OpenAI protocol (most local servers do). Register it in [`__init__.py`](backend/app/adapters/__init__.py), add a mark to [`adapter-icons.tsx`](frontend/src/app/adapter-icons.tsx), and the UI picks it up automatically via `GET /api/adapters`. **Adapter PRs very welcome** — especially confirmations or fixes for the experimental three.
 
@@ -122,7 +124,7 @@ flowchart LR
     VER --> API
 ```
 
-The frontend and backend never share hand-written types: every payload crossing the wire is defined once in [`contracts/schemas/`](contracts/schemas) (JSON Schema) and generated into TypeScript types and Pydantic models, validated against committed fixtures on both sides.
+Every payload crossing the wire is defined once in [`contracts/schemas/`](contracts/schemas) (JSON Schema). The TypeScript types and Pydantic models are hand-maintained mirrors of those schemas rather than generated from them — what keeps them honest is that committed fixtures are validated against the schemas on both sides, in CI.
 
 ```
 yuben-app/
