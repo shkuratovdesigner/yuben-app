@@ -56,7 +56,8 @@ The core signal is **VSR (views ÷ subscribers)**. In the demo run above, a 140k
 
 ## Quickstart
 
-Needs **Python 3.10+** and **Node 20+**. On macOS `python3` is still 3.9, so
+Needs **Python 3.10+** and **Node 20.19+ or 22.12+** (what Vite and oxlint
+require — plain "Node 20" is not enough, and 21.x will not work). On macOS `python3` is still 3.9, so
 `make install` picks the newest suitable interpreter on your PATH — point it
 somewhere specific with `make install PYTHON=/path/to/python3.12`.
 

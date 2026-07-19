@@ -9,6 +9,11 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),
+      // The shared contract fixtures, one level up. This used to be a
+      // `frontend/fixtures` symlink, which git checks out as a 21-byte text
+      // file on Windows without core.symlinks — breaking `dev` and `build`
+      // outright. An alias resolves identically on every platform.
+      '@fixtures': path.resolve(import.meta.dirname, '../contracts/fixtures'),
     },
   },
   server: {

@@ -2,18 +2,18 @@
 
 ## Reporting a vulnerability
 
-**Please do not open a public issue for a security problem.**
+If you have found something that could put a user's API keys or machine at
+risk, **please report it without posting the details publicly.**
 
-Use GitHub's private reporting instead:
-[**Report a vulnerability**](https://github.com/shkuratovdesigner/yuben-app/security/advisories/new).
-That opens a private thread visible only to the maintainer.
+Open an issue titled "Security report" with no specifics — just say you have
+one and how to reach you — and you'll get a reply to continue privately.
 
-Useful things to include, if you have them: what an attacker can do, the steps
-to reproduce, and which version or commit you tested. A proof of concept is
-welcome but not required.
+Useful things to include once we're in touch: what an attacker can do, the
+steps to reproduce, and which version or commit you tested. A proof of concept
+is welcome but not required.
 
-Expect a first response within a week. If a fix is warranted, the advisory
-stays private until it ships, and you'll be credited unless you'd rather not be.
+Expect a first response within a week. You'll be credited when a fix ships,
+unless you'd rather not be.
 
 ## What this project's threat model actually is
 

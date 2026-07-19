@@ -18,9 +18,22 @@ import statistics
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-_PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
-if _PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, _PROJECT_ROOT)
+# Make `youtube_research.*` resolve to this directory when the script is run
+# directly (`python shorts_research.py`). Under the backend this is already done
+# by app/pipeline/_paths.py, so both guards below are no-ops there.
+#
+# This block used to put the repo's *parent* on sys.path, which only resolved
+# through a `youtube_research -> YuBen` symlink that existed on one machine. On
+# a clean checkout the script died with ModuleNotFoundError.
+_REPO_ROOT = Path(__file__).resolve().parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+if "youtube_research" not in sys.modules:
+    import types as _types
+
+    _pkg = _types.ModuleType("youtube_research")
+    _pkg.__path__ = [str(_REPO_ROOT)]  # type: ignore[attr-defined]
+    sys.modules["youtube_research"] = _pkg
 
 from googleapiclient.errors import HttpError
 from youtube_research.youtube_api import (
