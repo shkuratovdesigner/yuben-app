@@ -46,14 +46,22 @@ jobs:
         run: python -m pytest -q
 
   frontend:
-    name: Frontend
+    name: Frontend (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Both ends of the supported range from package.json engines. Pinning
+        # the low end matters: a bare '20' silently floats to whatever the
+        # runner ships, so the declared 20.19 floor would never actually be
+        # exercised.
+        node-version: ['20.19', '22']
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node-version }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 

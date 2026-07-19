@@ -11,7 +11,8 @@
 
     /* Path alias: @ -> src (TS 6 resolves paths relative to this file; no baseUrl) */
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@fixtures/*": ["../contracts/fixtures/*"]
     },
 
     /* Bundler mode */

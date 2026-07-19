@@ -39,12 +39,12 @@ import { API_BASE, USE_MOCKS } from '@/lib/env'
 
 // Bundled fixtures (mock data source). JSON imports need `resolveJsonModule`;
 // the JSONL stream is imported as raw text (`vite/client` types `?raw` = string).
-import adaptersJson from '../../fixtures/adapters.json'
-import configJson from '../../fixtures/config.json'
-import historyJson from '../../fixtures/history.json'
-import longformJson from '../../fixtures/research-result.longform.json'
-import shortsJson from '../../fixtures/research-result.shorts.json'
-import eventsRaw from '../../fixtures/progress-events.jsonl?raw'
+import adaptersJson from '@fixtures/adapters.json'
+import configJson from '@fixtures/config.json'
+import historyJson from '@fixtures/history.json'
+import longformJson from '@fixtures/research-result.longform.json'
+import shortsJson from '@fixtures/research-result.shorts.json'
+import eventsRaw from '@fixtures/progress-events.jsonl?raw'
 
 /**
  * The client every screen imports. One method per CONTRACTS §1 endpoint plus
