@@ -25,6 +25,28 @@ from youtube_research.config import (
 )
 
 # ---------------------------------------------------------------------------
+# Error formatting
+# ---------------------------------------------------------------------------
+
+def http_error_note(exc: HttpError) -> str:
+    """A short, key-free description of an ``HttpError``.
+
+    NEVER log or print the exception itself. ``googleapiclient`` puts the API
+    key in the request URI and ``HttpError.__str__`` interpolates that URI
+    verbatim, so ``f"failed: {e}"`` prints a live credential to stdout.
+
+    Defined locally rather than imported from ``app.redact`` because this module
+    also runs standalone (``python longform_research.py``), where the backend
+    package is not importable.
+    """
+    status = getattr(getattr(exc, "resp", None), "status", None)
+    reason = getattr(exc, "reason", None)
+    if isinstance(reason, str) and reason.strip():
+        return f"HTTP {status} ({reason.strip()})" if status else reason.strip()
+    return f"HTTP {status}" if status else type(exc).__name__
+
+
+# ---------------------------------------------------------------------------
 # Service builder
 # ---------------------------------------------------------------------------
 
@@ -108,7 +130,7 @@ def search_videos(
         )
     except HttpError as e:
         if e.resp.status == 403:
-            print(f"WARNING: YouTube API quota exceeded during search: {e}")
+            print(f"WARNING: YouTube API quota exceeded during search: {http_error_note(e)}")
             return []
         raise
 
@@ -169,7 +191,7 @@ def get_video_details(video_ids: list) -> list:
             )
         except HttpError as e:
             if e.resp.status == 403:
-                print(f"WARNING: YouTube API quota exceeded during video details: {e}")
+                print(f"WARNING: YouTube API quota exceeded during video details: {http_error_note(e)}")
                 return all_details  # return partial results
             raise
 
@@ -247,7 +269,7 @@ def get_channel_uploads_playlist(channel_id: str) -> Optional[str]:
         )
     except HttpError as e:
         if e.resp.status == 403:
-            print(f"WARNING: YouTube API quota exceeded fetching channel: {e}")
+            print(f"WARNING: YouTube API quota exceeded fetching channel: {http_error_note(e)}")
             return None
         raise
 
@@ -298,7 +320,7 @@ def get_playlist_video_ids(
         )
     except HttpError as e:
         if e.resp.status == 403:
-            print(f"WARNING: YouTube API quota exceeded fetching playlist: {e}")
+            print(f"WARNING: YouTube API quota exceeded fetching playlist: {http_error_note(e)}")
             return []
         raise
 

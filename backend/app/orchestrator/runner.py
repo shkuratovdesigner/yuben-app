@@ -23,6 +23,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from pydantic import ValidationError
 
 from contracts.python.models import AgentResult, ResearchRequest, Video
+from app.redact import redact
 from app.store import run_store
 
 from app.orchestrator.events import make_error_event, make_event
@@ -187,7 +188,12 @@ def _classify_external_error(exc: Exception) -> Exception:
             "We couldn't find the agent CLI. Install it, then run the "
             "environment check again."
         )
-    return _CliFailed("The agent CLI failed: %s" % (str(exc) or type(exc).__name__))
+    # Never interpolate a raw external exception: googleapiclient's HttpError
+    # repr carries the request URI, which carries the API key. `redact` strips
+    # it; `make_error_event` scrubs again on the way out (app/redact.py).
+    return _CliFailed(
+        "The agent CLI failed: %s" % (redact(str(exc)) or type(exc).__name__)
+    )
 
 
 def _coerce_videos(rows: Any) -> List[Video]:

@@ -32,6 +32,7 @@ from youtube_research.youtube_api import (
     build_service,
     search_videos,
     get_video_details,
+    http_error_note,
 )
 
 MIN_LONG_SECONDS = 120  # keep >= 2 min; drops Shorts and tiny clips
@@ -71,7 +72,7 @@ def get_channel_stats(channel_ids: list) -> dict:
                 .execute()
             )
         except HttpError as e:
-            log(f"channel stats error: {e}")
+            log(f"channel stats error: {http_error_note(e)}")
             continue
         for item in resp.get("items", []):
             stats = item.get("statistics", {})
