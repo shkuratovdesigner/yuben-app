@@ -28,14 +28,15 @@ from typing import Any, Dict, Iterator, List, Optional
 
 from app.adapters.base import AdapterError, AgentAdapter
 
-# The Messages default model (claude-api skill: default to Opus 4.8 unless the
+# The Messages default model (claude-api skill: default to Opus 5 unless the
 # user names another). "default" in the UI maps here.
-_DEFAULT_MODEL = "claude-opus-4-8"
+_DEFAULT_MODEL = "claude-opus-5"
 
 # Current selectable Claude model ids — mirrors ClaudeCodeAdapter so the onboarding
 # model select is identical whichever path the user connects through.
 _MODELS: List[str] = [
     "default",
+    "claude-opus-5",
     "claude-opus-4-8",
     "claude-sonnet-5",
     "claude-haiku-4-5",
@@ -198,7 +199,7 @@ class DirectAnthropicAdapter(AgentAdapter):
         The orchestrator's shared stream path calls ``stream(prompt)`` without a
         model, so honor the user's onboarding selection by reading it from the
         stored config (fresh per call → thread-safe across concurrent runs);
-        ``"default"``/unset falls back to Opus 4.8.
+        ``"default"``/unset falls back to ``_DEFAULT_MODEL``.
         """
         if model and model != "default":
             return model

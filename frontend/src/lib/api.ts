@@ -114,7 +114,7 @@ const MOCK_KEY_ADAPTERS: Record<
     flag: 'anthropic_key_present',
     label: 'Anthropic',
     version: '0.117.0',
-    model: 'claude-opus-4-8',
+    model: 'claude-opus-5',
   },
   'openai-api': {
     flag: 'openai_key_present',

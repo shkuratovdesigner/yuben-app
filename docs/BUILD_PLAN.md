@@ -50,7 +50,7 @@ YuBen/
 │   │   ├── store/             # SQLite config + history; secret storage
 │   │   └── models/            # Pydantic (mirror contracts)
 │   └── tests/
-├── contracts/                # JSON Schemas, TS types, Pydantic, fixtures, build_fixtures.py
+├── contracts/                # JSON Schemas, TS types, Pydantic, fixtures, build_mock_fixtures.py
 ├── docs/                     # this PRD/CONTRACTS/BUILD_PLAN
 ├── longform_research.py …    # EXISTING scripts — reused as-is (wrapped, not rewritten)
 └── data/                     # existing raw JSON (source for fixtures)
@@ -97,7 +97,7 @@ Dev ergonomics (Phase 0): `make dev` runs frontend (5173) + backend (8000); `VIT
 | ID | Agent scope | Deliverable | Depends | Verify |
 |---|---|---|---|---|
 | **W0.1** | **Scaffold** monorepo: Vite+React+TS+Tailwind+shadcn init, FastAPI skeleton, `contracts/` package, lint/format/test tooling, `make dev`, mock switch. | Repo builds; empty app renders; backend `/api/health` 200. | — | `npm run build`, `pytest -q`, both dev servers boot. |
-| **W0.2** | **Contracts & fixtures** (linchpin): JSON Schemas + generated TS types + Pydantic models for every object in CONTRACTS.md; `build_fixtures.py` normalizes `data/*.json` → `research-result.*.json`; progress/adapters/history/config fixtures. | `contracts/` complete; fixtures validate against schemas. | W0.1 | Schema-validate fixtures in CI; TS types compile; Pydantic loads fixtures. |
+| **W0.2** | **Contracts & fixtures** (linchpin): JSON Schemas + generated TS types + Pydantic models for every object in CONTRACTS.md; `build_fixtures.py` normalizes `data/*.json` → `research-result.*.json`; progress/adapters/history/config fixtures. *(Since superseded: fixtures are now built by `build_mock_fixtures.py` from `contracts/mock_videos/`, and `build_fixtures.py` was stripped to its normalizer and renamed `normalize_reference.py`.)* | `contracts/` complete; fixtures validate against schemas. | W0.1 | Schema-validate fixtures in CI; TS types compile; Pydantic loads fixtures. |
 | **W0.3** | **Design system**: Tailwind theme (tokens from Figma: `#2B2D33`, `#777274`, `#D5D5D6`, teal accent, serif+sans fonts, Label-Large scale), shadcn base, shared primitives (Button pill, Card, Select, Checkbox, Tabs, Table, Badge, KeyInput, Progress, Toggle). Pull exact values via `get_design_context` on `1:12`. | `components/ui/*` + Storybook/preview page. | W0.1 | Visual preview page matches Figma primitives; tokens applied. |
 
 ---

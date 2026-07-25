@@ -130,6 +130,7 @@ export default function DesignPreview() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="default">Default</SelectItem>
+                <SelectItem value="claude-opus-5">claude-opus-5</SelectItem>
                 <SelectItem value="claude-opus-4-8">claude-opus-4-8</SelectItem>
                 <SelectItem value="claude-sonnet-5">claude-sonnet-5</SelectItem>
               </SelectContent>
