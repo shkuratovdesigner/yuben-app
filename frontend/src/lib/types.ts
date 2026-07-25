@@ -169,6 +169,9 @@ export interface ResultMeta {
   keywords: string[]
   ranking: string
   counts: Record<string, number>
+  /** True only for the bundled example run seeded on first boot — its counts are
+   *  representative, not live API readings. Absent on runs made before the flag. */
+  is_example?: boolean
 }
 
 export interface ResearchResult {

@@ -2,9 +2,11 @@
 which WRITES progress) and B5 (result endpoint, which READS). Keeping the run
 state here means B4 and B5 never edit the same file.
 
-Single local user, so a process-global dict guarded by a lock is enough. Runs do
-NOT survive a backend restart; durable history lives separately in
-``history_store`` (B5 writes a HistoryItem when a run finishes).
+Single local user, so a process-global dict guarded by a lock is enough. A run's
+*progress* does not survive a backend restart, but its *result* does:
+``set_result`` writes through to ``result_store`` and ``get_result`` falls back
+to it, so a finished run reopens from History even in a fresh process. The
+HistoryItem summary alongside it is written by ``history_store``.
 
 Interface (stable — B4/B5 depend on these exact names):
     create_run(request) -> run_id          # register a run, returns "r_<uuid>"
@@ -31,6 +33,8 @@ import threading
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
+
+from app.store import result_store
 
 _TERMINAL = {"done", "error"}
 
@@ -111,7 +115,12 @@ def get_events(run_id: str) -> List[Any]:
 
 
 def set_result(run_id: str, result: Any) -> None:
-    """Attach the final result and mark the run done (unless cancelled)."""
+    """Attach the final result and mark the run done (unless cancelled).
+
+    Also writes the result through to SQLite so it outlives this process — see
+    ``result_store``. Persistence is best-effort: a DB hiccup must not lose a run
+    the user is looking at right now.
+    """
     with _LOCK:
         run = _RUNS.get(run_id)
         if run is None:
@@ -120,13 +129,26 @@ def set_result(run_id: str, result: Any) -> None:
         run.phase = "done"
         if run.status != "cancelled":
             run.status = "done"
+    try:
+        result_store.save_result(run_id, result)
+    except Exception:  # pragma: no cover - the in-memory copy still serves
+        pass
 
 
 def get_result(run_id: str) -> Optional[Any]:
-    """The final result, or None if the run is unknown or not yet done."""
+    """The final result: this process's copy, else the stored one.
+
+    The fallback is what makes History work across restarts — and what lets a
+    seeded run (the bundled example) open like any other.
+    """
     with _LOCK:
         run = _RUNS.get(run_id)
-        return run.result if run else None
+        if run is not None and run.result is not None:
+            return run.result
+    try:
+        return result_store.load_result(run_id)
+    except Exception:  # pragma: no cover - unreadable store reads as "no result"
+        return None
 
 
 def get_status(run_id: str) -> Dict[str, Optional[str]]:

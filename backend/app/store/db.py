@@ -10,10 +10,13 @@ together):
   * ``$YUBEN_DATA_DIR`` when set — used by tests for isolation; else
   * ``backend/.yuben`` (repo-relative), created lazily on first use.
 
-Schema — two tables:
+Schema — three tables:
   * ``config``      — single row (id = 1): adapter, model, onboarding_complete,
                       settings_json.
   * ``history``     — one row per saved run (mirrors contracts HistoryItem).
+  * ``results``     — the full ResearchResult JSON per run. History rows are only
+                      a summary; without this table "reopen a past run" dies on
+                      the first restart, because live runs are held in memory.
 """
 from __future__ import annotations
 
@@ -47,6 +50,10 @@ CREATE TABLE IF NOT EXISTS history (
     created_at      TEXT NOT NULL,
     counts_json     TEXT NOT NULL,
     outperformance  TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS results (
+    run_id          TEXT PRIMARY KEY,
+    result_json     TEXT NOT NULL
 );
 """
 

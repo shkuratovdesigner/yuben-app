@@ -218,6 +218,31 @@ export function LoaderErrorCard({ code, message }: { code: ErrorCode; message?: 
   )
 }
 
+/** The run id isn't on the server. Its own card, because every ErrorCode would
+ *  claim a run failed — nothing failed here, there's just nothing to show. */
+export function LoaderMissingCard() {
+  const navigate = useNavigate()
+  return (
+    <Stage>
+      <Card className="flex w-full flex-col items-center gap-6 p-8 text-center sm:p-10">
+        <span className="flex size-12 items-center justify-center rounded-full bg-muted text-brand-grey">
+          <SearchX className="size-6" />
+        </span>
+        <div className="flex flex-col gap-2">
+          <h1 className="font-display text-[26px] leading-tight text-foreground">
+            This run isn’t here anymore
+          </h1>
+          <p className="text-[15px] leading-relaxed text-brand-muted">
+            Runs are kept in memory while the app is open, so restarting the backend clears them.
+            Nothing is running behind this page — start a new search to pick it up again.
+          </p>
+        </div>
+        <Button onClick={() => navigate('/')}>New search</Button>
+      </Card>
+    </Stage>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Screen.
 // ---------------------------------------------------------------------------
@@ -243,6 +268,14 @@ export default function Loader() {
   if (status === 'error') {
     const code: ErrorCode = error?.code ?? latestEvent?.error?.code ?? 'unknown'
     return <LoaderErrorCard code={code} message={error?.message ?? latestEvent?.error?.message} />
+  }
+
+  // --- The server has no such run ------------------------------------------
+  // Not an ErrorCode: no run failed, so don't dress it as a failure. Runs are
+  // held in memory, so a restarted backend forgets them and any old /run/ link
+  // lands here.
+  if (status === 'missing') {
+    return <LoaderMissingCard />
   }
 
   // --- In-progress state ---------------------------------------------------

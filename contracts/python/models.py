@@ -165,6 +165,10 @@ class ResultMeta(Strict):
     keywords: List[str]
     ranking: str
     counts: Dict[str, int]
+    # True only for the bundled example run seeded on first boot. Its numbers are
+    # representative rather than live API readings, so the flag rides along with
+    # the data and a real run of the user's can always be told apart from it.
+    is_example: bool = False
 
 
 class ResearchResult(Strict):
@@ -230,7 +234,12 @@ class AgentResult(Strict):
     keywords: List[str]
     top_video_ids: List[AgentTopVideoRef]
     watch_list: List[WatchListItem]
-    title_analysis: Optional[TitleAnalysis]
-    script_analysis: Optional[ScriptAnalysis]
+    # Deliberately DEFAULTED, unlike the JSON Schema's `required` list: when a
+    # toggle is off the prompt tells the agent to emit `null`, and CLIs routinely
+    # drop null keys instead. Omitted and null mean the same thing here, so a
+    # dropped key must not sink a run that already spent YouTube quota. A toggle
+    # that IS on and comes back empty is caught by the orchestrator, not here.
+    title_analysis: Optional[TitleAnalysis] = None
+    script_analysis: Optional[ScriptAnalysis] = None
     title_formulas: Optional[List[TitleFormula]] = None
     game_plan: Optional[GamePlan] = None

@@ -65,12 +65,12 @@ somewhere specific with `make install PYTHON=/path/to/python3.12`.
 git clone https://github.com/shkuratovdesigner/yuben-app.git
 cd yuben-app
 make install     # backend venv + frontend node deps
-make dev         # backend :8000 + frontend :5173 — UI in mock mode
+make dev         # backend :8000 + frontend :5173
 ```
 
-Then open `http://localhost:5173` in your browser — the app runs entirely on your own machine (nothing is hosted). In mock mode that's the full UI on bundled fixtures, no API keys needed.
+Then open `http://localhost:5173` in your browser — the app runs entirely on your own machine (nothing is hosted).
 
-For **live research**, run `make dev-live` and connect two things in the app's onboarding flow:
+To do real research, connect two things in the app's onboarding flow:
 
 | What | Used for | Where to get it |
 |---|---|---|
@@ -143,6 +143,12 @@ make test        # backend pytest + frontend typecheck
 make build       # production frontend build
 make help        # everything else
 ```
+
+There is no mock mode — the app always talks to its backend. A fresh install is
+seeded once with the bundled example run from `contracts/fixtures/` (the one
+pictured above), so History has a finished run to open before you spend any
+YouTube quota. It carries `meta.is_example`, which is what stamps its exports as
+sample data; delete it from History and it stays deleted.
 
 The backend test suite runs with **no network and no keys** — the YouTube client and LLM adapters are mocked, and pipeline behavior is verified against the committed contract fixtures. A handful of raw-data parity tests skip unless local `data/*.json` pipeline output is present.
 

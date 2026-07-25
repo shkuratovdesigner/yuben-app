@@ -15,15 +15,14 @@ PYTHON ?= $(shell for p in python3.14 python3.13 python3.12 python3.11 python3.1
 	  && echo $$p && break; \
 	done)
 
-.PHONY: help install install-backend install-frontend dev dev-live dev-backend \
-        dev-frontend dev-frontend-live build typecheck test test-backend fixtures \
+.PHONY: help install install-backend install-frontend dev dev-backend \
+        dev-frontend build typecheck test test-backend fixtures \
         validate-fixtures clean
 
 help:
 	@echo "YuBen dev commands:"
 	@echo "  make install     Create backend venv + install frontend node deps"
-	@echo "  make dev         Run backend (:8000) + frontend (:5173) — frontend in MOCK mode"
-	@echo "  make dev-live    Run backend + frontend in LIVE mode (VITE_USE_MOCKS=0)"
+	@echo "  make dev         Run backend (:8000) + frontend (:5173) — the real app"
 	@echo "  make build       Production build of the frontend (tsc -b && vite build)"
 	@echo "  make test        Backend pytest + frontend typecheck"
 	@echo "  make fixtures    Rebuild demo fixtures from contracts/mock_videos/, then validate"
@@ -47,25 +46,19 @@ install-backend:
 install-frontend:
 	cd $(FRONTEND) && npm install
 
-# Runs both dev servers in parallel; Ctrl-C stops both.
-# `dev`      = frontend in MOCK mode (fixtures, no backend needed).
-# `dev-live` = frontend in LIVE mode (VITE_USE_MOCKS=0) → talks to the real backend.
+# Runs both dev servers in parallel; Ctrl-C stops both. There is one mode: the
+# real app. The frontend always talks to the backend, and the bundled example run
+# is seeded into the backend's store so a fresh install still has something to
+# open before any quota is spent.
 dev:
-	@echo "Starting backend :8000 + frontend :5173 [MOCKS] (Ctrl-C to stop)…"
+	@echo "Starting backend :8000 + frontend :5173 (Ctrl-C to stop)…"
 	@$(MAKE) -j2 dev-backend dev-frontend
-
-dev-live:
-	@echo "Starting backend :8000 + frontend :5173 [LIVE] (Ctrl-C to stop)…"
-	@$(MAKE) -j2 dev-backend dev-frontend-live
 
 dev-backend:
 	cd $(BACKEND) && .venv/bin/uvicorn app.main:app --reload --port 8000
 
 dev-frontend:
 	cd $(FRONTEND) && npm run dev
-
-dev-frontend-live:
-	cd $(FRONTEND) && npm run dev:live
 
 build:
 	cd $(FRONTEND) && npm run build

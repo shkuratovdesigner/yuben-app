@@ -24,6 +24,8 @@
  *   'running' — live: progress events are streaming.
  *   'done'    — finished; `result` is populated. (Only now may Results mount.)
  *   'error'   — failed or cancelled; `error` holds {code, message}.
+ *   'missing' — the server has no such run (404). Terminal, and distinct from
+ *               'error': nothing went wrong with a run, there is no run.
  *
  * The App-shell RunRoute switches screens on this: `status === 'done' && result`
  * ⇒ <Results/>, otherwise ⇒ <Loader/>. Results is never mounted without a result.
@@ -38,9 +40,9 @@ import type {
   ResearchRequest,
   ResearchResult,
 } from '@/lib/types'
-import { api } from '@/lib/api'
+import { ApiError, api } from '@/lib/api'
 
-export type RunStatus = 'idle' | 'loading' | 'running' | 'done' | 'error'
+export type RunStatus = 'idle' | 'loading' | 'running' | 'done' | 'error' | 'missing'
 
 export interface RunState {
   runId: string
@@ -154,8 +156,17 @@ export function RunProvider({ children }: { children: ReactNode }) {
       api
         .getResult(runId)
         .then((result) => patchRun(runId, { status: 'done', phase: 'done', result }))
-        .catch(() => {
-          // Not finished (live) — fall back to the live progress stream.
+        .catch((err: unknown) => {
+          // A 404 means the server has no such run — it was never started, or
+          // the backend restarted (runs live in memory). That is terminal:
+          // treating it as "not finished yet" subscribes to a stream that also
+          // 404s, leaving the loader spinning on "Queued" forever.
+          if (err instanceof ApiError && err.status === 404) {
+            patchRun(runId, { status: 'missing' })
+            return
+          }
+          // Any other failure — still running, or a transient blip. Fall back to
+          // the live progress stream.
           patchRun(runId, { status: 'running' })
           subscribe(runId)
         })

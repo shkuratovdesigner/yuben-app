@@ -19,9 +19,13 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+from contextlib import asynccontextmanager  # noqa: E402
+
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.middleware.trustedhost import TrustedHostMiddleware  # noqa: E402
+
+from app.store.seed import seed_example_research  # noqa: E402
 
 from app.security import (  # noqa: E402
     ALLOWED_HOSTS,
@@ -34,7 +38,16 @@ from app.api.history import router as history_router  # noqa: E402
 from app.api.research import router as research_router  # noqa: E402
 from app.api.research_result import router as research_result_router  # noqa: E402
 
-app = FastAPI(title="YuBen Backend", version="0.1.0")
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # A fresh install opens on an empty History, which gives the user nothing to
+    # read the UI against. Seed the bundled example run (once — see seed.py) so
+    # there is a finished run to open before any quota is spent.
+    seed_example_research()
+    yield
+
+
+app = FastAPI(title="YuBen Backend", version="0.1.0", lifespan=lifespan)
 
 # Local-only: the React SPA runs on the Vite dev origin. No other origins.
 app.add_middleware(
