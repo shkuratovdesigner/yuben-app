@@ -65,10 +65,16 @@ somewhere specific with `make install PYTHON=/path/to/python3.12`.
 git clone https://github.com/shkuratovdesigner/yuben-app.git
 cd yuben-app
 make install     # backend venv + frontend node deps
-make dev         # backend :8000 + frontend :5173
+make start       # builds the frontend, then serves everything on :8000
 ```
 
-Then open `http://localhost:5173` in your browser — the app runs entirely on your own machine (nothing is hosted).
+Then open `http://localhost:8000` in your browser — the app runs entirely on your own machine (nothing is hosted).
+
+That is one process on one URL: the frontend is compiled to static files and served by the backend itself, so there is no Node process running and nothing to proxy.
+
+For development use `make dev` instead, which trades that for hot reload — Vite on `:5173` compiling React, uvicorn on `:8000` running the API, started as a pair (Ctrl-C stops both). You still only open one URL, `http://localhost:5173`; it proxies `/api/*` to the backend for you.
+
+Under `make dev` the backend has no interface of its own — `:8000` is a JSON API and answers `404` at the root. It serves the built SPA only when `YUBEN_SERVE_SPA=1`, which just `make start` sets. That is deliberately not inferred from `frontend/dist/` existing: a leftover build would otherwise let `:8000` hand you a stale copy of the app mid-development, and debugging a UI you are not running is worse than getting a `404`.
 
 To do real research, connect two things in the app's onboarding flow:
 
@@ -139,8 +145,9 @@ yuben-app/
 ## Development
 
 ```bash
+make dev         # backend :8000 + frontend :5173, hot reload
 make test        # backend pytest + frontend typecheck
-make build       # production frontend build
+make build       # production frontend build (what `make start` serves)
 make help        # everything else
 ```
 

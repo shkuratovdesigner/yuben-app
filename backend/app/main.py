@@ -25,6 +25,7 @@ from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.middleware.trustedhost import TrustedHostMiddleware  # noqa: E402
 
+from app.spa import DIST_DIR, SERVE_SPA_ENV, mount_spa, spa_requested  # noqa: E402
 from app.store.seed import seed_example_research  # noqa: E402
 
 from app.security import (  # noqa: E402
@@ -79,3 +80,16 @@ app.include_router(adapters_router)
 app.include_router(research_router)
 app.include_router(research_result_router)
 app.include_router(history_router)
+
+# Last, and only when asked: serve the built SPA from this same app, so
+# `make start` is one process on one port. Must come after the routers — the
+# fallback is a catch-all and Starlette matches in registration order.
+#
+# Opt-in rather than "mount if dist/ exists", so a leftover build cannot make
+# :8000 serve a stale UI during `make dev`. See spa.py.
+if spa_requested() and not mount_spa(app):
+    print(
+        f"{SERVE_SPA_ENV} is set but {DIST_DIR} has no index.html — serving the "
+        "API only. Run `make build` (or use `make start`, which builds first).",
+        file=sys.stderr,
+    )

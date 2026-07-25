@@ -16,13 +16,14 @@ PYTHON ?= $(shell for p in python3.14 python3.13 python3.12 python3.11 python3.1
 	done)
 
 .PHONY: help install install-backend install-frontend dev dev-backend \
-        dev-frontend build typecheck test test-backend fixtures \
+        dev-frontend start build typecheck test test-backend fixtures \
         validate-fixtures clean
 
 help:
 	@echo "YuBen dev commands:"
 	@echo "  make install     Create backend venv + install frontend node deps"
-	@echo "  make dev         Run backend (:8000) + frontend (:5173) — the real app"
+	@echo "  make start       Build, then serve the whole app on :8000 — one process"
+	@echo "  make dev         Run backend (:8000) + frontend (:5173) — hot reload"
 	@echo "  make build       Production build of the frontend (tsc -b && vite build)"
 	@echo "  make test        Backend pytest + frontend typecheck"
 	@echo "  make fixtures    Rebuild demo fixtures from contracts/mock_videos/, then validate"
@@ -59,6 +60,19 @@ dev-backend:
 
 dev-frontend:
 	cd $(FRONTEND) && npm run dev
+
+# Real use: one process, one URL. The frontend is compiled to static files and
+# served by the backend itself, so there is no Node process and no proxy hop —
+# just http://localhost:8000. Port 8000 is not configurable here on purpose: the
+# same-origin guard's allowlist (backend/app/security.py) names it, so serving
+# the SPA elsewhere would 403 every state-changing request.
+#
+# YUBEN_SERVE_SPA is what makes the backend serve the build, and this is the only
+# place that sets it — under `make dev` the backend stays a JSON API even if a
+# dist/ is lying around, so :8000 can never answer with a stale UI.
+start: build
+	@echo "YuBen on http://localhost:8000 (Ctrl-C to stop)…"
+	cd $(BACKEND) && YUBEN_SERVE_SPA=1 .venv/bin/uvicorn app.main:app --port 8000
 
 build:
 	cd $(FRONTEND) && npm run build
