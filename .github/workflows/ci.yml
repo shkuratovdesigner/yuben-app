@@ -128,4 +128,9 @@ jobs:
 
       - name: Audit npm dependencies
         working-directory: frontend
-        run: npm audit --audit-level=high
+        # `npm audit --audit-level=high` with an escape hatch: high/critical
+        # advisories still fail, except ones reviewed and found unreachable in
+        # this app, which carry a reason and a review date. A waiver that no
+        # longer matches, or one past its date, fails too — see the script and
+        # SECURITY.md § Dependency advisories.
+        run: npm run audit

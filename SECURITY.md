@@ -46,6 +46,30 @@ no telemetry. That shapes what counts as a vulnerability here:
 - Missing hardening with no demonstrated impact (a header, a version banner)
   unless you can show what it actually enables.
 
+## Dependency advisories
+
+CI fails on any high or critical advisory in the dependency tree. A handful are
+genuinely unreachable in an app shaped like this one, and rather than leave the
+audit permanently red — at which point nobody reads it and the *next* advisory
+goes unnoticed — those are waived explicitly, each with a reason and a date by
+which the reasoning gets re-checked. The list lives in
+`frontend/scripts/audit.mjs`; a waiver that no longer matches anything, or one
+past its review date, fails the build just like an unreviewed advisory.
+
+Currently waived:
+
+| Advisory | Package | Why it cannot affect YuBen | Review by |
+|---|---|---|---|
+| [GHSA-qwww-vcr4-c8h2](https://github.com/advisories/GHSA-qwww-vcr4-c8h2) | `react-router` | CSRF bypass in the **unstable RSC APIs**. The advisory states it only affects applications using those APIs. YuBen is a client-only SPA on `BrowserRouter` — no server rendering, no RSC entry point, no server actions — so the vulnerable path does not exist here. | 2026-10-31 |
+
+The fix for that one is `react-router` 8.3.0, which is a major upgrade rather
+than a patch: v8 folded `react-router-dom` into `react-router`, so it means
+changing every router import, not bumping a version. Worth doing on its own
+merits — just not as a security hotfix for something unreachable.
+
+If you think a waived advisory *is* reachable here, that is exactly the kind of
+report this policy wants — see the top of this file.
+
 ## Handling your own keys
 
 YuBen stores provider keys in your OS keychain via `keyring`, falling back to a
