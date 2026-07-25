@@ -204,6 +204,17 @@ class StreamCollector:
             self._direct_obj = obj
         return None
 
+    def text(self) -> str:
+        """The model's own answer text, unwrapped from any stream framing.
+
+        The final ``result`` string when the stream had one, else the accumulated
+        assistant text. Used by the keyword-expansion step, whose payload is a
+        JSON *array* rather than the object :meth:`extract` looks for.
+        """
+        if self._result_text is not None:
+            return self._result_text
+        return "\n".join(self._text_parts)
+
     def extract(self) -> Optional[Dict[str, Any]]:
         """Best-effort final AgentResult-shaped dict, or ``None`` if none found."""
         if self._direct_obj is not None:

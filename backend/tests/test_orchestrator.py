@@ -23,12 +23,18 @@ os.environ.setdefault("YUBEN_FORCE_FILE_SECRET", "1")
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from contracts.python.models import ProgressEvent, ResearchRequest, ResearchResult, Video  # noqa: E402
+from contracts.python.models import (  # noqa: E402
+    AgentResult,
+    ProgressEvent,
+    ResearchRequest,
+    ResearchResult,
+    Video,
+)
 
 from app.main import app  # noqa: E402
 from app.store import run_store  # noqa: E402
 from app.orchestrator import (  # noqa: E402
-    build_prompt,
+    build_narrative_prompt,
     build_repair_prompt,
     map_filters,
     request_cancel,
@@ -105,20 +111,47 @@ def _streamjson_lines(agent_obj) -> list:
     ]
 
 
-class FakeAdapter:
-    """`.stream(prompt)` returns a fresh iterator; each call may use a different
-    canned transcript (to exercise the repair retry)."""
+def _streamjson_text(answer: str) -> list:
+    """A stream-json transcript whose answer is a bare string (not an object).
 
-    def __init__(self, transcripts):
+    The keyword step returns a JSON *array*, and the CLI hands it over as a string
+    inside a ``result`` event — its brackets live inside a JSON string literal, so
+    scanning the raw line for an array finds nothing. The collector has to unwrap.
+    """
+    return [
+        json.dumps({"type": "system", "subtype": "init", "tools": ["bash"]}),
+        json.dumps({"type": "result", "subtype": "success", "result": answer}),
+    ]
+
+
+class FakeAdapter:
+    """A stream-json CLI adapter, driven through the run loop's two LLM steps.
+
+    Call 1 is keyword expansion — the array comes back wrapped in a ``result``
+    event, exactly as the real CLI frames it. Calls 2+ are the AgentResult
+    narrative; each may use a different canned transcript (repair retry).
+    """
+
+    def __init__(self, transcripts, keyword_lines=None):
         self._transcripts = list(transcripts)
+        self._keyword_lines = (
+            keyword_lines
+            if keyword_lines is not None
+            else _streamjson_text('["ai agents", "agent orchestration"]')
+        )
         self.calls = 0
         self.prompts = []
+        self.stream_kwargs = []
 
-    def stream(self, prompt):
+    def stream(self, prompt, *, model=None, cwd=None):
         self.prompts.append(prompt)
-        idx = min(self.calls, len(self._transcripts) - 1)
+        self.stream_kwargs.append({"model": model, "cwd": cwd})
         self.calls += 1
-        lines = self._transcripts[idx]
+        if self.calls == 1:
+            lines = self._keyword_lines
+        else:
+            idx = min(self.calls - 2, len(self._transcripts) - 1)
+            lines = self._transcripts[idx]
 
         def gen():
             for line in lines:
@@ -126,12 +159,17 @@ class FakeAdapter:
 
         return gen()
 
+    @property
+    def narrative_prompts(self):
+        """The prompts after the expansion call — what ``_run_agent`` sent."""
+        return self.prompts[1:]
+
 
 def _fake_pipeline(videos=None, meta=None):
     vids = videos if videos is not None else [Video.model_validate(v) for v in _FIXTURE["top_videos"]]
     m = meta if meta is not None else dict(_FIXTURE["meta"])
 
-    def runner(request):
+    def runner(request, keywords=None):
         return vids, m
 
     return runner
@@ -182,15 +220,17 @@ def test_map_filters_maps_ui_to_script_params():
     assert f_all["outperformance"]["mode"] == "sort"
 
 
-def test_build_prompt_embeds_trust_and_filters():
-    prompt = build_prompt(_request(upload_date="7d", outperformance="5x", format="longform"))
+def test_narrative_prompt_embeds_trust_and_filters():
+    prompt = build_narrative_prompt(
+        _request(upload_date="7d", outperformance="5x", format="longform"),
+        _fixture_videos(),
+    )
     # HARD TRUST RULE baked in (CONTRACTS §7 / PRD §8).
     assert "MUST NOT invent" in prompt
     assert "narrative only" in prompt
     assert "video_id" in prompt
     assert "DROPS" in prompt
     # Mapped filters surfaced to the agent.
-    assert "longform_research.py" in prompt
     assert "Last 7 days" in prompt
     assert "5× and up" in prompt or "VSR ≥ 5.0" in prompt
     assert "max_results = 15" in prompt
@@ -198,10 +238,24 @@ def test_build_prompt_embeds_trust_and_filters():
     assert "schema_version" in prompt and "top_video_ids" in prompt
 
 
-def test_build_prompt_toggles_control_null_sections():
-    on = build_prompt(_request(analyze_titles=True, analyze_scripts=True))
+def test_narrative_prompt_never_asks_the_agent_to_research():
+    """The bug this replaced: an agentic CLI ran its own search, and B5 dropped
+    every id it returned because they weren't in the pipeline's set."""
+    prompt = build_narrative_prompt(_request(), _fixture_videos())
+    assert "longform_research.py" not in prompt
+    assert "shorts_research.py" not in prompt
+    assert "Do NOT run scripts" in prompt
+    # The only ids it may cite are the collected ones, and they are all present.
+    assert "COLLECTED VIDEOS" in prompt
+    for video in _fixture_videos():
+        assert video.video_id in prompt
+
+
+def test_narrative_prompt_toggles_control_null_sections():
+    vids = _fixture_videos()
+    on = build_narrative_prompt(_request(analyze_titles=True, analyze_scripts=True), vids)
     assert "Titles Analytic: ON" in on and "Script analytics: ON" in on
-    off = build_prompt(_request(analyze_titles=False, analyze_scripts=False))
+    off = build_narrative_prompt(_request(analyze_titles=False, analyze_scripts=False), vids)
     assert "Titles Analytic: OFF" in off and "Script analytics: OFF" in off
     assert "Set title_analysis to null" in off
     assert "Set script_analysis to null" in off
@@ -212,6 +266,68 @@ def test_repair_prompt_is_error_correcting():
     assert "REPAIR REQUEST" in rp
     assert "missing field 'summary'" in rp
     assert "MUST NOT invent" in rp  # trust rule re-stated
+
+
+def test_repair_prompt_restates_the_output_contract():
+    """The repair is a fresh invocation: without the contract the agent is asked
+    to match a schema it was never shown."""
+    rp = build_repair_prompt("orig", {"schema_version": "1.0"}, "bad shape")
+    assert "OUTPUT CONTRACT" in rp
+    # The nested shapes the agent has to get right, not just the top-level keys.
+    for key in ("proof_video_id", "tailored", "thumbnail_concepts"):
+        assert key in rp
+
+
+def test_repair_prompt_echoes_a_whole_agent_result():
+    """Truncating the echo strands the only copy of the research the repair has."""
+    big = _agent_result_dict()
+    big["summary"] = "x" * 8000  # well past the old 2000-char window
+    rp = build_repair_prompt("orig", big, "bad shape")
+    last_id = _FIXTURE["top_videos"][-1]["video_id"]
+    assert last_id in rp, "ids past the echo limit were dropped from the repair"
+
+
+def test_output_contract_documents_every_nested_shape():
+    """Fields the contract names but never describes get invented by the agent."""
+    prompt = build_narrative_prompt(_request(), _fixture_videos())
+    for key in ("shape", "proof_video_id", "tailored", "title_options", "thumbnail_concepts"):
+        assert key in prompt, "%s is emitted but its shape is undocumented" % key
+
+
+# --------------------------------------------------------------------------- #
+# tolerant AgentResult / requested-analysis gap                                #
+# --------------------------------------------------------------------------- #
+def test_agent_result_accepts_omitted_null_sections():
+    """CLIs drop null keys; omitted and null mean the same thing here."""
+    payload = _agent_result_dict()
+    payload.pop("title_analysis")
+    payload.pop("script_analysis")
+    result = AgentResult.model_validate(payload)
+    assert result.title_analysis is None and result.script_analysis is None
+
+
+def test_requested_analysis_gap_flags_only_toggled_on_sections():
+    result = AgentResult.model_validate(_agent_result_dict(titles=False, scripts=False))
+
+    both_off = _runner._requested_analysis_gap(
+        _request(analyze_titles=False, analyze_scripts=False), result
+    )
+    assert both_off == "", "a section the user did not ask for is not a gap"
+
+    titles_on = _runner._requested_analysis_gap(
+        _request(analyze_titles=True, analyze_scripts=False), result
+    )
+    assert "title_analysis" in titles_on and "script_analysis" not in titles_on
+
+    both_on = _runner._requested_analysis_gap(
+        _request(analyze_titles=True, analyze_scripts=True), result
+    )
+    assert "title_analysis" in both_on and "script_analysis" in both_on
+
+
+def test_requested_analysis_gap_silent_when_sections_present():
+    result = AgentResult.model_validate(_agent_result_dict())
+    assert _runner._requested_analysis_gap(_request(), result) == ""
 
 
 # --------------------------------------------------------------------------- #
@@ -263,7 +379,9 @@ def test_run_loop_happy_path_reaches_done_with_result():
     assert run_store.get_status(run_id)["status"] == "done"
     result = run_store.get_result(run_id)
     assert isinstance(result, ResearchResult)
-    assert adapter.calls == 1
+    # expansion (1) + narrative (2) — the same two steps every adapter runs.
+    assert adapter.calls == 2
+    assert "COLLECTED VIDEOS" in adapter.narrative_prompts[0]
 
 
 def test_invalid_agent_output_triggers_one_repair_then_succeeds():
@@ -280,8 +398,8 @@ def test_invalid_agent_output_triggers_one_repair_then_succeeds():
         pipeline_runner=_fake_pipeline(),
         verifier=_fake_verifier,
     )
-    assert adapter.calls == 2  # first attempt + one repair
-    assert "REPAIR REQUEST" in adapter.prompts[1]
+    assert adapter.calls == 3  # expansion + first attempt + one repair
+    assert "REPAIR REQUEST" in adapter.narrative_prompts[1]
     assert run_store.get_status(run_id)["status"] == "done"
 
 
@@ -297,7 +415,7 @@ def test_invalid_output_twice_yields_invalid_output_error():
         pipeline_runner=_fake_pipeline(),
         verifier=_fake_verifier,
     )
-    assert adapter.calls == 2
+    assert adapter.calls == 3  # expansion + two failed narrative attempts
     assert _phases(run_id)[-1] == "error"
     assert _last_error(run_id).code == "invalid_output"
 
@@ -314,7 +432,7 @@ def test_no_json_in_output_triggers_repair_and_errors():
         pipeline_runner=_fake_pipeline(),
         verifier=_fake_verifier,
     )
-    assert adapter.calls == 2
+    assert adapter.calls == 3  # expansion + two failed narrative attempts
     assert _last_error(run_id).code == "invalid_output"
 
 
@@ -354,7 +472,7 @@ def test_quota_error_from_pipeline_maps_to_quota_exceeded():
     req = _request()
     run_id = run_store.create_run(req)
 
-    def quota_pipeline(request):
+    def quota_pipeline(request, keywords=None):
         raise RuntimeError("HTTP 403: quota exceeded for youtube.data")
 
     run_research_job(
@@ -383,20 +501,98 @@ def test_pipeline_dict_rows_are_coerced_to_video_models():
         run_id,
         req,
         adapter_factory=lambda _id: FakeAdapter([_streamjson_lines(_agent_result_dict())]),
-        pipeline_runner=lambda r: (dict_rows, dict(_FIXTURE["meta"])),
+        pipeline_runner=lambda r, keywords=None: (dict_rows, dict(_FIXTURE["meta"])),
         verifier=checking_verifier,
     )
     assert seen_types.get("all_models") is True
     assert run_store.get_status(run_id)["status"] == "done"
 
 
+def test_agentic_adapter_curates_from_the_pipeline_not_its_own_search():
+    """The regression this file exists for.
+
+    An agentic CLI used to be told to run the research scripts itself while the
+    pipeline searched in parallel; B5 then joined two unrelated result sets and
+    routinely kept nothing, rendering "Top 0 Highest-Performed Videos" over a run
+    that had really collected videos. Now the CLI expands keywords, the pipeline
+    searches THOSE, and the CLI curates the ids it was handed.
+    """
+    req = _request()
+    run_id = run_store.create_run(req)
+    seen = {}
+
+    def pipeline(request, keywords=None):
+        seen["keywords"] = keywords
+        return _fixture_videos(), dict(_FIXTURE["meta"])
+
+    adapter = FakeAdapter(
+        [_streamjson_lines(_agent_result_dict())],
+        keyword_lines=_streamjson_text('["ai agents", "build an ai agent"]'),
+    )
+    run_research_job(
+        run_id, req,
+        adapter_factory=lambda _id: adapter,
+        pipeline_runner=pipeline,
+        verifier=_fake_verifier,
+    )
+    # The CLI's keywords drove the deterministic search — not the raw query alone.
+    assert seen["keywords"] == ["ai agents", "build an ai agent"]
+    # And it curated from the collected set rather than being sent off to research.
+    narrative = adapter.narrative_prompts[0]
+    assert "COLLECTED VIDEOS" in narrative
+    assert "longform_research.py" not in narrative
+    assert run_store.get_status(run_id)["status"] == "done"
+
+
+def test_stream_receives_the_requested_model_and_the_repo_root():
+    """The CLI ran on whatever model it defaulted to, from the server's own cwd,
+    because neither was ever passed."""
+    req = _request(model={"adapter": "claude-code", "model": "claude-opus-5"})
+    run_id = run_store.create_run(req)
+    adapter = FakeAdapter([_streamjson_lines(_agent_result_dict())])
+    run_research_job(
+        run_id, req,
+        adapter_factory=lambda _id: adapter,
+        pipeline_runner=_fake_pipeline(),
+        verifier=_fake_verifier,
+    )
+    assert adapter.stream_kwargs, "stream was never called"
+    for kwargs in adapter.stream_kwargs:
+        assert kwargs["model"] == "claude-opus-5"
+        assert kwargs["cwd"] == str(_REPO_ROOT)
+
+
+def test_run_id_is_stamped_into_meta_for_the_verifier():
+    """B5 mints a random run_id when meta has none, which keyed the history row
+    and the stored result to different ids — History could never reopen a run."""
+    req = _request()
+    run_id = run_store.create_run(req)
+    seen = {}
+
+    def checking_verifier(request, agent_result, videos, meta):
+        seen["run_id"] = meta.get("run_id") if isinstance(meta, dict) else None
+        return _fake_verifier(request, agent_result, videos, meta)
+
+    run_research_job(
+        run_id, req,
+        adapter_factory=lambda _id: FakeAdapter([_streamjson_lines(_agent_result_dict())]),
+        pipeline_runner=_fake_pipeline(meta={"counts": {"found": 3}}),
+        verifier=checking_verifier,
+    )
+    assert seen["run_id"] == run_id
+
+
 # --------------------------------------------------------------------------- #
-# direct (non-agentic) adapter path — two LLM steps, pipeline in between       #
+# direct (non-agentic) adapter path — same two LLM steps, plain-text stream     #
 # --------------------------------------------------------------------------- #
 class FakeDirectAdapter:
     """A non-agentic adapter (``agentic=False``): call 1 is keyword expansion
     (yields a JSON array), calls 2+ are the AgentResult narrative (yields the
-    JSON as plain text lines, like the real Messages stream)."""
+    JSON as plain text lines, like the real Messages stream).
+
+    Deliberately keeps the bare ``stream(prompt)`` signature — the run loop passes
+    ``model``/``cwd`` now, and adapters that don't take them must still work.
+    """
 
     agentic = False
 
@@ -544,7 +740,7 @@ def test_cancel_midrun_yields_cancelled_terminal():
     req = _request()
     run_id = run_store.create_run(req)
 
-    def cancelling_pipeline(request):
+    def cancelling_pipeline(request, keywords=None):
         run_store.cancel_run(run_id)  # flip status mid-run
         return [Video.model_validate(v) for v in _FIXTURE["top_videos"]], dict(_FIXTURE["meta"])
 
@@ -623,14 +819,25 @@ def test_cancel_unknown_run_returns_404():
 
 
 def test_cancel_endpoint_ends_run_with_cancelled(monkeypatch):
-    # A slow adapter keeps the run in "analyzing" so cancel lands mid-flight.
+    # Answer the keyword step immediately, then crawl, so the run parks in
+    # "analyzing" and cancel lands mid-flight.
     class SlowAdapter:
-        def stream(self, prompt):
-            for i in range(500):
-                yield json.dumps(
-                    {"type": "assistant", "message": {"content": [{"type": "text", "text": "step %d" % i}]}}
-                )
-                time.sleep(0.01)
+        def __init__(self):
+            self.calls = 0
+
+        def stream(self, prompt, *, model=None, cwd=None):
+            self.calls += 1
+            if self.calls == 1:
+                return iter(_streamjson_text('["ai agents"]'))
+
+            def crawl():
+                for i in range(500):
+                    yield json.dumps(
+                        {"type": "assistant", "message": {"content": [{"type": "text", "text": "step %d" % i}]}}
+                    )
+                    time.sleep(0.01)
+
+            return crawl()
 
     monkeypatch.setattr(_runner, "_default_adapter_factory", lambda _id: SlowAdapter())
     monkeypatch.setattr(_runner, "_default_pipeline_runner", _fake_pipeline())

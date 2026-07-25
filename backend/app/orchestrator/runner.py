@@ -1,12 +1,21 @@
 """Run orchestration (B4) — the background job + cancellation registry.
 
 One run = one background thread (:func:`launch`). The thread walks the loader
-phases (CONTRACTS §3 / PRD §4.4), calls the deterministic pipeline (B3) for the
-authoritative videos, spawns the agent adapter (B2), translates its CLI stream
-into ProgressEvents, validates the ``AgentResult`` (with one repair retry), then
-hands the agent's *narrative + refs* plus the *authoritative videos* to B5's
+phases (CONTRACTS §3 / PRD §4.4) and drives the same two LLM steps for every
+adapter, with the deterministic pipeline (B3) in between:
+
+    1. expand   — the model turns the topic into YouTube search phrases
+    2. pipeline — B3 searches THOSE phrases; its videos are the only facts
+    3. narrate  — the model curates + writes over the videos B3 collected
+
+then hands the agent's *narrative + refs* plus the *authoritative videos* to B5's
 ``assemble_and_verify`` — which owns the join and drops fabricated IDs. The
 orchestrator NEVER merges agent-typed numbers into the result (HARD TRUST RULE).
+
+Agentic CLIs used to be sent off to run the research scripts themselves while the
+pipeline searched in parallel, and B5 joined the two sets — two different searches,
+so the intersection was often empty and the run rendered zero videos. Step 2 is now
+the single source of ids for every adapter; ``agentic`` no longer changes the flow.
 
 Threading choice: the pipeline call and the adapter stream are blocking, so the
 job runs on a daemon thread; the SSE endpoint (async) tails ``run_store`` events.
@@ -18,6 +27,7 @@ from __future__ import annotations
 import json
 import threading
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from pydantic import ValidationError
@@ -30,9 +40,8 @@ from app.store import run_store
 from app.orchestrator.events import make_error_event, make_event
 from app.orchestrator.parse import StreamCollector, find_json_array, validate_agent_result
 from app.orchestrator.prompts import (
-    build_direct_prompt,
     build_expand_prompt,
-    build_prompt,
+    build_narrative_prompt,
     build_repair_prompt,
     map_filters,
 )
@@ -40,10 +49,15 @@ from app.orchestrator.prompts import (
 _UNSET = object()
 _TERMINAL_STATUSES = {"done", "error", "cancelled"}
 
-# Cap the direct adapter's expanded keywords so one run can't balloon YouTube
-# quota (each keyword is a 100-unit search.list). Aligned with the cost meter's
-# "typical" ≈ 14 terms; the model is asked for 6–12.
+# Cap the expanded keywords so one run can't balloon YouTube quota (each keyword
+# is a 100-unit search.list). Aligned with the cost meter's "typical" ≈ 14 terms;
+# the model is asked for 6–12.
 _MAX_EXPANDED_KEYWORDS = 15
+
+# backend/app/orchestrator/runner.py -> parents[3] == the repo root, where the
+# research scripts and `contracts/` live. CLI adapters are spawned there rather
+# than in the server's own cwd (backend/), which is below the project.
+_REPO_ROOT = str(Path(__file__).resolve().parents[3])
 
 
 # --- internal control-flow exceptions (mapped to ErrorCode terminal events) ---
@@ -231,6 +245,19 @@ def _unpack_pipeline(out: Any) -> Tuple[List[Video], Any]:
     raise _CliFailed("pipeline returned an unrecognized shape: %r" % type(out))
 
 
+def _stamp_run(meta: Any, run_id: str) -> None:
+    """Write this run's identity into the pipeline ``meta`` B5 assembles from.
+
+    ``assemble_and_verify`` reads ``meta["run_id"]`` and falls back to a fresh
+    ``uuid4`` when it is absent — and ``run_pipeline``'s meta never had one. The
+    result was two ids per run: the history row keyed on the invented one, the
+    stored result on the orchestrator's, and no way to join them, so History could
+    never reopen a run. B4 owns the run id, so B4 supplies it.
+    """
+    if isinstance(meta, dict):
+        meta.setdefault("run_id", run_id)
+
+
 def _counts_from(meta: Any, videos: List[Any]) -> Dict[str, int]:
     source: Dict[str, Any] = {}
     if isinstance(meta, dict):
@@ -286,16 +313,57 @@ def _try_validate(obj: Optional[Dict[str, Any]]) -> Tuple[Optional[AgentResult],
         return None, "AgentResult schema validation failed: %s" % errors
 
 
+def _requested_analysis_gap(request: ResearchRequest, result: AgentResult) -> str:
+    """Error text when an analysis the user switched ON came back null.
+
+    ``AgentResult`` defaults these to None so a dropped null key can't sink a
+    run (see the model), which means a toggle the user paid for could otherwise
+    vanish silently. This is the counterpart check: it reads the request, so it
+    lives here rather than on the model.
+    """
+    missing = [
+        name
+        for name, on, value in (
+            ("title_analysis", request.analyze_titles, result.title_analysis),
+            ("script_analysis", request.analyze_scripts, result.script_analysis),
+        )
+        if on and value is None
+    ]
+    if not missing:
+        return ""
+    return (
+        "The user switched these analyses ON, but they came back null: %s. "
+        "Populate them from the videos you already listed — do not re-run the "
+        "research." % ", ".join(missing)
+    )
+
+
 # --- agent streaming ----------------------------------------------------------
+def _open_stream(adapter: Any, prompt: str, request: ResearchRequest) -> Any:
+    """``adapter.stream(prompt)`` with the run's model and working directory.
+
+    Both were previously left to default: CLI adapters ran whatever model the CLI
+    picked (silently ignoring the user's onboarding choice) from the server's own
+    cwd. Adapters that don't accept the keywords still work — older/fake adapters
+    with a bare ``stream(prompt)`` fall back to the positional call.
+    """
+    model = getattr(request.model, "model", None)
+    try:
+        return adapter.stream(prompt, model=model, cwd=_REPO_ROOT)
+    except TypeError:
+        return adapter.stream(prompt)
+
+
 def _stream_and_extract(
     run_id: str,
     adapter: Any,
     prompt: str,
     counts: Dict[str, int],
+    request: ResearchRequest,
 ) -> Optional[Dict[str, Any]]:
     collector = StreamCollector()
     try:
-        stream = adapter.stream(prompt)
+        stream = _open_stream(adapter, prompt, request)
     except Exception as exc:  # noqa: BLE001 - classified below
         raise _classify_external_error(exc)
 
@@ -330,40 +398,52 @@ def _run_agent(
     counts: Dict[str, int],
 ) -> AgentResult:
     """Stream ``prompt`` through the (already-resolved) ``adapter``, validate the
-    AgentResult, and repair once on failure. Shared by the agentic + direct paths
-    (only the prompt differs)."""
-    obj = _stream_and_extract(run_id, adapter, prompt, counts)
+    AgentResult, and repair once on failure."""
+    obj = _stream_and_extract(run_id, adapter, prompt, counts, request)
     agent_result, err = _try_validate(obj)
     if agent_result is not None:
-        return agent_result
+        err = _requested_analysis_gap(request, agent_result)
+        if not err:
+            return agent_result
 
     # ONE error-correcting repair retry (PRD FR-7 / CONTRACTS §7).
     _check_cancel(run_id)
     _emit(run_id, "analyzing", detail="Agent output invalid — repairing", counts=counts)
     repair_prompt = build_repair_prompt(prompt, obj, err)
-    obj2 = _stream_and_extract(run_id, adapter, repair_prompt, counts)
+    obj2 = _stream_and_extract(run_id, adapter, repair_prompt, counts, request)
     agent_result2, err2 = _try_validate(obj2)
     if agent_result2 is not None:
         return agent_result2
+    # The first pass validated and only missed a toggled-on section: keep it.
+    # A run that already spent YouTube quota is worth more partially filled in
+    # than thrown away over one empty panel.
+    if agent_result is not None:
+        return agent_result
     raise _InvalidOutput(err2 or err or "Agent produced no valid output.")
 
 
 def _expand_keywords(
     run_id: str, adapter: Any, request: ResearchRequest
 ) -> Optional[List[str]]:
-    """Direct-path LLM step 1: expand the topic into search keywords for the
-    deterministic pipeline.
+    """LLM step 1: expand the topic into search keywords for the pipeline.
 
     Best-effort: any failure (bad JSON, API hiccup) returns ``None`` so the
     pipeline falls back to the raw query — a flaky expansion never sinks a run.
     Cancellation propagates. Never lets an agent-typed string become a fact — the
     keywords only choose what the pipeline *searches*; every id/number still comes
     from the pipeline.
+
+    Two stream shapes have to work here. A direct adapter yields the model's text
+    verbatim, so the raw chunks ARE the answer. An agentic CLI yields stream-json,
+    where the array is a string INSIDE an event — its brackets sit inside a JSON
+    string literal, invisible to ``find_json_array``. So the lines also go through
+    a ``StreamCollector`` and both readings are tried.
     """
     prompt = build_expand_prompt(request)
     parts: List[str] = []
+    collector = StreamCollector()
     try:
-        stream = adapter.stream(prompt)
+        stream = _open_stream(adapter, prompt, request)
     except _Cancelled:
         raise
     except Exception:  # noqa: BLE001 - expansion is optional; fall back to [query]
@@ -376,7 +456,9 @@ def _expand_keywords(
     try:
         for chunk in stream:
             _check_cancel(run_id)
-            parts.append(chunk if isinstance(chunk, str) else str(chunk))
+            text = chunk if isinstance(chunk, str) else str(chunk)
+            parts.append(text)
+            collector.feed(text)
     except _Cancelled:
         _safe_close(stream)
         raise
@@ -388,7 +470,7 @@ def _expand_keywords(
             handle.closer = None
         _safe_close(stream)
 
-    keywords = _parse_keywords("\n".join(parts))
+    keywords = _parse_keywords(collector.text()) or _parse_keywords("\n".join(parts))
     if not keywords:
         return None
     keywords = keywords[:_MAX_EXPANDED_KEYWORDS]
@@ -437,10 +519,6 @@ def run_research_job(
         _emit(run_id, "queued")
         _check_cancel(run_id)
 
-        # Resolve the adapter up front so we know its execution style. Agentic
-        # adapters (the CLIs) run the research scripts themselves; the direct API
-        # adapter can't, so B4 feeds it the collected videos and drives the two LLM
-        # steps (keyword expansion, then narrative) explicitly.
         try:
             adapter = adapter_factory(request.model.adapter)
         except Exception as exc:  # noqa: BLE001 - classified below
@@ -450,34 +528,26 @@ def run_research_job(
                 "No adapter is installed for '%s'. Install it and re-check."
                 % request.model.adapter
             )
-        agentic = bool(getattr(adapter, "agentic", True))
         filters = map_filters(request)
 
-        # Phase: expanding.
+        # Phase: expanding — LLM step 1, for every adapter. An agentic CLI could
+        # search for itself, but only the pipeline's ids survive B5's join, so it
+        # contributes search terms like everyone else and B3 does the searching.
         _emit(run_id, "expanding", detail='Expanding "%s"' % (request.query[:60]))
         _check_cancel(run_id)
-        if agentic:
-            # The agentic CLI expands keywords + runs the scripts itself.
-            prompt = build_prompt(request, filters=filters)
-            keywords: Optional[List[str]] = None
-        else:
-            # Direct API — LLM step 1: expand keywords to broaden the search.
-            keywords = _expand_keywords(run_id, adapter, request)
-            prompt = None
+        keywords = _expand_keywords(run_id, adapter, request)
         _check_cancel(run_id)
 
         # Phases: searching -> enriching -> scoring — deterministic pipeline (B3).
         _emit(run_id, "searching")
         try:
-            if agentic:
-                pipeline_out = pipeline_runner(request)
-            else:
-                pipeline_out = pipeline_runner(request, keywords=keywords)
+            pipeline_out = pipeline_runner(request, keywords=keywords)
         except (_Cancelled,):
             raise
         except Exception as exc:  # noqa: BLE001 - classified below
             raise _classify_external_error(exc)
         videos, meta = _unpack_pipeline(pipeline_out)
+        _stamp_run(meta, run_id)
         counts = _counts_from(meta, videos)
         _emit(run_id, "enriching", counts=counts)
         _check_cancel(run_id)
@@ -489,14 +559,11 @@ def run_research_job(
             )
         _check_cancel(run_id)
 
-        # Phase: analyzing — collect + validate the AgentResult (narrative only).
+        # Phase: analyzing — LLM step 2. Collect + validate the AgentResult
+        # (narrative only) over the videos B3 just collected.
         _emit(run_id, "analyzing", counts=counts)
-        if agentic:
-            agent_result = _run_agent(run_id, request, prompt, adapter, counts)
-        else:
-            # Direct API — LLM step 2: narrate over the collected videos.
-            direct_prompt = build_direct_prompt(request, videos, meta, filters=filters)
-            agent_result = _run_agent(run_id, request, direct_prompt, adapter, counts)
+        prompt = build_narrative_prompt(request, videos, meta, filters=filters)
+        agent_result = _run_agent(run_id, request, prompt, adapter, counts)
 
         # Phase: verifying — join refs -> authoritative videos + link verify (B5).
         _check_cancel(run_id)

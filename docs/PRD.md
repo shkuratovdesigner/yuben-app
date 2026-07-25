@@ -18,7 +18,7 @@ The engine already exists as Python scripts (`longform_research.py`, `shorts_res
 ### Architecture at a glance (decided)
 
 - **Runtime:** Local web app. A **FastAPI** backend serves a **React** frontend on `localhost` and shells out to the user's installed agent CLI. All keys stay on the machine.
-- **Brain:** The selected local CLI (**Claude Code** or **Gemini CLI**) **orchestrates everything** — it runs the existing research scripts as tools, then writes the title/script analysis and video plan.
+- **Brain:** The backend orchestrates; the selected model (a local CLI such as **Claude Code**, or the direct API) supplies the *judgment* — it expands the topic into search terms, then curates the videos the research scripts collected and writes the title/script analysis and video plan. The scripts are run by the backend, never by the model: only videos the backend collected can survive the trust join, so a model that goes searching on its own produces a result page with nothing on it.
 - **Frontend:** Vite + React + TypeScript + Tailwind + shadcn/ui.
 
 ```

@@ -1,10 +1,22 @@
 """Prompt builder + UI->script filter mapping (B4).
 
 :func:`map_filters` turns a ``ResearchRequest`` into concrete script parameters
-(CONTRACTS §2 "Backend mapping"). :func:`build_prompt` bakes those filters, the
-CONTRACTS §7 agent output contract, and the HARD TRUST RULE (PRD §8) into a
-single instruction. The agent supplies **narrative + video_id references only**;
-the backend (B3 pipeline + B5 verify) owns every number and link.
+(CONTRACTS §2 "Backend mapping"). The agent supplies **narrative + video_id
+references only**; the backend (B3 pipeline + B5 verify) owns every number and
+link.
+
+Two prompts, in the order B4 runs them, and they are the SAME for every adapter:
+
+  1. :func:`build_expand_prompt` — one topic -> a list of YouTube search phrases.
+     B4 feeds those to ``run_pipeline``, which does the searching.
+  2. :func:`build_narrative_prompt` — the videos ``run_pipeline`` collected go IN,
+     an ``AgentResult`` (narrative + rank order, by video_id) comes OUT.
+
+No prompt asks an agent to run the research scripts itself, however capable its
+CLI is. It used to: the agentic CLIs got a "run longform_research.py" prompt while
+the backend ran its own pipeline in parallel, and B5 then joined two independent
+searches — an intersection that was routinely empty, which rendered as a result
+page with zero videos. One search, one id space, one source of truth.
 """
 from __future__ import annotations
 
@@ -125,6 +137,16 @@ Rules:
   "structure_patterns": [ {"name","note"} ],
   "hook_breakdown": [ {"rank","title","hook","video_id"} ],
   "what_to_avoid": [ "..." ] }.
+- title_formulas: [ { "shape": "<reusable title pattern, e.g. 'I Let [Tool]
+  [Do Risky Thing] for [Time]'>", "proof_video_id": "<11-char id of a video in
+  the results that proves this shape works>", "tailored": "<the shape filled in
+  for THIS topic>" } ]. All three keys are required on every entry.
+- game_plan: { "outline": [ {"t": "<timestamp, e.g. '0:00'>", "beat": "<what
+  happens>"} ], "title_options": [ "..." ], "thumbnail_concepts": [ "..." ],
+  "do": "<the one thing to do>", "dont": "<the one thing to avoid>" }.
+- Every key listed above is REQUIRED when its parent object is non-null. Emit
+  the whole object with all its keys, or emit null — never a partial object,
+  and never a key the shape above does not list.
 """
 
 
@@ -142,10 +164,11 @@ def _toggles_block(filters: Dict[str, Any]) -> str:
         "- Script analytics: %s" % scripts,
         "  %s"
         % (
-            "Fetch transcripts and include a script_analysis object "
-            "(duration sweet spot, structure patterns, hook breakdown, what to avoid)."
+            "Include a script_analysis object (duration sweet spot, structure "
+            "patterns, hook breakdown, what to avoid), working from the transcript "
+            "snippets below."
             if filters["analyze_scripts"]
-            else "Set script_analysis to null (do not fetch transcripts)."
+            else "Set script_analysis to null (the user did not request it)."
         ),
     ]
     return "\n".join(lines)
@@ -162,26 +185,20 @@ def _outperf_line(outperf: Dict[str, Any]) -> str:
     )
 
 
-def _filters_block(f: Dict[str, Any], *, name_the_script: bool = True) -> str:
-    """The MAPPED FILTERS block shared by the agentic + direct prompts.
+def _filters_block(f: Dict[str, Any]) -> str:
+    """The MAPPED FILTERS block — context for the curation, not an instruction.
 
-    ``name_the_script`` is on for the agentic CLI (it runs the script itself) and
-    off for the direct path (the backend already ran the pipeline — the model has
-    no script to run).
+    The backend has already applied every one of these to the collected videos;
+    they are printed so the narrative can describe the window and the bar it was
+    written against.
     """
     window = f["window_label"]
     if f["floor_iso"]:
         window = "%s (published on or after %s)" % (window, f["floor_iso"])
-    if name_the_script:
-        format_line = "- Format: %s — run %s (%s)." % (
-            f["format"], f["script"], f["duration_filter"],
-        )
-    else:
-        format_line = "- Format: %s (%s)." % (f["format"], f["duration_filter"])
     return "\n".join(
         [
             "- Topic / query: %s" % f["query"],
-            format_line,
+            "- Format: %s (%s)." % (f["format"], f["duration_filter"]),
             "- Upload window: %s" % window,
             "- Outperformance: %s — %s"
             % (f["outperformance_label"], _outperf_line(f["outperformance"])),
@@ -191,73 +208,58 @@ def _filters_block(f: Dict[str, Any], *, name_the_script: bool = True) -> str:
     )
 
 
-def build_prompt(
-    request: ResearchRequest, *, filters: Optional[Dict[str, Any]] = None
-) -> str:
-    """Build the full agent instruction from a ``ResearchRequest`` (agentic CLI)."""
-    f = filters if filters is not None else map_filters(request)
-    filters_block = _filters_block(f)
-
-    return "\n\n".join(
-        [
-            "You are YuBen's YouTube research agent. Turn one topic into a proven "
-            "video plan by finding outlier videos (videos that vastly outperform "
-            "their channel size) and explaining why they win.",
-            TRUST_INSTRUCTION,
-            "TASK\n"
-            "1. Expand the topic into a focused set of YouTube search keywords.\n"
-            "2. Run the correct research script with the mapped filters below; it "
-            "prints the qualifying videos as JSON to stdout (views, subscriber "
-            "counts, VSR, durations — all authoritative).\n"
-            "3. If Script analytics is ON, fetch transcripts (no API quota) for the "
-            "top videos.\n"
-            "4. Analyze the winners: title patterns, hooks, ideal length, what to "
-            "avoid — and draft a game plan.\n"
-            "5. Emit the single AgentResult JSON object described below.",
-            "MAPPED FILTERS\n" + filters_block,
-            "ANALYSIS TOGGLES\n" + _toggles_block(f),
-            _OUTPUT_CONTRACT,
-            "Reminder: the ONLY things you author are narrative and real video_id "
-            "references. Numbers and links come from the scripts, not from you.",
-        ]
-    )
+# The repair runs as a FRESH agent invocation with no memory of the first one, so
+# its prior output is the only copy of the research it has. Truncating that copy
+# forces it to re-invent the ids and numbers it just gathered — exactly what the
+# repair must not do — so keep the window big enough for a whole AgentResult.
+_REPAIR_ECHO_LIMIT = 60000
 
 
 def build_repair_prompt(
     original_prompt: str, bad_output: Any, error: str
 ) -> str:
-    """One-shot error-correcting retry prompt (validate/repair path)."""
+    """One-shot error-correcting retry prompt (validate/repair path).
+
+    ``original_prompt`` is NOT replayed: it opens with the research TASK, and a
+    fresh invocation would re-run the scripts and re-spend YouTube quota to fix
+    what is only a JSON-shape problem. The OUTPUT CONTRACT is restated instead —
+    the agent cannot repair against a schema it was never shown.
+    """
     if bad_output is None:
         prior = "(no JSON object was found in your previous output)"
     else:
         try:
             import json
 
-            prior = json.dumps(bad_output)[:2000]
+            prior = json.dumps(bad_output)[:_REPAIR_ECHO_LIMIT]
         except Exception:
-            prior = str(bad_output)[:2000]
+            prior = str(bad_output)[:_REPAIR_ECHO_LIMIT]
     return "\n\n".join(
         [
             "REPAIR REQUEST — your previous response was not a valid AgentResult.",
             "Validation error:\n%s" % error,
-            "What you returned (truncated):\n%s" % prior,
-            "Re-emit EXACTLY ONE valid JSON object matching the AgentResult schema "
-            "and NOTHING else — no prose, no code fences, no explanation. Keep "
-            "the same real video_id references; only fix the JSON so it validates. "
-            "Do not invent IDs or numbers.",
+            "What you returned:\n%s" % prior,
+            _OUTPUT_CONTRACT,
+            "Fix ONLY what the validation error names, against the OUTPUT CONTRACT "
+            "above. Re-emit EXACTLY ONE valid JSON object and NOTHING else — no "
+            "prose, no code fences, no explanation. Keep every real video_id and "
+            "number from your previous output exactly as it was; do not re-run the "
+            "research, and do not invent IDs or numbers. If a required field is "
+            "missing and you have no real data for it, use null rather than "
+            "inventing a value.",
             TRUST_INSTRUCTION,
         ]
     )
 
 
 # ---------------------------------------------------------------------------
-# Direct (non-agentic) adapter prompts — the LLM's two steps, fed by run_pipeline
+# The two run prompts — the LLM's steps, with run_pipeline in between
 # ---------------------------------------------------------------------------
-# The direct adapter (DirectAnthropicAdapter) has NO tools: it can't run the
-# research scripts. So B4 drives the two LLM steps itself — (1) expand keywords to
-# broaden the deterministic search, (2) write the AgentResult narrative over the
-# videos the pipeline already collected. Facts still come only from run_pipeline;
-# the trust guard is unchanged.
+# B4 drives both steps for EVERY adapter, agentic CLI or plain HTTP client alike:
+# (1) expand keywords to broaden the deterministic search, (2) write the
+# AgentResult narrative over the videos the pipeline collected. Facts come only
+# from run_pipeline, so the ids the model may reference are exactly the ids B5
+# will join against.
 
 # Bound the video list baked into the narrative prompt (the pipeline head is
 # already ranked; the model curates the top max_results from these).
@@ -270,7 +272,7 @@ _TRANSCRIPT_SNIPPET_CHARS = 600
 def build_expand_prompt(
     request: ResearchRequest, *, filters: Optional[Dict[str, Any]] = None
 ) -> str:
-    """Direct-path LLM step 1: expand one topic into YouTube search phrases.
+    """LLM step 1: expand one topic into YouTube search phrases.
 
     The model returns a JSON array of short search queries; B4 feeds them to
     ``run_pipeline`` to broaden the deterministic search (this is the concrete
@@ -337,20 +339,23 @@ def _transcripts_block(videos: List[Any], meta: Any, f: Dict[str, Any]) -> str:
     )
 
 
-def build_direct_prompt(
+def build_narrative_prompt(
     request: ResearchRequest,
     videos: List[Any],
     meta: Any = None,
     *,
     filters: Optional[Dict[str, Any]] = None,
 ) -> str:
-    """Direct-path LLM step 2: the AgentResult narrative over collected videos.
+    """LLM step 2: the AgentResult narrative over the collected videos.
 
     ``videos`` is the deterministic, authoritative set from ``run_pipeline`` (Video
     models). The model curates + ranks them by ``video_id``, writes the analysis,
-    and emits the same ``AgentResult`` envelope the CLI does — so B5's
-    ``assemble_and_verify`` join is byte-for-byte identical. It has no tools and
-    invents nothing; every id it may use is printed below.
+    and emits the ``AgentResult`` envelope B5 joins against — the ids it is shown
+    here ARE the ids ``assemble_and_verify`` will accept, so a well-behaved model
+    cannot produce a result page with nothing on it.
+
+    Used for every adapter. An agentic CLI is explicitly told not to go research
+    on its own: whatever it found would be invisible to the join and dropped.
     """
     f = filters if filters is not None else map_filters(request)
     briefs = [_video_brief(v) for v in list(videos)[:_DIRECT_MAX_VIDEOS]]
@@ -358,9 +363,10 @@ def build_direct_prompt(
     transcripts_block = _transcripts_block(list(videos), meta, f)
 
     parts = [
-        "You are YuBen's YouTube research analyst. You have NO tools and you do NOT "
-        "run any scripts — every fact you need is already provided below, collected "
-        "deterministically from the YouTube Data API.",
+        "You are YuBen's YouTube research analyst. Do NOT run scripts, search the "
+        "web, or use any tools — even if you have them. Every fact you need is "
+        "already provided below, collected deterministically from the YouTube Data "
+        "API, and videos you find any other way will be discarded.",
         TRUST_INSTRUCTION,
         "TASK\n"
         "1. Expand the topic into search keywords and echo them in the JSON "
@@ -371,7 +377,7 @@ def build_direct_prompt(
         "3. Analyze why the winners work: title patterns, hooks, ideal length, and "
         "what to avoid — and draft a game plan.\n"
         "4. Emit the single AgentResult JSON object described below.",
-        "MAPPED FILTERS\n" + _filters_block(f, name_the_script=False),
+        "MAPPED FILTERS\n" + _filters_block(f),
         "ANALYSIS TOGGLES\n" + _toggles_block(f),
         "COLLECTED VIDEOS (authoritative — the ONLY valid video_id values, already "
         "ranked; curate the top %d):\n%s" % (f["max_results"], videos_json),

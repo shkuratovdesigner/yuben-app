@@ -95,17 +95,18 @@ def terminate_for_thread(ident: Optional[int]) -> int:
     return killed
 
 
-#: Names scrubbed from the environment of *probe* spawns. A YouTube Data API
-#: key has no business reaching ``claude --version``; the agentic ``stream``
-#: path keeps it, because the CLI shells out to the research scripts, which
-#: read it at import (``config.py:60``). Provider keys are deliberately left
+#: Names scrubbed from the environment of every CLI spawn. A YouTube Data API
+#: key has no business reaching ``claude --version`` — and, since B4 stopped
+#: sending agents off to run the research scripts themselves, no business
+#: reaching the ``stream`` path either: the backend calls the scripts in-process
+#: and reads the key from the secret store. Provider keys are deliberately left
 #: alone — a vendor's own CLI legitimately reads its own credential.
-_PROBE_SCRUBBED_ENV = ("YOUTUBE_API_KEY",)
+_SCRUBBED_ENV = ("YOUTUBE_API_KEY",)
 
 
-def _probe_env() -> Dict[str, str]:
+def _child_env() -> Dict[str, str]:
     env = dict(os.environ)
-    for name in _PROBE_SCRUBBED_ENV:
+    for name in _SCRUBBED_ENV:
         env.pop(name, None)
     return env
 
@@ -144,11 +145,12 @@ class AgentAdapter(ABC):
                       (e.g. ``"claude-code"``). Matches ``Adapter.id``.
       * ``name``    — human-readable label (e.g. ``"Claude Code"``).
       * ``binary``  — the executable looked up on ``PATH`` (e.g. ``"claude"``).
-      * ``agentic`` — whether the adapter runs the research scripts ITSELF as an
-                      agent (``True``, the CLI adapters) or is a plain
-                      text-completion surface the orchestrator must feed the
-                      already-collected videos to (``False``, the direct API
-                      adapter). B4 branches on this. Defaults to ``True``.
+      * ``agentic`` — whether the adapter has a tool loop at all (``True``, the
+                      CLI adapters) or is a plain text-completion surface
+                      (``False``, the direct API adapter). Descriptive only:
+                      B4 feeds every adapter the already-collected videos and
+                      lets none of them research on their own, because only
+                      pipeline ids survive B5's join. Defaults to ``True``.
     """
 
     id: str = ""
@@ -272,7 +274,7 @@ def run_version(path: str, *, flag: str = "--version", timeout: float = 10.0) ->
             capture_output=True,
             text=True,
             timeout=timeout,
-            env=_probe_env(),
+            env=_child_env(),
         )
     except Exception:
         return None
@@ -304,7 +306,7 @@ def run_probe(
         timeout=timeout,
         cwd=cwd,
         stdin=subprocess.DEVNULL,
-        env=_probe_env(),
+        env=_child_env(),
     )
 
 
@@ -346,6 +348,7 @@ def stream_process(
             text=True,
             bufsize=1,
             cwd=cwd,
+            env=_child_env(),
             stdin=subprocess.DEVNULL,  # see run_probe: never let the CLI wait on stdin
         )
     except FileNotFoundError as exc:

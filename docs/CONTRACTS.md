@@ -190,17 +190,17 @@ Sections `title_analysis` / `script_analysis` are `null` when the matching toggl
 
 ---
 
-## 7. Agent output contract (CLI → backend)
+## 7. Agent output contract (model → backend)
 
-The orchestrator instructs the CLI to: expand keywords, run the correct research script(s) with mapped params, (optionally) fetch transcripts, then **emit a single JSON object** matching a strict "AgentResult" schema — a subset of ResearchResult carrying **narrative + video_id references only** (no numbers it invented, no fabricated IDs). The backend then:
+The orchestrator drives **two LLM calls with the deterministic pipeline in between**, identically for every adapter: (1) a keyword-expansion call whose JSON array feeds `run_pipeline(keywords=…)`, then (2) a narrative call given the videos `run_pipeline` collected, which must **emit a single JSON object** matching a strict "AgentResult" schema — a subset of ResearchResult carrying **narrative + video_id references only** (no numbers it invented, no fabricated IDs). The backend then:
 1. Validates against the AgentResult schema (retry/repair prompt on failure).
-2. Joins every referenced `video_id` to the collected script JSON; drops unknown IDs.
+2. Joins every referenced `video_id` to the collected pipeline videos; drops unknown IDs.
 3. Attaches authoritative numbers, derives thumbnails/labels, computes Eng/1k, verifies links.
 4. Produces the final validated `ResearchResult`.
 
-This is the concrete mechanism of the §8 trust split in the PRD: **narrative from the LLM, facts from the scripts, verification by the backend.**
+This is the concrete mechanism of the §8 trust split in the PRD: **narrative from the LLM, facts from the pipeline, verification by the backend.**
 
-**Direct (non-agentic) adapter — Phase 4.** The `anthropic-api` adapter has no tool loop, so the orchestrator drives the two LLM steps itself: (1) a keyword-expansion call whose JSON array feeds `run_pipeline(keywords=…)`, then (2) a narrative call given the already-collected videos, which emits the **same AgentResult envelope**. `run_pipeline` still produces every fact and `assemble_and_verify` is byte-for-byte the same join — so the trust guard is unchanged regardless of adapter. Adapters advertise this via `AgentAdapter.agentic` (`True` for the CLIs, `False` for the direct API).
+**No adapter does its own research** — not even a CLI that could. Agentic CLIs were once prompted to run the research scripts themselves while `run_pipeline` searched in parallel, and step 2 above then joined two independent searches: the intersection was frequently empty, so a run that had really collected videos rendered a result page with none. The pipeline is the single source of ids for every adapter, and the narrative prompt tells the model not to research. `AgentAdapter.agentic` still records whether an adapter *has* a tool loop, but it no longer changes the run flow.
 
 ---
 

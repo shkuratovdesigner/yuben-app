@@ -104,22 +104,22 @@ def test_registry_is_emptied_after_a_normal_run() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Probe environment
+# Child-process environment
 # ---------------------------------------------------------------------------
 
 
-def test_probe_env_drops_the_youtube_key(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_child_env_drops_the_youtube_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("YOUTUBE_API_KEY", "AIzaSyD-should-not-reach-a-cli")
     monkeypatch.setenv("PATH", os.environ.get("PATH", ""))
-    env = base._probe_env()
+    env = base._child_env()
     assert "YOUTUBE_API_KEY" not in env
-    assert "PATH" in env, "probes still need a working environment"
+    assert "PATH" in env, "children still need a working environment"
 
 
-def test_probe_env_keeps_provider_keys(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_child_env_keeps_provider_keys(monkeypatch: pytest.MonkeyPatch) -> None:
     """A vendor CLI legitimately reads its own credential — do not break auth."""
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-example")
-    assert base._probe_env().get("ANTHROPIC_API_KEY") == "sk-ant-example"
+    assert base._child_env().get("ANTHROPIC_API_KEY") == "sk-ant-example"
 
 
 def test_run_probe_child_cannot_see_the_youtube_key(
@@ -138,12 +138,13 @@ def test_run_probe_child_cannot_see_the_youtube_key(
     assert proc.stdout.strip() == "<absent>"
 
 
-def test_stream_process_child_still_sees_the_youtube_key(
+def test_stream_process_child_cannot_see_the_youtube_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The agentic path must keep it: the CLI shells out to the research scripts,
-    which read YOUTUBE_API_KEY at import (config.py:60)."""
-    monkeypatch.setenv("YOUTUBE_API_KEY", "AIzaSyD-needed-by-the-agent")
+    """The run path used to keep it, because the CLI shelled out to the research
+    scripts. It doesn't any more — B4 calls those in-process — so the key has no
+    reason to reach a spawned agent at all."""
+    monkeypatch.setenv("YOUTUBE_API_KEY", "AIzaSyD-should-not-reach-a-cli")
     lines = list(
         base.stream_process(
             [
@@ -154,7 +155,7 @@ def test_stream_process_child_still_sees_the_youtube_key(
             ]
         )
     )
-    assert lines == ["AIzaSyD-needed-by-the-agent"]
+    assert lines == ["<absent>"]
 
 
 # ---------------------------------------------------------------------------

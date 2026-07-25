@@ -4,7 +4,7 @@ Public surface (consumed by ``app.api.research``):
     launch(run_id, request, **deps) -> starts the background worker
     request_cancel(run_id) -> cancels + emits terminal error{cancelled}
     run_research_job(run_id, request, *, adapter_factory, pipeline_runner, verifier)
-    build_prompt / map_filters / build_repair_prompt
+    build_expand_prompt / build_narrative_prompt / build_repair_prompt / map_filters
     make_event / make_error_event / phase_label / PHASE_SEQUENCE
 """
 from __future__ import annotations
@@ -17,9 +17,8 @@ from app.orchestrator.events import (
 )
 from app.orchestrator.prompts import (
     TRUST_INSTRUCTION,
-    build_direct_prompt,
     build_expand_prompt,
-    build_prompt,
+    build_narrative_prompt,
     build_repair_prompt,
     map_filters,
 )
@@ -35,9 +34,8 @@ from app.orchestrator.runner import (
 __all__ = [
     "PHASE_SEQUENCE",
     "TRUST_INSTRUCTION",
-    "build_direct_prompt",
     "build_expand_prompt",
-    "build_prompt",
+    "build_narrative_prompt",
     "build_repair_prompt",
     "emit_terminal",
     "is_cancelled",
