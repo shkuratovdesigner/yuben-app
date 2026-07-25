@@ -4,7 +4,7 @@ Covers:
   * import-plumbing quirk fixed: `import app.pipeline` makes
     `import youtube_research.youtube_api` / `.config` resolve to the repo-root
     scripts (no sibling repo, no on-disk symlink), and config.py is repo-relative.
-  * normalizer parity: our live normalizer matches contracts/build_fixtures.py
+  * normalizer parity: our live normalizer matches contracts/normalize_reference.py
     row-for-row on the real data/*.json, and every row validates as `Video`.
   * filter -> param mapping + outperformance filter/sort.
   * run_pipeline end-to-end with the Gen-2 script mocked (deterministic dict in,
@@ -67,12 +67,12 @@ def test_transcript_module_resolves(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# 2. Normalizer parity with contracts/build_fixtures.py
+# 2. Normalizer parity with contracts/normalize_reference.py
 # ---------------------------------------------------------------------------
-def _build_fixtures_module():
+def _reference_module():
     import importlib
 
-    return importlib.import_module("contracts.build_fixtures")
+    return importlib.import_module("contracts.normalize_reference")
 
 
 @pytest.mark.parametrize(
@@ -80,10 +80,10 @@ def _build_fixtures_module():
     [("property_raw.json", True), ("airbnb_promo_raw.json", False)],
 )
 @requires_raw_data
-def test_normalizer_matches_build_fixtures(filename, keep_multiplier):
+def test_normalizer_matches_reference(filename, keep_multiplier):
     from app.pipeline.normalize import normalize_video
 
-    bf = _build_fixtures_module()
+    bf = _reference_module()
     src = _load(filename)
     raw_rows = src.get("videos", [])
     assert raw_rows, f"{filename} has no videos"
@@ -110,7 +110,7 @@ def test_normalized_rows_are_valid_videos_and_derive_fields(filename, keep_multi
     rows = normalize_videos(src.get("videos", []), keep_multiplier=keep_multiplier)
     assert rows
 
-    # ranked by views desc (matches build_fixtures.load_videos)
+    # ranked by views desc (matches normalize_reference.load_videos)
     views = [r["view_count"] for r in rows]
     assert views == sorted(views, reverse=True)
 

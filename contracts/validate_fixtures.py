@@ -1,9 +1,9 @@
 """Validate the committed fixtures in contracts/fixtures/ against contracts/schemas/.
 
-``build_fixtures.py`` regenerates the fixtures from raw pipeline output in
-``data/*.json`` — but that directory is gitignored and absent from a fresh
-clone, so it cannot run here. This script validates whatever is committed,
-independently of how it got there, so hand-edited fixtures stay contract-clean.
+``build_mock_fixtures.py`` rebuilds the research-result and history fixtures;
+the rest (``adapters.json``, ``config.json``, ``progress-events.jsonl``) are
+hand-maintained. This script validates whatever is committed, independently of
+how it got there, so hand-edited fixtures stay contract-clean.
 
     python3 contracts/validate_fixtures.py
 """

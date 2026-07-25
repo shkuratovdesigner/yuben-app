@@ -1,10 +1,10 @@
 """Gen-2 -> unified ``Video`` normalizer (B3).
 
-This MIRRORS ``contracts/build_fixtures.py``'s ``normalize_video`` /
+This MIRRORS ``contracts/normalize_reference.py``'s ``normalize_video`` /
 ``duration_label`` / ``_num`` byte-for-byte in behavior so that **live pipeline
 output and the checked-in fixtures are identical in shape**. The mirroring is
 enforced by ``backend/tests/test_pipeline.py`` (it re-normalizes the same
-``data/*.json`` through both this module and ``build_fixtures`` and asserts the
+``data/*.json`` through both this module and ``normalize_reference`` and asserts the
 rows are equal), so any future drift fails loudly in CI.
 
 Derived fields (CONTRACTS.md §4 / PRD §8):
@@ -31,7 +31,7 @@ PROMOTED_ENG_PER_1K_THRESHOLD = 1.5
 
 
 def duration_label(seconds: int) -> str:
-    """Seconds -> "H:MM:SS" (or "M:SS" under an hour). Mirrors build_fixtures."""
+    """Seconds -> "H:MM:SS" (or "M:SS" under an hour). Mirrors normalize_reference."""
     seconds = int(seconds or 0)
     h, rem = divmod(seconds, 3600)
     m, s = divmod(rem, 60)
@@ -39,7 +39,7 @@ def duration_label(seconds: int) -> str:
 
 
 def _num(x: Any) -> Optional[float]:
-    """Coerce to int (when integral) / float / None. Mirrors build_fixtures."""
+    """Coerce to int (when integral) / float / None. Mirrors normalize_reference."""
     if x is None:
         return None
     try:
@@ -51,7 +51,7 @@ def _num(x: Any) -> Optional[float]:
 
 def normalize_video(raw: Dict[str, Any], *, keep_multiplier: bool) -> Optional[Dict[str, Any]]:
     """Raw Gen-2 row -> unified ``Video`` dict. Returns ``None`` if the id is
-    unusable (mirrors ``contracts/build_fixtures.py``)."""
+    unusable (mirrors ``contracts/normalize_reference.py``)."""
     vid = str(raw.get("video_id", ""))
     if not YT_ID_RE.match(vid):
         return None
@@ -93,7 +93,7 @@ def normalize_videos(
 ) -> List[Dict[str, Any]]:
     """Normalize a list of raw Gen-2 rows, dropping any with unusable ids.
 
-    Sorted by ``view_count`` desc to match ``build_fixtures.load_videos``; the
+    Sorted by ``view_count`` desc to match ``normalize_reference.load_videos``; the
     outperformance sort/filter is applied afterwards by ``params``.
     """
     out: List[Dict[str, Any]] = []

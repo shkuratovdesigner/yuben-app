@@ -131,7 +131,7 @@ Every payload crossing the wire is defined once in [`contracts/schemas/`](contra
 yuben-app/
 ├── frontend/     Vite + React 19 + TypeScript + Tailwind v4 + shadcn/ui
 ├── backend/      FastAPI — api/ adapters/ orchestrator/ pipeline/ verify/ store/
-├── contracts/    JSON Schemas → generated TS + Pydantic, fixtures, build_fixtures.py
+├── contracts/    JSON Schemas → generated TS + Pydantic, fixtures, build_mock_fixtures.py
 ├── docs/         PRD.md · CONTRACTS.md · BUILD_PLAN.md
 └── *.py          Deterministic research scripts (YouTube search, VSR, transcripts)
 ```

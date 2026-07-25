@@ -212,4 +212,6 @@ Create from real repo data so screens look real on day one:
 - `fixtures/progress-events.jsonl` — a realistic phase timeline for the loader.
 - `fixtures/adapters.json`, `fixtures/history.json`, `fixtures/config.json`.
 
-A tiny script (`contracts/build_fixtures.py`) can generate `research-result.*.json` by normalizing existing `data/*.json` into the unified Video schema — giving the frontend authentic content and validating the normalizer at the same time.
+`contracts/build_mock_fixtures.py` generates `research-result.*.json` and `history.json` from the curated, oEmbed-verified video set in `contracts/mock_videos/`, giving the frontend authentic content; `contracts/validate_fixtures.py` then contract-checks every committed fixture. The remaining fixtures (`adapters.json`, `config.json`, `progress-events.jsonl`) are hand-maintained.
+
+Separately, `contracts/normalize_reference.py` holds a second, independent implementation of raw-row → Video normalization that the backend's normalizer is diffed against in tests. It writes no fixtures.
