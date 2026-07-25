@@ -178,9 +178,9 @@ Sections `title_analysis` / `script_analysis` are `null` when the matching toggl
 // GET /api/adapters  (anthropic-api = the terminal-free direct Messages path;
 //   `installed` there means the `anthropic` SDK is importable, `version` is its SDK version)
 [ { "id":"anthropic-api", "name":"Anthropic API", "installed":true, "version":"0.x.y",
-    "models":["default","claude-opus-4-8","..."] },
+    "models":["default","claude-opus-5","..."] },
   { "id":"claude-code", "name":"Claude Code", "installed":true, "version":"x.y.z",
-    "models":["default","claude-opus-4-8","..."] },
+    "models":["default","claude-opus-5","..."] },
   { "id":"gemini-cli", "name":"Gemini CLI", "installed":false, "version":null, "models":[] } ]
 
 // HistoryItem (GET /api/history)
@@ -206,12 +206,13 @@ This is the concrete mechanism of the §8 trust split in the PRD: **narrative fr
 
 ## 8. Fixtures (build against these before the backend is live)
 
-Create from real repo data so screens look real on day one:
-- `fixtures/research-result.longform.json` — assembled from `data/property_raw.json` / `data/niches_raw*.json` (real titles, views, VSR).
-- `fixtures/research-result.shorts.json` — from `data/shorts_raw.json` / `data/airbnb_promo_raw.json`.
-- `fixtures/progress-events.jsonl` — a realistic phase timeline for the loader.
-- `fixtures/adapters.json`, `fixtures/history.json`, `fixtures/config.json`.
+Built from real, link-verified videos so screens look real on day one:
+- `fixtures/research-result.longform.json` — generated from `contracts/mock_videos/` (real titles, channels and video ids; representative counts).
+- `fixtures/research-result.shorts.json` — same source, Shorts set.
+- `fixtures/history.json` — generated alongside the two above.
+- `fixtures/progress-events.jsonl` — a realistic phase timeline for the loader; hand-maintained.
+- `fixtures/adapters.json`, `fixtures/config.json` — hand-maintained.
 
-`contracts/build_mock_fixtures.py` generates `research-result.*.json` and `history.json` from the curated, oEmbed-verified video set in `contracts/mock_videos/`, giving the frontend authentic content; `contracts/validate_fixtures.py` then contract-checks every committed fixture. The remaining fixtures (`adapters.json`, `config.json`, `progress-events.jsonl`) are hand-maintained.
+`contracts/build_mock_fixtures.py` builds the generated ones; `contracts/validate_fixtures.py` contract-checks all of them, generated or hand-edited. `make fixtures` runs the pair.
 
 Separately, `contracts/normalize_reference.py` holds a second, independent implementation of raw-row → Video normalization that the backend's normalizer is diffed against in tests. It writes no fixtures.

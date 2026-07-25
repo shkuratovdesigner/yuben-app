@@ -1,9 +1,16 @@
 """Build the demo fixtures for contracts/fixtures/ from a curated video list.
 
-Why this exists alongside ``build_fixtures.py``: that script derives fixtures
-from raw pipeline output in ``data/*.json``, which is gitignored and absent from
-a fresh clone — so it cannot run here. This script takes a hand-curated list of
-REAL, oEmbed-verified videos instead, and derives every computed field
+This is the only script that builds fixtures. It writes three of them —
+``research-result.longform.json``, ``research-result.shorts.json`` and
+``history.json``; the rest (``adapters.json``, ``config.json``,
+``progress-events.jsonl``) are hand-maintained, so edit those directly and run
+``validate_fixtures.py`` afterwards.
+
+An earlier ``build_fixtures.py`` derived fixtures from raw pipeline output in
+``data/*.json`` — local output that was never committed, so it is absent from a
+fresh clone and that script could not run here. It has since been stripped to its normalizer and renamed
+``normalize_reference.py``, which builds nothing at all. This script takes a
+hand-curated list of REAL, oEmbed-verified videos instead, and derives every computed field
 (vsr, eng_per_1k, engagement_flag, duration_label, urls, thumbnails) the same
 way the pipeline does, so the fixtures stay internally consistent.
 

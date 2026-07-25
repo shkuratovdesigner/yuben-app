@@ -199,7 +199,7 @@ class DirectAnthropicAdapter(AgentAdapter):
         The orchestrator's shared stream path calls ``stream(prompt)`` without a
         model, so honor the user's onboarding selection by reading it from the
         stored config (fresh per call → thread-safe across concurrent runs);
-        ``"default"``/unset falls back to Opus 4.8.
+        ``"default"``/unset falls back to ``_DEFAULT_MODEL``.
         """
         if model and model != "default":
             return model

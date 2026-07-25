@@ -7,21 +7,23 @@ Single source of truth: [../docs/CONTRACTS.md](../docs/CONTRACTS.md).
 
 ```
 contracts/
-├── schemas/            JSON Schema (draft 2020-12) — one file per object
-│                       (research-request, progress-event, video, research-result,
-│                        config, adapter, history-item, agent-result)
-├── python/             Pydantic models mirroring the schemas (imported by backend)
-├── ts/                 Generated TypeScript types (also copied to frontend/src/lib/types.ts)
-├── fixtures/           Demo data the mock-mode UI runs on (frontend/fixtures -> here)
+├── schemas/                JSON Schema (draft 2020-12) — one file per object
+│                           (research-request, progress-event, video, research-result,
+│                            config, adapter, history-item, agent-result)
+├── python/                 Pydantic models mirroring the schemas (imported by backend)
+├── ts/                     README only — the TypeScript types are hand-maintained
+│                           in frontend/src/lib/types.ts, not generated here
+├── fixtures/               Demo data the mock-mode UI runs on (via Vite's @fixtures alias)
 │   ├── research-result.longform.json   <- built by build_mock_fixtures.py
 │   ├── research-result.shorts.json     <- built by build_mock_fixtures.py
 │   ├── history.json                    <- built by build_mock_fixtures.py
 │   ├── progress-events.jsonl           <- hand-maintained
-│   ├── adapters.json · config.json     <- hand-maintained
+│   └── adapters.json · config.json     <- hand-maintained
 ├── mock_videos/            Curated, oEmbed-verified video set the fixtures build from
 ├── build_mock_fixtures.py  Builds the research-result + history fixtures
 ├── validate_fixtures.py    Contract-checks every committed fixture
-└── normalize_reference.py  Reference normalizer — writes nothing; see below
+├── normalize_reference.py  Reference normalizer — writes nothing; see below
+└── __init__.py             Makes contracts/ importable (test_pipeline relies on it)
 ```
 
 Regenerate + validate fixtures:
@@ -43,5 +45,6 @@ second, independent implementation of raw-row → `Video` normalization that
 signal than one checked against itself, so the duplication is intentional — if
 they drift, fix whichever is wrong rather than copying one over the other.
 
-Those parity tests skip unless `data/` is present (it is gitignored and absent
-from a fresh clone).
+Those parity tests skip unless `data/` is present. It holds local pipeline output
+that was never committed, so it is absent from a fresh clone — which means **these
+tests do not run in CI**. If you change either normalizer, verify locally.

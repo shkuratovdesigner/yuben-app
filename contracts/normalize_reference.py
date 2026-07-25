@@ -17,8 +17,9 @@ a much stronger signal than one implementation compared against itself, so the
 duplication is deliberate — resolve any drift by fixing whichever side is wrong,
 never by copying one into the other.
 
-The parity tests skip unless ``data/`` is present; it is gitignored and absent
-from a fresh clone.
+The parity tests skip unless ``data/`` is present. It holds local pipeline
+output that was never committed, so it is absent from a fresh clone — meaning
+these tests do not run in CI. Bear that in mind when changing this file.
 """
 from __future__ import annotations
 

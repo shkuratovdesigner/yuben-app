@@ -1,7 +1,7 @@
 """W0.2 verification: every fixture loads cleanly into the Pydantic models.
 
 This is the Python half of the contract cross-check (the JSON-Schema half runs
-in contracts/normalize_reference.py). If a fixture and the models disagree, this
+in contracts/validate_fixtures.py). If a fixture and the models disagree, this
 fails — the same guard the backend gets for free when validating agent output.
 """
 import json
