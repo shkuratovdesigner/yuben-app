@@ -1,10 +1,16 @@
 /**
- * Onboarding — Step 2: "How it works" + YouTube key (Figma node 16:912).
+ * Onboarding — Step 2: how to get a YouTube key, + the key field (Figma 16:912).
  *
- * Explains the research flow in four steps, then captures the user's private
- * YouTube Data API key. Built into the F8 app shell:
+ * Walks the user through obtaining a free YouTube Data API v3 key in Google
+ * Cloud Console, then captures it. Built into the F8 app shell:
  *   • useConfig() → storeKey (write-only), runKeyTest, saveConfig.
  *   • useNavigate() → home ("/") once onboarding is marked complete.
+ *
+ * COPY NOTE: the four rows used to restate how YuBen works (PRD §6 / BUILD_PLAN
+ * F2). That belonged in the README, not in the one screen standing between the
+ * user and a working key — so they're now the actual acquisition steps. PRD §4.2
+ * and §6 were updated to match; the "Detailed guide" link (PRD §10 Q1) is gone
+ * because these steps ARE the guide.
  *
  * SECRET RULE (non-negotiable): the key lives only in local component state and
  * travels solely through storeKey()/runKeyTest() POST bodies (handled by the
@@ -15,7 +21,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle2, ExternalLink, Loader2, XCircle } from 'lucide-react'
+import { CheckCircle2, Loader2, XCircle } from 'lucide-react'
 
 import type { KeyTestResult } from '@/lib/types'
 import { useConfig } from '@/app/stores/config-store'
@@ -25,38 +31,77 @@ import { KeyInput } from '@/components/ui/key-input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 
-// v1: the "Detailed guide" opens the repo README (external). See PRD §10 Q1.
-const DETAILED_GUIDE_URL = 'https://github.com/shkuratovdesigner/yuben-app#readme'
-// Where a free key comes from — referenced by the key-field helper text.
+// Deep links into Google Cloud Console, one per step, so each row lands the user
+// exactly where the action happens instead of on a console home page.
+const GCP_NEW_PROJECT_URL = 'https://console.cloud.google.com/projectcreate'
+const GCP_ENABLE_API_URL = 'https://console.cloud.google.com/apis/library/youtube.googleapis.com'
+// Where a free key comes from — also referenced by the key-field helper text.
 const GOOGLE_CONSOLE_URL = 'https://console.cloud.google.com/apis/credentials'
 
 // Google API keys are "AIza" + 35 chars of [A-Za-z0-9_-] (39 total). Used only
 // as a basic format gate for enabling Finish Setup; the real check is the test.
 const KEY_FORMAT = /^AIza[0-9A-Za-z_-]{35}$/
 
-// The four steps — §6 titles + descriptions, verbatim. `body` is a node so the
-// "why" emphasis in step 3 is preserved as the source markdown intended.
+/** External link into the console — same treatment as the key-field helper link. */
+function ConsoleLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer noopener"
+      className="text-brand-link underline underline-offset-2"
+    >
+      {children}
+    </a>
+  )
+}
+
+/** A console menu path / button name, lifted out of the muted body text. */
+function Ui({ children }: { children: ReactNode }) {
+  return <span className="font-medium text-foreground">{children}</span>
+}
+
+// The four acquisition steps. `body` is a node so each row can link straight to
+// the console screen it describes.
 const STEPS: { title: string; body: ReactNode }[] = [
   {
-    title: 'Tell it a topic',
-    body: 'Type what to research and set your filters: date range, how hard a video must beat its channel, and whether to analyze titles and scripts.',
-  },
-  {
-    title: 'It scans YouTube',
-    body: 'YuBen pulls the top-viewed videos and measures each one against its channel size to surface true outliers.',
-  },
-  {
-    title: 'It finds the pattern',
+    title: 'Create a Google Cloud project',
     body: (
       <>
-        The agent breaks down <em>why</em> the winners work: title formulas, hooks, ideal length, and
-        what to avoid.
+        Open <ConsoleLink href={GCP_NEW_PROJECT_URL}>Google Cloud Console</ConsoleLink> and create a
+        project — or pick one you already have. The YouTube Data API needs no billing account.
       </>
     ),
   },
   {
-    title: 'You get a plan',
-    body: 'A ranked outlier list plus a ready-to-use title, hook, and structure for your own video.',
+    title: 'Enable the YouTube Data API',
+    body: (
+      <>
+        Go to <Ui>APIs &amp; Services → Library</Ui>, open{' '}
+        <ConsoleLink href={GCP_ENABLE_API_URL}>YouTube Data API v3</ConsoleLink>, and press{' '}
+        <Ui>Enable</Ui>.
+      </>
+    ),
+  },
+  {
+    title: 'Create an API key',
+    body: (
+      <>
+        In <ConsoleLink href={GOOGLE_CONSOLE_URL}>APIs &amp; Services → Credentials</ConsoleLink>,
+        choose <Ui>Create credentials → API key</Ui>, then copy it. Every Google key starts with{' '}
+        <span className="font-mono text-foreground">AIza</span>.
+      </>
+    ),
+  },
+  {
+    title: 'Restrict it, then paste it below',
+    body: (
+      <>
+        Optional but worth it: edit the key and, under <Ui>API restrictions</Ui>, limit it to{' '}
+        <Ui>YouTube Data API v3</Ui> so it can’t be spent on anything else. You get 10,000 units a
+        day free — a YuBen run costs roughly 1.4k.
+      </>
+    ),
   },
 ]
 
@@ -140,14 +185,14 @@ export default function OnboardingSetup() {
       {/* Heading + sub (§6 copy) */}
       <header className="flex w-full max-w-[521px] flex-col items-center gap-4 text-center">
         <h1 className="font-display text-[40px] leading-[1.1] text-foreground">
-          How YuBen finds your next video
+          Set up your YouTube key
         </h1>
-        <p className="text-base leading-[1.1] text-brand-muted">
-          {'Paste your YouTube key below. Here’s what happens each time you research a topic.'}
+        <p className="text-base leading-[1.3] text-brand-muted">
+          {'YuBen reads video and channel stats straight from YouTube, so it needs your own free API key. Here’s where to get one.'}
         </p>
       </header>
 
-      {/* Four numbered step cards + detailed-guide link (Figma 16:918) */}
+      {/* Four numbered step cards (Figma 16:918) */}
       <div className="flex w-full flex-col gap-3">
         {STEPS.map((step, i) => (
           <Card key={step.title} className="w-full px-6 pt-4 pb-3">
@@ -164,17 +209,6 @@ export default function OnboardingSetup() {
             </div>
           </Card>
         ))}
-
-        <Button
-          asChild
-          variant="link"
-          className="h-auto gap-2 self-start px-0 text-[16px] leading-[26px]"
-        >
-          <a href={DETAILED_GUIDE_URL} target="_blank" rel="noreferrer noopener">
-            Detailed guide
-            <ExternalLink className="size-4" aria-hidden />
-          </a>
-        </Button>
       </div>
 
       {/* Private YouTube Key field (masked, local-only) */}

@@ -110,7 +110,7 @@ Dev ergonomics (Phase 0): `make dev` runs frontend (5173) + backend (8000); `VIT
 |---|---|---|---|---|
 | **F8** | **App shell**: router (`/onboarding/*`, `/`, `/run/:id`, `/history`), top-bar chrome (logo + attribution + socials), global config/run store, onboarding gating, mock/live API client. | all | Layout, Router, Providers | W0.1–3 |
 | **F1** | **Onboarding — Choose the model**: adapter cards (selectable), model select, env-check row + Test now, Continue. | `1:12` | Card, Select, Button | W0.2–3 |
-| **F2** | **Onboarding — Setup**: 4 step rows (copy from PRD §6), Detailed guide link, Private YouTube Key field, key-test row, Finish Setup. | `16:912` | Steps, KeyInput, Button | W0.2–3 |
+| **F2** | **Onboarding — Setup**: 4 key-acquisition step rows (copy from PRD §6), Private YouTube Key field, key-test row, Finish Setup. | `16:912` | Steps, KeyInput, Button | W0.2–3 |
 | **F3** | **Composer**: prompt panel, Upload-date + Outperformance dropdowns, Titles/Script checkboxes, send button (disabled/enabled states), model footer. | `27:529`,`29:135` | Textarea, Select, Checkbox, Button | W0.2–3 |
 | **F4** | **Loader**: phase checklist + progress bar + live counters + cancel + error state; consumes `progress-events` fixture. | new | Progress, list | W0.2–3 |
 | **F5** | **Results — Top videos**: header + grid/list toggle; grid cards; list table with VSR color tiers, Eng/1k, Watch links. | `31:184`,`31:843` | Toggle, Card, Table, Badge | W0.2–3 |

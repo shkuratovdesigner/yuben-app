@@ -82,11 +82,10 @@ Six screens (five in Figma + one loader we design). Node IDs reference the Figma
   - *Local CLI:* **Adapter environment check** row: "Runs a live probe that asks the adapter CLI to respond with hello" + **[Test now]**. Shows pass/fail (CLI found + responded, version detected) or an install hint if missing.
 - **[Continue]** primary pill (disabled until an adapter is selected; ideally until env-check passes).
 
-### 4.2 Onboarding — Step 2: "How it works" + key (`16:912`)
-**Purpose:** explain the flow in 4 steps and capture the YouTube key.
+### 4.2 Onboarding — Step 2: "Set up your YouTube key" (`16:912`)
+**Purpose:** show how to obtain a YouTube Data API key, and capture it.
 - **H1 + sub** (see copy in §6).
-- **4 numbered step rows** (see copy in §6).
-- **"Detailed guide ↗"** link (opens a longer guide — external or in-app; v1 can link to README).
+- **4 numbered step rows** (see copy in §6) — the acquisition steps, each deep-linking to the Google Cloud Console screen it describes.
 - **Private YouTube Key** field (masked, monospace; helper text; local-only).
 - **Key test row:** "Test your key" + **[Test now]** — runs one cheap API call and shows accept/reject.
 - **[Finish Setup]** primary pill (enabled once a valid-format key is entered; ideally after a passing test).
@@ -148,14 +147,16 @@ Same composer as 4.3, but the footer now exposes:
 
 ## 6. Content & microcopy
 
-### Onboarding Step 2 — "How it works" (short & plain — generated per request)
-**H1:** "How YuBen finds your next video"
-**Sub:** "Paste your YouTube key below. Here's what happens each time you research a topic."
+### Onboarding Step 2 — "Set up your YouTube key" (short & plain — generated per request)
+**H1:** "Set up your YouTube key"
+**Sub:** "YuBen reads video and channel stats straight from YouTube, so it needs your own free API key. Here's where to get one."
 
-1. **Tell it a topic** — Type what to research and set your filters: date range, how hard a video must beat its channel, and whether to analyze titles and scripts.
-2. **It scans YouTube** — YuBen pulls the top-viewed videos and measures each one against its channel size to surface true outliers.
-3. **It finds the pattern** — The agent breaks down *why* the winners work: title formulas, hooks, ideal length, and what to avoid.
-4. **You get a plan** — A ranked outlier list plus a ready-to-use title, hook, and structure for your own video.
+1. **Create a Google Cloud project** — Open Google Cloud Console and create a project — or pick one you already have. The YouTube Data API needs no billing account.
+2. **Enable the YouTube Data API** — Go to APIs & Services → Library, open YouTube Data API v3, and press Enable.
+3. **Create an API key** — In APIs & Services → Credentials, choose Create credentials → API key, then copy it. Every Google key starts with `AIza`.
+4. **Restrict it, then paste it below** — Optional but worth it: edit the key and, under API restrictions, limit it to YouTube Data API v3 so it can't be spent on anything else. You get 10,000 units a day free — a YuBen run costs roughly 1.4k.
+
+> These rows used to restate how YuBen works; that belongs in the README, not in the one screen standing between the user and a working key. The "Detailed guide ↗" link (§10 Q1) was dropped with the same change — these steps *are* the guide.
 
 - **Key field label:** "Private YouTube Key" · helper: "Stored only on your machine and used to fetch video data. Get one free in Google Cloud Console."
 - **Key test row:** title "Test your key" · sub "Runs one quick call to confirm YouTube accepts it." · button "Test now."
@@ -220,7 +221,7 @@ Exact spacing, fonts, and hex values are pulled per-screen by each build agent v
 - YouTube Data API key (as designed) is the data source; Apify/WebSearch is a later fallback for quota exhaustion.
 
 **Open questions:**
-1. Should "Detailed guide" be an in-app page or an external link for v1? (Assumed: link to README.)
+1. ~~Should "Detailed guide" be an in-app page or an external link for v1?~~ **Resolved: neither.** Step 2's rows now carry the key-acquisition instructions themselves, so the link was removed (see §4.2 / §6).
 2. Export formats for results in v1 — reuse `.md` + `.html` builders, or skip to v1.1? (Assumed: v1.1.)
 3. Dark mode — in scope for v1? (Assumed: light-first, dark is nice-to-have.)
 4. Persist raw run JSON in `data/` (reuse existing convention) or a new app DB? (Assumed: app SQLite for history + keep raw JSON artifacts.)
