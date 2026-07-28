@@ -44,7 +44,7 @@ The core signal is **VSR (views ÷ subscribers)**. In the demo run above, a 140k
 - **Recommended watch list** — a short, sequenced list of what to watch and what to take from each video.
 - **Grid or sortable table** — switch views, then sort by views, VSR multiple, engagement or duration. Each row keeps its original outlier rank, so re-sorting never restates the ranking.
 - **Title & script analysis** — common patterns, emotional triggers, and hook structures across the outlier set, with per-video transcripts when enabled.
-- **Bring your own model** — the LLM sits behind a small pluggable adapter interface, not a hardcoded vendor. Twelve adapters ship: Anthropic, OpenAI, OpenRouter (~350 models on one key) and Ollama (local, free, no key) connect with a paste or nothing at all; Claude Code, Codex, Cursor, opencode and friends use a CLI you already have. See [Model adapters](#model-adapters).
+- **Bring your own model** — the LLM sits behind a small pluggable adapter interface, not a hardcoded vendor. Thirteen adapters ship: Anthropic, OpenAI, Google Gemini, OpenRouter (~350 models on one key) and Ollama (local, free, no key) connect with a paste or nothing at all; Claude Code, Codex, Cursor, opencode and friends use a CLI you already have. See [Model adapters](#model-adapters).
 - **Quota-aware** — shows the estimated YouTube API units before each run (~1.4k of the free 10k daily).
 - **Research history & export** — every run is stored locally (SQLite) and exportable.
 - **Mock-first UI** — the entire interface runs on bundled fixtures with no backend and no keys, so you can explore it in one command.
@@ -91,7 +91,7 @@ To do real research, connect two things in the app's onboarding flow:
 
 ## Model adapters
 
-YuBen doesn't care which LLM writes the narrative — the model sits behind one small interface ([`backend/app/adapters/base.py`](backend/app/adapters/base.py)): `detect()`, `models()`, `check_env()`, `stream()`. Twelve ship today.
+YuBen doesn't care which LLM writes the narrative — the model sits behind one small interface ([`backend/app/adapters/base.py`](backend/app/adapters/base.py)): `detect()`, `models()`, `check_env()`, `stream()`. Thirteen ship today.
 
 **Paste a key — no terminal, nothing to install:**
 
@@ -99,6 +99,7 @@ YuBen doesn't care which LLM writes the narrative — the model sits behind one 
 |---|---|---|
 | **Anthropic API** | Claude | ✅ working |
 | **OpenAI API** | GPT | ✅ working |
+| **Google Gemini** | Gemini, via a free [AI Studio](https://aistudio.google.com/apikey) key | ✅ working |
 | **OpenRouter** | ~350 models across every major vendor, one key | ✅ working |
 | **Ollama** | whatever you've pulled — local, free, **no key at all** | ✅ working |
 

@@ -33,6 +33,7 @@ def _row_to_config(row: Optional[Any]) -> Config:
         anthropic_key_present=secrets.has_anthropic_key(),
         openai_key_present=secrets.has_openai_key(),
         openrouter_key_present=secrets.has_openrouter_key(),
+        gemini_key_present=secrets.has_gemini_key(),
         onboarding_complete=onboarding,
     )
 

@@ -200,6 +200,7 @@ class Config(Strict):
     anthropic_key_present: bool = False
     openai_key_present: bool = False
     openrouter_key_present: bool = False
+    gemini_key_present: bool = False
     onboarding_complete: bool
 
 

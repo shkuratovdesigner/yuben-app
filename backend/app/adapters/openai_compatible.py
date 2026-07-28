@@ -328,6 +328,26 @@ class OpenAIAdapter(OpenAICompatibleAdapter):
         return _get("get_openai_key")()
 
 
+class GeminiAdapter(OpenAICompatibleAdapter):
+    """Google Gemini via its OpenAI-compatible endpoint — paste a key, no terminal.
+
+    Uses Google's official OpenAI-compatibility surface, so no google SDK is
+    needed and streaming/error handling are identical to the other presets.
+    """
+
+    id = "gemini-api"
+    name = "Google Gemini"
+    base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
+    base_url_env = "YUBEN_GEMINI_BASE_URL"
+    provider_label = "Google Gemini"
+    default_model = "gemini-2.5-flash"
+    fallback_models = ["default", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"]
+    key_hint = "Paste your Gemini API key above, then run the check again."
+
+    def _stored_key(self):
+        return _get("get_gemini_key")()
+
+
 class OpenRouterAdapter(OpenAICompatibleAdapter):
     """OpenRouter — one key, hundreds of models across every major vendor.
 

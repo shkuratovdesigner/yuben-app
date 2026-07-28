@@ -45,6 +45,7 @@ const PRESENCE_FLAG: Record<KeyProvider, keyof Config> = {
   anthropic: 'anthropic_key_present',
   openai: 'openai_key_present',
   openrouter: 'openrouter_key_present',
+  gemini: 'gemini_key_present',
 }
 
 /** Fallback used only to merge a patch before the first config load resolves. */
@@ -56,6 +57,7 @@ const EMPTY_CONFIG: Config = {
   anthropic_key_present: false,
   openai_key_present: false,
   openrouter_key_present: false,
+  gemini_key_present: false,
   onboarding_complete: false,
 }
 

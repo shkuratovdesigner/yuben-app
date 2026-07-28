@@ -47,9 +47,9 @@ const FEATURED_ADAPTERS = [
   'anthropic-api',
   'claude-code',
   'openai-api',
+  'gemini-api',
   'codex-cli',
   'gemini-cli',
-  'cursor-cli',
 ]
 
 const FEATURED_SET = new Set(FEATURED_ADAPTERS)
@@ -124,6 +124,18 @@ const ADAPTER_META: Record<string, AdapterMeta> = {
     Icon: ClaudeMark,
     description: 'Local Claude agent',
     installUrl: 'https://docs.anthropic.com/en/docs/claude-code/overview',
+  },
+  'gemini-api': {
+    Icon: GeminiMark,
+    description: 'Gemini — paste a key, no terminal',
+    installUrl: 'https://aistudio.google.com/apikey',
+    key: {
+      provider: 'gemini',
+      label: 'Gemini API key',
+      placeholder: 'AIza…',
+      consoleUrl: 'https://aistudio.google.com/apikey',
+      consoleName: 'Google AI Studio',
+    },
   },
   'gemini-cli': {
     Icon: GeminiMark,

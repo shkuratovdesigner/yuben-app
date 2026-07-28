@@ -204,11 +204,13 @@ export interface Config {
   openai_key_present: boolean
   /** Whether the user's OpenRouter API key is stored (one key, many vendors). */
   openrouter_key_present: boolean
+  /** Whether a Gemini API key is stored locally. */
+  gemini_key_present: boolean
   onboarding_complete: boolean
 }
 
 /** Which local secret a POST /api/config/key writes. */
-export type KeyProvider = 'youtube' | 'anthropic' | 'openai' | 'openrouter'
+export type KeyProvider = 'youtube' | 'anthropic' | 'openai' | 'openrouter' | 'gemini'
 
 export interface Adapter {
   id: string

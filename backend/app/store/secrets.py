@@ -39,6 +39,7 @@ _OPENROUTER: Tuple[str, str, str] = (
     "openrouter_key.secret",
     "OpenRouter API key",
 )
+_GEMINI: Tuple[str, str, str] = ("gemini_api_key", "gemini_key.secret", "Gemini API key")
 
 
 def _use_keyring() -> bool:
@@ -169,3 +170,19 @@ def get_openrouter_key() -> Optional[str]:
 def has_openrouter_key() -> bool:
     """True when an OpenRouter key is stored. Safe to expose (boolean only)."""
     return bool(get_openrouter_key())
+
+
+# --- Gemini API key (Google AI Studio) ---------------------------------------
+def set_gemini_key(value: str) -> None:
+    """Store the Gemini API key locally (write-only). Raises ValueError on empty."""
+    _set_secret(_GEMINI, value)
+
+
+def get_gemini_key() -> Optional[str]:
+    """BACKEND-INTERNAL: return the stored Gemini key, or None. Never expose via HTTP."""
+    return _get_secret(_GEMINI)
+
+
+def has_gemini_key() -> bool:
+    """True when a Gemini key is stored. Safe to expose (boolean only)."""
+    return bool(get_gemini_key())

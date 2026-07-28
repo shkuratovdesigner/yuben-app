@@ -401,15 +401,16 @@ def test_list_adapters_shape_and_order():
     ids = [a.id for a in adapters]
     # Key-paste API providers first (nothing to install), then the hand-written
     # CLIs, then the spec-driven fleet in CLI_SPECS order.
-    assert ids[:6] == [
+    assert ids[:7] == [
         "anthropic-api",
         "openai-api",
+        "gemini-api",
         "openrouter",
         "ollama",
         "claude-code",
         "gemini-cli",
     ]
-    assert ids[6:] == [spec.id for spec in CLI_SPECS]
+    assert ids[7:] == [spec.id for spec in CLI_SPECS]
     assert len(ids) == len(set(ids)), "adapter ids must be unique"
     for a in adapters:
         assert isinstance(a.installed, bool)
@@ -575,6 +576,30 @@ def test_openai_compatible_ids_and_key_requirements():
     assert get_adapter("openai-api").requires_key is True
     assert get_adapter("openrouter").requires_key is True
     assert get_adapter("ollama").requires_key is False
+
+
+def test_gemini_api_preset_wiring():
+    from app.adapters.openai_compatible import GeminiAdapter
+
+    adapter = get_adapter("gemini-api")
+    assert isinstance(adapter, GeminiAdapter)
+    assert isinstance(get_adapter("google"), GeminiAdapter)  # alias
+    assert adapter.requires_key is True
+    assert adapter.agentic is False
+    assert adapter._base_url().startswith("https://generativelanguage.googleapis.com")
+    assert "default" in adapter.fallback_models
+
+
+def test_gemini_api_check_env_without_key_is_graceful(monkeypatch):
+    import app.adapters.openai_compatible as oai
+    from app.adapters.openai_compatible import GeminiAdapter
+
+    monkeypatch.setattr(oai, "_sdk_version", lambda: "2.46.0")
+    adapter = GeminiAdapter()
+    monkeypatch.setattr(adapter, "_stored_key", lambda: None)
+    res = adapter.check_env()
+    assert res["ok"] is False
+    assert "gemini api key" in res["message"].lower()
 
 
 def test_openai_check_env_without_key_is_graceful(monkeypatch):

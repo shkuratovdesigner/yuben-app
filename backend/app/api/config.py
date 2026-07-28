@@ -123,6 +123,9 @@ _KEY_WRITERS = {
     "gpt": secrets.set_openai_key,
     "openrouter": secrets.set_openrouter_key,
     "open-router": secrets.set_openrouter_key,
+    "gemini": secrets.set_gemini_key,
+    "gemini-api": secrets.set_gemini_key,
+    "google": secrets.set_gemini_key,
 }
 
 

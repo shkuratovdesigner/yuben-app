@@ -30,6 +30,7 @@ from app.adapters.cli_agents import CLI_SPECS, CliSpec, GenericCliAdapter, build
 from app.adapters.direct_anthropic import DirectAnthropicAdapter
 from app.adapters.gemini_cli import GeminiCliAdapter
 from app.adapters.openai_compatible import (
+    GeminiAdapter,
     OllamaAdapter,
     OpenAIAdapter,
     OpenAICompatibleAdapter,
@@ -71,6 +72,7 @@ def _register(adapter: AgentAdapter) -> None:
 # Key-paste API providers first (nothing to install), then the local CLIs.
 _register(DirectAnthropicAdapter())
 _register(OpenAIAdapter())
+_register(GeminiAdapter())
 _register(OpenRouterAdapter())
 _register(OllamaAdapter())
 _register(ClaudeCodeAdapter())
@@ -94,6 +96,9 @@ _ALIASES: Dict[str, str] = {
     "openai_api": "openai-api",
     "openaiapi": "openai-api",
     "gpt": "openai-api",
+    "gemini_api": "gemini-api",
+    "geminiapi": "gemini-api",
+    "google": "gemini-api",
     "open_router": "openrouter",
     "openrouter_api": "openrouter",
     "router": "openrouter",
