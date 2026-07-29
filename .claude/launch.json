@@ -2,6 +2,19 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "yuben",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "YUBEN_SERVE_SPA=1",
+        ".venv/bin/uvicorn",
+        "app.main:app",
+        "--port",
+        "8000"
+      ],
+      "cwd": "backend",
+      "port": 8000
+    },
+    {
       "name": "yuben-frontend",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
