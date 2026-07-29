@@ -44,7 +44,7 @@ Secrets rule: keys are write-only through the API; no endpoint ever returns a ke
   "analyze_titles": true,
   "analyze_scripts": true,
   "model": { "adapter": "claude-code", "model": "default" },
-  "max_results": 15
+  "max_results": 40
 }
 ```
 
@@ -92,7 +92,12 @@ Terminal events: `phase:"done"` (result ready at `/api/research/{id}`) or `phase
   "vsr": 0.43,                    // views ÷ subs (primary outlier signal)
   "multiplier": null,            // views ÷ channel_median (when medians on)
   "eng_per_1k": 14.7,            // computed: likes/views*1000
-  "engagement_flag": "ok",       // "ok" | "promoted" (<1.5)
+  "engagement_flag": "ok",       // "ok" | "promoted" (<1.5) — promoted rows are
+                                 // dropped from the ranking; counts.promoted_excluded
+                                 // reports how many
+  "channel_country": "US",       // channel's declared ISO 3166-1 alpha-2, or ""
+                                 // when unset. Sorts US/EU first (a preference,
+                                 // never a filter — the field is optional)
   "published_at": "2025-07-29T14:00:01Z",
   "duration_seconds": 399,
   "duration_label": "6:39",       // derived
@@ -116,8 +121,9 @@ Rendering rule: `video_id`, `url`, `thumbnail_url`, and all numeric fields are a
   "meta": {
     "window": "All time", "filter": "long-form ≥120s",
     "keywords": ["ai agents", "agent orchestration", "..."],
-    "ranking": "by views; VSR shown",
-    "counts": { "unique": 412, "longform": 180, "curated": 15 }
+    "ranking": "by views; VSR shown — US/Europe channels first, promoted excluded",
+    "counts": { "unique": 412, "longform": 180, "curated": 40,
+                "promoted_excluded": 7, "off_region": 3, "country_undeclared": 11 }
   },
 
   "top_videos": [ /* Video[], ranked — Section A (grid/list) */ ],
@@ -185,7 +191,7 @@ Sections `title_analysis` / `script_analysis` are `null` when the matching toggl
 
 // HistoryItem (GET /api/history)
 { "run_id":"r_…", "topic_title":"…", "query":"…", "format":"longform",
-  "created_at":"…", "counts":{"curated":15}, "outperformance":"highest" }
+  "created_at":"…", "counts":{"curated":40}, "outperformance":"highest" }
 ```
 
 ---

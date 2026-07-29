@@ -190,7 +190,78 @@ def test_map_format_and_outperformance():
 
     any_ = map_request_to_params(_request(outperformance="any"))
     assert any_.vsr_floor is None
-    assert any_.ranking_label == "by views; VSR shown"
+    assert any_.ranking_label.startswith("by views; VSR shown")
+    # Every ranking label now names the two always-on guards, so the results
+    # header can never imply a raw ranking the pipeline did not actually run.
+    for p in (lf, sh, any_):
+        assert "US/Europe channels first" in p.ranking_label
+        assert "promoted excluded" in p.ranking_label
+
+
+def test_region_tier_ranks_core_english_first_and_unknown_mid():
+    from app.pipeline.params import (
+        REGION_CORE,
+        REGION_EUROPE,
+        REGION_OTHER,
+        REGION_UNKNOWN,
+        region_tier,
+    )
+
+    assert region_tier("US") == REGION_CORE
+    assert region_tier("gb") == REGION_CORE  # case-insensitive
+    assert region_tier("DE") == REGION_EUROPE
+    assert region_tier("IN") == REGION_OTHER
+    # An undeclared country must never sort as "bad" — the field is optional on
+    # YouTube's side, so a blank must not cost a US channel its place.
+    assert region_tier("") == REGION_UNKNOWN
+    assert REGION_UNKNOWN < REGION_OTHER
+
+
+def test_drop_promoted_removes_flagged_and_counts_them():
+    from app.pipeline.params import drop_promoted
+
+    rows = [
+        {"video_id": "a", "engagement_flag": "ok"},
+        {"video_id": "b", "engagement_flag": "promoted"},
+        {"video_id": "c", "engagement_flag": "ok"},
+        {"video_id": "d", "engagement_flag": "promoted"},
+    ]
+    kept, dropped = drop_promoted(rows)
+    assert [v["video_id"] for v in kept] == ["a", "c"]
+    assert dropped == 2
+
+
+def test_apply_outperformance_demotes_off_region_without_dropping_it():
+    from app.pipeline.params import apply_outperformance, map_request_to_params
+
+    params = map_request_to_params(_request(outperformance="highest"))
+    rows = [
+        # Highest VSR of the set, but off-region: must sink, not disappear.
+        {"video_id": "in", "channel_country": "IN", "vsr": 90.0, "view_count": 900},
+        {"video_id": "us", "channel_country": "US", "vsr": 3.0, "view_count": 300},
+        {"video_id": "unk", "channel_country": "", "vsr": 50.0, "view_count": 500},
+        {"video_id": "de", "channel_country": "DE", "vsr": 2.0, "view_count": 200},
+    ]
+    out = apply_outperformance(rows, params)
+    assert [v["video_id"] for v in out] == ["us", "de", "unk", "in"]
+    # Preference, not filter — every input row survives.
+    assert len(out) == len(rows)
+
+
+def test_apply_outperformance_sorts_by_vsr_within_a_region_tier():
+    from app.pipeline.params import apply_outperformance, map_request_to_params
+
+    params = map_request_to_params(_request(outperformance="highest"))
+    rows = [
+        {"video_id": "lo", "channel_country": "US", "vsr": 2.0, "view_count": 10},
+        {"video_id": "hi", "channel_country": "GB", "vsr": 40.0, "view_count": 10},
+        {"video_id": "none", "channel_country": "CA", "vsr": None, "view_count": 99},
+        {"video_id": "mid", "channel_country": "US", "vsr": 9.0, "view_count": 10},
+    ]
+    out = apply_outperformance(rows, params)
+    # All four are core-English, so VSR desc decides; unknown VSR sorts last
+    # even though it has the most views.
+    assert [v["video_id"] for v in out] == ["hi", "mid", "lo", "none"]
 
 
 def test_keywords_fallback_and_injection():

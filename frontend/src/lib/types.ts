@@ -71,6 +71,8 @@ export interface Video {
   /** like_count / view_count * 1000. */
   eng_per_1k: number
   engagement_flag: EngagementFlag
+  /** Channel's self-declared ISO 3166-1 alpha-2 country; '' when unset. */
+  channel_country: string
   published_at: string
   duration_seconds: number
   duration_label: string

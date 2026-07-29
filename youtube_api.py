@@ -92,6 +92,8 @@ def search_videos(
     query: str,
     published_after: str,
     max_results: int = 50,
+    region_code: str = "",
+    relevance_language: str = "",
 ) -> list:
     """Search YouTube for videos sorted by view count.
 
@@ -103,17 +105,29 @@ def search_videos(
         ISO 8601 datetime string (e.g. '2025-12-01T00:00:00Z').
     max_results : int
         Maximum number of results (up to 50 per API call).
+    region_code : str
+        ISO 3166-1 alpha-2 country (e.g. 'US'). Biases the result set toward
+        what that region ranks. Omitted from the request when empty.
+    relevance_language : str
+        ISO 639-1 language (e.g. 'en'). Biases toward that language.
 
-    Returns
-    -------
-    list[dict]
-        Each dict contains: video_id, title, channel_id, channel_title,
-        published_at.
+    Both hints are *soft*: YouTube treats them as relevance signals, not
+    filters, so neither one excludes anything on its own. In particular
+    ``relevance_language='en'`` will not narrow results to the US/EU — India is
+    one of the largest English-language markets on the platform. The hard-ish
+    signal is the channel's declared country, applied downstream as a ranking
+    preference in ``app/pipeline/params.py``.
 
     API cost: 100 units per call.
     """
     service = build_service()
     time.sleep(0.1)
+
+    optional = {}
+    if region_code:
+        optional["regionCode"] = region_code
+    if relevance_language:
+        optional["relevanceLanguage"] = relevance_language
 
     try:
         response = (
@@ -125,6 +139,7 @@ def search_videos(
                 publishedAfter=published_after,
                 part="snippet",
                 maxResults=max_results,
+                **optional,
             )
             .execute()
         )

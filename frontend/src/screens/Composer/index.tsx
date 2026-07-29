@@ -33,6 +33,7 @@ import {
   FORMAT_DEFAULT,
   FORMAT_OPTIONS,
   INLINE_SELECT_TRIGGER,
+  MAX_RESULTS_DEFAULT,
   OUTPERFORMANCE_DEFAULT,
   OUTPERFORMANCE_OPTIONS,
   UPLOAD_DATE_DEFAULT,
@@ -72,7 +73,7 @@ export default function Composer() {
         adapter: config?.adapter ?? 'claude-code',
         model: config?.model ?? 'default',
       },
-      max_results: 15,
+      max_results: MAX_RESULTS_DEFAULT,
     }),
     [trimmed, format, uploadDate, outperformance, analyzeTitles, analyzeScripts, config],
   )

@@ -47,7 +47,15 @@ from typing import Any, Dict, List, Optional, Tuple
 # where the youtube_research alias lives.
 from ._paths import REPO_ROOT, install_youtube_research_alias
 from .normalize import normalize_videos
-from .params import PipelineParams, apply_outperformance, map_request_to_params
+from .params import (
+    REGION_OTHER,
+    REGION_UNKNOWN,
+    PipelineParams,
+    apply_outperformance,
+    drop_promoted,
+    map_request_to_params,
+    region_tier,
+)
 
 # Cap transcript fetches so a live run never balloons; transcripts feed the
 # agent's script analysis, which only looks at the curated head anyway.
@@ -120,7 +128,13 @@ def _run_script(params: PipelineParams) -> Tuple[Dict[str, Any], str, bool]:
                 f"shorts_research.py not importable from {REPO_ROOT}: {exc}",
                 code="cli_missing",
             )
-        raw = shorts_research.run(params.keywords, params.days, params.floor)
+        raw = shorts_research.run(
+            params.keywords,
+            params.days,
+            params.floor,
+            params.region_code,
+            params.relevance_language,
+        )
         return raw, "shorts_research", False
 
     try:
@@ -131,7 +145,12 @@ def _run_script(params: PipelineParams) -> Tuple[Dict[str, Any], str, bool]:
             code="cli_missing",
         )
     raw = longform_research.run(
-        params.keywords, params.days, params.floor, params.compute_medians
+        params.keywords,
+        params.days,
+        params.floor,
+        params.compute_medians,
+        params.region_code,
+        params.relevance_language,
     )
     return raw, "longform_research", True
 
@@ -205,8 +224,21 @@ def run_pipeline(
     raw_rows = raw.get("videos", []) or []
 
     videos = normalize_videos(raw_rows, keep_multiplier=keep_multiplier)
+    videos, promoted_dropped = drop_promoted(videos)
     videos = apply_outperformance(videos, params)
     videos = _validate_rows(videos)
+
+    # Region is a preference, not a filter, so these rows are still present —
+    # they just sort below the on-region ones. Counting them inside the curated
+    # head is what tells the user whether the topic actually has US/EU coverage
+    # or whether the table only looks on-region because it was reordered.
+    head = videos[: params.max_results]
+    off_region_in_head = sum(
+        1 for v in head if region_tier(v.get("channel_country", "")) == REGION_OTHER
+    )
+    undeclared_in_head = sum(
+        1 for v in head if region_tier(v.get("channel_country", "")) == REGION_UNKNOWN
+    )
 
     curated = min(len(videos), params.max_results)
     transcripts: Optional[Dict[str, Optional[str]]] = None
@@ -226,10 +258,17 @@ def run_pipeline(
         "filter": params.filter_label,
         "keywords": list(params.keywords),
         "ranking": params.ranking_label,
+        # ResultMeta.counts is an open map of integers by contract, so the
+        # region/engagement tallies belong here rather than buried in the
+        # pipeline internals — they are the user's evidence that the filtering
+        # ran, and how much of the table it moved.
         "counts": {
             "unique": int(raw.get("total_search_unique", len(videos))),
             count_key: kept_by_duration,
             "curated": curated,
+            "promoted_excluded": promoted_dropped,
+            "off_region": off_region_in_head,
+            "country_undeclared": undeclared_in_head,
         },
         # --- pipeline internals (not part of ResultMeta) ---
         "pipeline": {

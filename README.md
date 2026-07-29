@@ -40,7 +40,8 @@ The core signal is **VSR (views ÷ subscribers)**. In the demo run above, a 140k
 
 ## Features
 
-- **Outlier discovery** — VSR-ranked results with engagement sanity checks (likes-per-1k-views flags bought/promoted views).
+- **Outlier discovery** — VSR-ranked results with engagement sanity checks: under 1.5 likes per 1,000 views reads as bought or ad-driven traffic, so the video is dropped from the ranking and the count of what was dropped is reported in the run's `counts.promoted_excluded`.
+- **Region preference** — YouTube search offers only soft relevance hints (`regionCode`, `relevanceLanguage`), and `en` alone will not narrow a topic to the US/EU. YuBen also reads each channel's self-declared country and sorts US/UK/CA/AU/IE/NZ first, then Europe, then channels that declared nothing, then the rest. It is a preference, never a filter — the field is optional on YouTube's side, so dropping on it would silently delete legitimate channels. Tune the regions in [`backend/app/pipeline/params.py`](backend/app/pipeline/params.py).
 - **Recommended watch list** — a short, sequenced list of what to watch and what to take from each video.
 - **Grid or sortable table** — switch views, then sort by views, VSR multiple, engagement or duration. Each row keeps its original outlier rank, so re-sorting never restates the ranking.
 - **Title & script analysis** — common patterns, emotional triggers, and hook structures across the outlier set, with per-video transcripts when enabled.

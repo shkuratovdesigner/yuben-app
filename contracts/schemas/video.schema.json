@@ -21,6 +21,7 @@
     "multiplier",
     "eng_per_1k",
     "engagement_flag",
+    "channel_country",
     "published_at",
     "duration_seconds",
     "duration_label",
@@ -65,6 +66,11 @@
       "type": "string",
       "enum": ["ok", "promoted"],
       "description": "'promoted' when eng_per_1k < 1.5 (possible bought/dead engagement)."
+    },
+    "channel_country": {
+      "type": "string",
+      "pattern": "^([A-Z]{2})?$",
+      "description": "Channel's self-declared ISO 3166-1 alpha-2 country, or \"\" when the channel left it unset. Drives the region preference sort; NOT a hard filter, since the field is optional on YouTube's side and many legitimate channels omit it."
     },
     "published_at": { "type": "string", "format": "date-time" },
     "duration_seconds": { "type": "integer", "minimum": 0 },

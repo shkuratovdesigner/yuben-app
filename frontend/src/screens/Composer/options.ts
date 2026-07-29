@@ -50,6 +50,14 @@ export const OUTPERFORMANCE_DEFAULT: Outperformance = 'highest'
 export const FORMAT_DEFAULT: Format = 'longform'
 
 /**
+ * How many curated videos a report holds (CONTRACTS §2 `max_results`, capped at
+ * 100 by the schema). The pipeline collects far more than this and B5 truncates
+ * the agent's ranked list to it, so this is purely how deep the report goes —
+ * raising it costs no extra YouTube quota, only more oEmbed link checks.
+ */
+export const MAX_RESULTS_DEFAULT = 40
+
+/**
  * Borderless inline trigger for the control-bar + footer <Select>s. The design
  * system's SelectTrigger is a 52px bordered field; Figma's control-bar dropdowns
  * are plain 14px muted text + a small chevron, so we flatten it here (twMerge

@@ -47,7 +47,7 @@ class ResearchRequest(Strict):
     analyze_titles: bool
     analyze_scripts: bool
     model: ModelSelection
-    max_results: int = Field(default=15, ge=1, le=100)
+    max_results: int = Field(default=40, ge=1, le=100)
 
 
 # --- Video -----------------------------------------------------------------
@@ -67,6 +67,7 @@ class Video(Strict):
     multiplier: Optional[float] = Field(default=None, ge=0)
     eng_per_1k: float = Field(ge=0)
     engagement_flag: EngagementFlag
+    channel_country: str = Field(default="", pattern=r"^([A-Z]{2})?$")
     published_at: str
     duration_seconds: int = Field(ge=0)
     duration_label: str

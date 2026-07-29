@@ -51,7 +51,12 @@ def log(msg: str) -> None:
 
 
 def get_channel_stats(channel_ids: list) -> dict:
-    """Return {channel_id: {subscriber_count, video_count, title}}."""
+    """Return {channel_id: {subscriber_count, video_count, title, country}}.
+
+    ``country`` is the channel's self-declared ISO 3166-1 alpha-2 code, already
+    present in the ``snippet`` part this call requests — free to read, optional
+    on YouTube's side, so downstream prefers rather than filters on it.
+    """
     service = build_service()
     out: dict = {}
     ids = list({c for c in channel_ids if c})
@@ -74,21 +79,36 @@ def get_channel_stats(channel_ids: list) -> dict:
                 "hidden_subs": stats.get("hiddenSubscriberCount", False),
                 "channel_total_videos": int(stats.get("videoCount", 0)),
                 "title": item.get("snippet", {}).get("title", ""),
+                "country": (item.get("snippet", {}).get("country", "") or "").upper(),
             }
     return out
 
 
-def run(keywords: list, days: int, published_after_floor: str) -> dict:
+def run(
+    keywords: list,
+    days: int,
+    published_after_floor: str,
+    region_code: str = "",
+    relevance_language: str = "",
+) -> dict:
     floor_dt = datetime.fromisoformat(published_after_floor.replace("Z", "+00:00"))
     window_dt = datetime.now(timezone.utc) - timedelta(days=days)
     published_after = max(floor_dt, window_dt).strftime("%Y-%m-%dT%H:%M:%SZ")
     log(f"publishedAfter = {published_after}")
+    if region_code or relevance_language:
+        log(f"region hint: regionCode={region_code or '-'} lang={relevance_language or '-'}")
 
     seen: set = set()
     search_rows: list = []
     for idx, kw in enumerate(keywords, 1):
         log(f"[{idx}/{len(keywords)}] search: {kw}")
-        for r in search_videos(kw, published_after, max_results=50):
+        for r in search_videos(
+            kw,
+            published_after,
+            max_results=50,
+            region_code=region_code,
+            relevance_language=relevance_language,
+        ):
             if r["video_id"] not in seen:
                 seen.add(r["video_id"])
                 search_rows.append(r)
@@ -116,6 +136,7 @@ def run(keywords: list, days: int, published_after_floor: str) -> dict:
             "title": v["title"],
             "channel_id": v["channel_id"],
             "channel_name": v.get("channel_title", ""),
+            "channel_country": cs.get("country", ""),
             "subscriber_count": subs,
             "subs_hidden": cs.get("hidden_subs", False),
             "view_count": views,

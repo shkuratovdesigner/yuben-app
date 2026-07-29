@@ -59,6 +59,7 @@ def build_video(raw: dict) -> dict:
         "multiplier": None,
         "eng_per_1k": eng,
         "engagement_flag": "promoted" if eng < 1.5 else "ok",
+        "channel_country": raw.get("channel_country", ""),
         "published_at": raw["published_at"],
         "duration_seconds": raw["duration_seconds"],
         "duration_label": duration_label(raw["duration_seconds"]),

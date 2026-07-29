@@ -106,14 +106,14 @@ Six screens (five in Figma + one loader we design). Node IDs reference the Figma
 **Purpose:** show live scraping + analysis progress so a multi-minute run feels alive.
 - Centered progress card driven by the SSE **ProgressEvent** stream (see [CONTRACTS.md](CONTRACTS.md)).
 - **Phase checklist** with a moving indeterminate/percentage bar. Phases + copy in §6: expanding keywords → searching YouTube → enriching (subs, stats) → scoring outliers (VSR) → analyzing titles/scripts → verifying links → done.
-- Live counters (e.g., "412 videos found · 180 long-form · verifying 15 links").
+- Live counters (e.g., "412 videos found · 180 long-form · verifying 40 links").
 - Secondary text reassures it may take a couple of minutes; **[Cancel]** ends the run.
 - Graceful **error** state (quota exceeded, CLI failed, no results) with a retry and a plain-language reason.
 
 ### 4.5 Results (`31:184` grid · `31:843` list · `35:2181` script tab)
 **Purpose:** render the finished research. One route, several sections.
 - **Header:** topic title (e.g., "Autonomous AI Agents, Orchestration & Multi-Agent Systems") + one-line thesis + a **grid/list toggle**.
-- **Section A — Top 15 Highest-Performed Videos:**
+- **Section A — Top 40 Highest-Performed Videos:**
   - **Grid view** (`31:184`): video cards (thumbnail, title, channel, views, outperformance badge, duration, Watch link).
   - **List view** (`31:843`): table — `№ · Title & thumbnail · Channel · Views · Mult (outperformance) · Eng/1k · Duration · Link → Watch`. Color-code the outperformance cell by tier (hot / warm / cool).
 - **Section B — Recommended Watch List by Learning Goal:** table — `№ · Title · Why to watch · Mult · Duration · Link`.

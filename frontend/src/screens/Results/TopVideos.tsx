@@ -71,6 +71,14 @@ function VideoCard({ video }: { video: Video }) {
         </h3>
         <p className="truncate text-xs text-brand-grey" title={video.channel_name}>
           {video.channel_name}
+          {video.channel_country && (
+            <span
+              className="ml-1.5 text-[10px] font-medium uppercase tracking-wide text-brand-grey/70"
+              title={`Channel country: ${video.channel_country}`}
+            >
+              {video.channel_country}
+            </span>
+          )}
         </p>
 
         <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-2 text-xs text-brand-grey">
@@ -267,7 +275,17 @@ function TopVideosList({ videos }: { videos: Video[] }) {
                     <span className="min-w-[180px] font-medium leading-snug">{video.title}</span>
                   </div>
                 </TableCell>
-                <TableCell className="align-top text-brand-grey">{video.channel_name}</TableCell>
+                <TableCell className="align-top text-brand-grey">
+                  {video.channel_name}
+                  {video.channel_country && (
+                    <span
+                      className="ml-1.5 align-middle text-[10px] font-medium uppercase tracking-wide text-brand-grey/70"
+                      title={`Channel country: ${video.channel_country}`}
+                    >
+                      {video.channel_country}
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell className="align-top whitespace-nowrap text-right tabular-nums">
                   {video.view_count.toLocaleString()}
                 </TableCell>

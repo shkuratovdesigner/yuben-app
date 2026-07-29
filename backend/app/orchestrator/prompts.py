@@ -262,8 +262,12 @@ def build_repair_prompt(
 # will join against.
 
 # Bound the video list baked into the narrative prompt (the pipeline head is
-# already ranked; the model curates the top max_results from these).
-_DIRECT_MAX_VIDEOS = 60
+# already ranked; the model curates the top max_results from these). Keep this a
+# healthy multiple of max_results — at 60 against a 40-video report the model
+# keeps two rows in three, which is not curation, it is a copy of the pipeline's
+# own ranking. ~4x preserves the selection pressure the design assumed back when
+# the report held 15.
+_DIRECT_MAX_VIDEOS = 160
 # How many top videos to attach transcript snippets for (script analysis only).
 _DIRECT_MAX_TRANSCRIPTS = 8
 _TRANSCRIPT_SNIPPET_CHARS = 600

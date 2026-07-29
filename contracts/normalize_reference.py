@@ -43,6 +43,16 @@ def duration_label(seconds: int) -> str:
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
 
+def _country(x) -> str:
+    """Raw channel country -> ISO 3166-1 alpha-2, or "" when absent/unusable.
+
+    The ``Video`` contract permits only two uppercase letters or "", so
+    anything else collapses to "".
+    """
+    c = str(x or "").strip().upper()
+    return c if len(c) == 2 and c.isalpha() else ""
+
+
 def _num(x):
     if x is None:
         return None
@@ -84,6 +94,7 @@ def normalize_video(raw: dict, *, keep_multiplier: bool) -> dict | None:
         "multiplier": multiplier,
         "eng_per_1k": eng_per_1k,
         "engagement_flag": "promoted" if eng_per_1k < 1.5 else "ok",
+        "channel_country": _country(raw.get("channel_country")),
         "published_at": raw.get("published_at", "") or "1970-01-01T00:00:00Z",
         "duration_seconds": int(_num(raw.get("duration_seconds")) or 0),
         "duration_label": duration_label(int(_num(raw.get("duration_seconds")) or 0)),
