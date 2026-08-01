@@ -175,6 +175,21 @@ function Stage({ children }: { children: React.ReactNode }) {
 
 type StepState = 'complete' | 'active' | 'pending'
 
+/**
+ * Stepper node. All three sit centred on the 20px icon column so the rail behind
+ * them (see the checklist below) stays on one axis.
+ *
+ * complete/active are opaque 20px discs — the rail runs *behind* them and is
+ * masked, so they read as beads threaded on the line. `bg-brand-card` on the
+ * spinner is load-bearing: Loader2 is an open ring, so without it the rail shows
+ * through the middle of the active node.
+ *
+ * pending is a small dot drawn straight *on top of* the rail (no mask), which is
+ * what keeps the untravelled stretch reading as one unbroken line. It's a
+ * flex-centred wrapper rather than a bare sized span because a `size-5` <span>
+ * is still `display: inline` — width/height don't apply, and it collapses into a
+ * 2px tick offset from the rail, i.e. the doubled-line artefact.
+ */
 function StepIcon({ state }: { state: StepState }) {
   if (state === 'complete') {
     return (
@@ -185,12 +200,16 @@ function StepIcon({ state }: { state: StepState }) {
   }
   if (state === 'active') {
     return (
-      <span className="flex size-5 items-center justify-center">
+      <span className="flex size-5 items-center justify-center rounded-full bg-brand-card">
         <Loader2 className="size-5 animate-spin text-brand-teal" />
       </span>
     )
   }
-  return <span className="size-5 rounded-full border-2 border-border" />
+  return (
+    <span className="flex size-5 items-center justify-center">
+      <span className="size-2.5 rounded-full bg-brand-muted" />
+    </span>
+  )
 }
 
 /** Terminal error / empty screen — a plain-language reason (PRD §6) plus a
@@ -343,11 +362,28 @@ export default function Loader() {
                 aria-current={state === 'active' ? 'step' : undefined}
                 className="relative flex gap-3 pb-5 last:pb-0"
               >
+                {/* The rail, in two halves per row: node centre is 11px down
+                    (1px mt-px + half of the 20px node). Each row's lower half
+                    runs to its own bottom edge and the next row's upper half
+                    starts at 0, so the halves butt together into ONE unbroken
+                    line down the column — no rounded caps, or the joins notch.
+                    Splitting at the node is what lets the active row show a
+                    travelled (green) stretch above and an untravelled (grey)
+                    one below. */}
+                {i > 0 && (
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'absolute left-[9px] top-0 h-[11px] w-0.5',
+                      i <= currentIndex ? 'bg-brand-selected' : 'bg-border',
+                    )}
+                  />
+                )}
                 {!isLast && (
                   <span
                     aria-hidden
                     className={cn(
-                      'absolute bottom-0 left-[9px] top-5 w-0.5 rounded',
+                      'absolute bottom-0 left-[9px] top-[11px] w-0.5',
                       i < currentIndex ? 'bg-brand-selected' : 'bg-border',
                     )}
                   />
