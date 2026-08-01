@@ -67,3 +67,13 @@ export const INLINE_SELECT_TRIGGER =
   'flex h-auto w-auto items-center justify-start gap-1.5 rounded-none border-0 bg-transparent px-0 py-0 ' +
   'text-[14px] leading-[22px] text-brand-muted outline-none transition-colors hover:text-foreground ' +
   'focus:border-0 focus:ring-0 data-[placeholder]:text-brand-muted [&>svg]:size-4 [&>svg]:text-brand-grey'
+
+/**
+ * Composer control-bar variant of the above. The bar must never wrap to a second
+ * row, and its widest state ("Last 6 months" + "Highest Outperformance") lands
+ * within ~5px of the 800px card, so the two selects run a tighter gap and a 14px
+ * chevron — which also matches the 14px label better than the 16px one. The
+ * footer's model select keeps the roomier INLINE_SELECT_TRIGGER.
+ */
+export const COMPOSER_SELECT_TRIGGER =
+  `${INLINE_SELECT_TRIGGER} shrink-0 gap-1 whitespace-nowrap [&>svg]:size-3.5`

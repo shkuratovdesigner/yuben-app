@@ -30,9 +30,9 @@ import { cn } from '@/lib/utils'
 import { ComposerFooter } from './ComposerFooter'
 import { CostHint } from './CostHint'
 import {
+  COMPOSER_SELECT_TRIGGER,
   FORMAT_DEFAULT,
   FORMAT_OPTIONS,
-  INLINE_SELECT_TRIGGER,
   MAX_RESULTS_DEFAULT,
   OUTPERFORMANCE_DEFAULT,
   OUTPERFORMANCE_OPTIONS,
@@ -137,14 +137,20 @@ export default function Composer() {
                 className="w-full resize-none bg-transparent px-1 text-[16px] leading-[1.4] text-foreground outline-none placeholder:text-brand-muted"
               />
 
-              {/* Inline control bar. */}
+              {/* Inline control bar. The filters stay on ONE row whatever the
+                  selected labels are ("Highest Outperformance" + "Last 6 months"
+                  is the widest pair and only just fits at the 800px max width):
+                  every group is shrink-0/nowrap, and the strip scrolls sideways
+                  rather than wrapping under the send button on narrow viewports.
+                  py-1/-my-1 keeps focus rings from being clipped by the scroller
+                  without adding height. */}
               <div className="flex w-full items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-x-3 overflow-x-auto py-1 -my-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {/* Format toggle — subtle segmented control (not in Figma; see options.ts). */}
                   <div
                     role="group"
                     aria-label="Format"
-                    className="flex items-center gap-1.5 text-[14px] leading-[22px]"
+                    className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[14px] leading-[22px]"
                   >
                     {FORMAT_OPTIONS.map((opt, i) => (
                       <Fragment key={opt.value}>
@@ -168,7 +174,7 @@ export default function Composer() {
 
                   {/* Upload date. */}
                   <Select value={uploadDate} onValueChange={(v) => setUploadDate(v as UploadDate)}>
-                    <SelectTrigger aria-label="Upload date" className={INLINE_SELECT_TRIGGER}>
+                    <SelectTrigger aria-label="Upload date" className={COMPOSER_SELECT_TRIGGER}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -185,7 +191,7 @@ export default function Composer() {
                     value={outperformance}
                     onValueChange={(v) => setOutperformance(v as Outperformance)}
                   >
-                    <SelectTrigger aria-label="Outperformance" className={INLINE_SELECT_TRIGGER}>
+                    <SelectTrigger aria-label="Outperformance" className={COMPOSER_SELECT_TRIGGER}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -200,7 +206,7 @@ export default function Composer() {
                   {/* Analysis toggles. Label is a SIBLING (not a wrapper) of the
                       control: wrapping a labelable control in a <label htmlFor>
                       pointing back at it double-fires the click and cancels the toggle. */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-1.5">
                     <Checkbox
                       id="analyze-titles"
                       checked={analyzeTitles}
@@ -208,12 +214,12 @@ export default function Composer() {
                     />
                     <label
                       htmlFor="analyze-titles"
-                      className="cursor-pointer text-[14px] leading-[22px] text-brand-muted"
+                      className="cursor-pointer whitespace-nowrap text-[14px] leading-[22px] text-brand-muted"
                     >
                       Titles Analytic
                     </label>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-1.5">
                     <Checkbox
                       id="analyze-scripts"
                       checked={analyzeScripts}
@@ -221,7 +227,7 @@ export default function Composer() {
                     />
                     <label
                       htmlFor="analyze-scripts"
-                      className="cursor-pointer text-[14px] leading-[22px] text-brand-muted"
+                      className="cursor-pointer whitespace-nowrap text-[14px] leading-[22px] text-brand-muted"
                     >
                       Script analytics
                     </label>
