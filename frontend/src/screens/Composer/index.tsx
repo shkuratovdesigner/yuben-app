@@ -42,7 +42,7 @@ import {
 
 export default function Composer() {
   const startRun = useStartRun()
-  const { config, adapters, saveConfig } = useConfig()
+  const { config, adapters, adapterHealth, saveConfig } = useConfig()
   const { items } = useHistory()
   const navigate = useNavigate()
 
@@ -272,6 +272,7 @@ export default function Composer() {
       <ComposerFooter
         config={config}
         adapters={adapters}
+        adapterHealth={adapterHealth}
         historyCount={items.length}
         onModelChange={handleModelChange}
       />
