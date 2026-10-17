@@ -85,10 +85,10 @@ def _launch_macos(command: str) -> Tuple[bool, str]:
     except subprocess.TimeoutExpired:
         return True, (
             "Opening Terminal to run `{}`. If macOS asks whether to allow controlling "
-            "Terminal, say yes — then finish signing in and test again.".format(command)
+            "Terminal, say yes — then finish signing in there.".format(command)
         )
     if proc.returncode == 0:
-        return True, "Opened Terminal running `{}` — finish signing in there, then test again.".format(
+        return True, "Opened Terminal running `{}` — finish signing in there.".format(
             command
         )
     detail = (err or "").strip()
@@ -105,7 +105,7 @@ def _launch_windows(command: str) -> Tuple[bool, str]:
         stdin=subprocess.DEVNULL,
         close_fds=True,
     )
-    return True, "Opened a terminal running `{}` — finish signing in there, then test again.".format(
+    return True, "Opened a terminal running `{}` — finish signing in there.".format(
         command
     )
 
@@ -120,7 +120,7 @@ def _launch_linux(command: str) -> Tuple[bool, str]:
             stdin=subprocess.DEVNULL,
             close_fds=True,
         )
-        return True, "Opened {} running `{}` — finish signing in there, then test again.".format(
+        return True, "Opened {} running `{}` — finish signing in there.".format(
             binary, command
         )
     return False, "No terminal emulator found. {}".format(_MANUAL.format(command))

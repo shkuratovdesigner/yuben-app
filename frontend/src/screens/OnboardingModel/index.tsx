@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ComponentType, SVGProps } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Info } from 'lucide-react'
 
 import {
   ClaudeMark,
@@ -189,7 +189,7 @@ function modelLabel(model: string): string {
  */
 export default function OnboardingModel() {
   const navigate = useNavigate()
-  const { config, adapters, loading, saveConfig, runEnvCheck } = useConfig()
+  const { config, adapters, loading, adapterHealth, saveConfig, runEnvCheck } = useConfig()
 
   const [showMore, setShowMore] = useState(false)
   // Whether the *currently selected* adapter passed its env-check. Reset on any
@@ -242,6 +242,14 @@ export default function OnboardingModel() {
   const keyConfig = selectedAdapter ? ADAPTER_META[selectedAdapter]?.key : undefined
 
   const canContinue = Boolean(selectedAdapter) && envPassed
+
+  // A verdict the app already holds for this exact adapter — the composer's
+  // load-time probe, which is what sends the user here via "Reconnect". Showing
+  // it means the row opens on the reason and its fix, not on a blank "Test now".
+  const knownResult =
+    adapterHealth.result && adapterHealth.result.adapter === selectedAdapter
+      ? adapterHealth.result
+      : null
 
   /** One card, wherever it renders — featured grid or collapsed remainder. */
   function renderCard(adapter: Adapter) {
@@ -342,6 +350,8 @@ export default function OnboardingModel() {
           key={selectedAdapter ?? 'none'}
           disabled={!selectedAdapter}
           installUrl={selectedAdapter ? ADAPTER_META[selectedAdapter]?.installUrl : undefined}
+          knownResult={knownResult}
+          checking={adapterHealth.status === 'checking'}
           onRun={runEnvCheck}
           onResult={(result) => setEnvPassed(result.ok)}
         />
@@ -352,17 +362,24 @@ export default function OnboardingModel() {
         <Button
           disabled={!canContinue}
           onClick={() => navigate('/onboarding/setup')}
+          aria-describedby={!canContinue ? 'continue-hint' : undefined}
           className="min-w-[142px]"
         >
           Continue
         </Button>
+        {/* Says what unlocks the button. A disabled Continue with no reason
+            read as broken — users didn't connect it to the test row above. */}
         {!canContinue ? (
-          <p className="text-center text-[13px] text-brand-muted">
+          <p
+            id="continue-hint"
+            className="flex items-center gap-1.5 text-center text-sm leading-5 text-muted-foreground"
+          >
+            <Info className="size-4 shrink-0" aria-hidden />
             {!selectedAdapter
               ? 'Select an adapter to continue.'
               : keyConfig
-                ? 'Add your API key and test it to continue.'
-                : 'Run the environment check to continue.'}
+                ? 'Add your API key and test the connection before you continue.'
+                : 'Test your connection above before you continue.'}
           </p>
         ) : null}
       </div>

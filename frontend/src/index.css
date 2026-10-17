@@ -42,6 +42,7 @@
   --brand-teal: #04607d;
   --brand-link: #00809c; /* links / accent text */
   --brand-selected: #19b28d; /* active adapter card border */
+  --success: #0b7a5e; /* passed checks — the selected teal-green, darkened to 5:1 on white */
   --brand-grey: #777274;
   --brand-muted: #808185; /* in-screen helper / sub text */
   --brand-card: #fbfbfb; /* resting card surface */
@@ -88,6 +89,7 @@
   --brand-teal: #3aa5c4;
   --brand-link: #45b3d1;
   --brand-selected: #19b28d;
+  --success: #2fd4a6; /* passed checks — lifted so the success line reads on #1c1c1f */
   --brand-grey: #9a9aa2;
   --brand-muted: #86868c;
   --brand-card: #1c1c1f;
@@ -126,6 +128,7 @@
   --color-brand-teal: var(--brand-teal);
   --color-brand-link: var(--brand-link);
   --color-brand-selected: var(--brand-selected);
+  --color-success: var(--success);
   --color-brand-grey: var(--brand-grey);
   --color-brand-muted: var(--brand-muted);
   --color-brand-card: var(--brand-card);

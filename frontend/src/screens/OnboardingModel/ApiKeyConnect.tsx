@@ -133,7 +133,12 @@ export function ApiKeyConnect({
       </div>
 
       {/* Connect / live-ping row */}
-      <Card className="w-full px-6 py-[18px]">
+      <Card
+        className={cn(
+          'w-full px-6 py-[18px] transition-colors',
+          !testing && result?.ok && 'border-success/40 bg-success/10',
+        )}
+      >
         <div className="flex items-center justify-between gap-4">
           <div className="flex flex-1 flex-col gap-1.5">
             <p className="text-[16px] font-medium leading-6 text-foreground">Connect the model</p>
@@ -149,7 +154,7 @@ export function ApiKeyConnect({
                   testing
                     ? 'text-brand-muted'
                     : result?.ok
-                      ? 'text-brand-selected'
+                      ? 'font-medium text-success'
                       : 'text-destructive',
                 )}
               >
@@ -162,15 +167,13 @@ export function ApiKeyConnect({
                 )}
                 <span>
                   {testing ? 'Testing your key…' : result?.message}
-                  {result?.ok && result.version ? (
-                    <span className="text-brand-muted"> · SDK v{result.version}</span>
-                  ) : null}
+                  {result?.ok && result.version ? ` · SDK v${result.version}` : null}
                 </span>
               </p>
             )}
           </div>
           <Button variant="secondary" size="sm" onClick={handleTest} disabled={!canTest}>
-            {testing ? 'Testing…' : 'Test now'}
+            {testing ? 'Testing…' : result ? 'Test again' : 'Test now'}
           </Button>
         </div>
       </Card>

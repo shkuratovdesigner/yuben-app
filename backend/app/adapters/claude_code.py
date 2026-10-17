@@ -112,13 +112,13 @@ class ClaudeCodeAdapter(AgentAdapter):
         if status is None:
             return self._result(
                 False, version,
-                "Claude Code couldn't authenticate. Sign in and run the check again.",
+                "Claude Code couldn't authenticate. Sign in to connect it.",
                 remedy=sign_in,
             )
         if not status.get("loggedIn"):
             return self._result(
                 False, version,
-                "Claude Code isn't signed in yet. Sign in and run the check again.",
+                "Claude Code isn't signed in yet. Sign in to connect it.",
                 remedy=sign_in,
             )
         # Signed in on paper, rejected in practice — the confusing case. Name the
