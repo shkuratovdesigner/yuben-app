@@ -276,7 +276,7 @@ export default function OnboardingModel() {
   }
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-9rem)] w-full max-w-[664px] flex-col items-center justify-center gap-14 py-10">
+    <div className="mx-auto flex w-full max-w-[664px] flex-1 flex-col items-center justify-center gap-14 py-10">
       {/* Heading */}
       <div className="flex w-full max-w-[521px] flex-col items-center gap-4 text-center">
         <h1 className="font-display text-[40px] leading-[1.1] text-foreground">Choose the model</h1>
@@ -372,7 +372,7 @@ export default function OnboardingModel() {
         {!canContinue ? (
           <p
             id="continue-hint"
-            className="flex items-center gap-1.5 text-center text-sm leading-5 text-muted-foreground"
+            className="flex items-center gap-1.5 text-center text-sm leading-5 text-warning"
           >
             <Info className="size-4 shrink-0" aria-hidden />
             {!selectedAdapter

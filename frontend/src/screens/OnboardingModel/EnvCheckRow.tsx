@@ -190,18 +190,22 @@ export function EnvCheckRow({
             Runs a live probe that asks the adapter CLI to respond with hello
           </p>
         </div>
-        <Button variant="secondary" size="sm" onClick={run} disabled={disabled || busy}>
-          {busy ? (
-            <>
-              <Loader2 className="size-4 animate-spin" />
-              Testing…
-            </>
-          ) : result ? (
-            'Test again'
-          ) : (
-            'Test now'
-          )}
-        </Button>
+        {/* A pass is final: the button goes away so the green verdict is the
+            only thing left to read. A failure keeps "Test again". */}
+        {!succeeded ? (
+          <Button variant="secondary" size="sm" onClick={run} disabled={disabled || busy}>
+            {busy ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Testing…
+              </>
+            ) : result ? (
+              'Test again'
+            ) : (
+              'Test now'
+            )}
+          </Button>
+        ) : null}
       </div>
 
       {showResult && result ? (

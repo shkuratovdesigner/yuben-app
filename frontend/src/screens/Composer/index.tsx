@@ -111,7 +111,7 @@ export default function Composer() {
   )
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-8rem)] w-full max-w-[800px] flex-col">
+    <div className="mx-auto flex w-full max-w-[800px] flex-1 flex-col">
       <div className="flex flex-1 items-center justify-center">
         <div className="flex w-full flex-col items-center gap-12">
           {/* Header — serif H1 + sub (Figma 27:550/27:551/27:552). */}

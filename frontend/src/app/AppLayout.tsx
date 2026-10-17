@@ -71,9 +71,13 @@ function TopBar() {
 
 export function AppLayout() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    // A flex column exactly one viewport tall (dvh, so mobile browser chrome is
+    // excluded). Screens that should fill the screen take `flex-1` instead of
+    // re-deriving the header height with calc() — that guess drifted out of sync
+    // with the header and the bottom padding and left a stray page scroll.
+    <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <TopBar />
-      <main className="px-6 pb-20">
+      <main className="flex flex-1 flex-col px-6 pb-20">
         <Outlet />
       </main>
     </div>

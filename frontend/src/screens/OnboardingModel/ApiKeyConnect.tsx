@@ -172,9 +172,12 @@ export function ApiKeyConnect({
               </p>
             )}
           </div>
-          <Button variant="secondary" size="sm" onClick={handleTest} disabled={!canTest}>
-            {testing ? 'Testing…' : result ? 'Test again' : 'Test now'}
-          </Button>
+          {/* Hidden once the key passes; editing the key clears the result and brings it back. */}
+          {!(result?.ok && !testing) ? (
+            <Button variant="secondary" size="sm" onClick={handleTest} disabled={!canTest}>
+              {testing ? 'Testing…' : result ? 'Test again' : 'Test now'}
+            </Button>
+          ) : null}
         </div>
       </Card>
     </div>
