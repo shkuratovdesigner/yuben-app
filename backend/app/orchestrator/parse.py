@@ -174,6 +174,9 @@ class StreamCollector:
                 self._text_parts.append(stripped)
             return None
         if not isinstance(obj, dict):
+            # Pretty-printed JSON can have a complete string/array on one
+            # line. Dropping it corrupts the enclosing response document.
+            self._text_parts.append(line.strip())
             return None
 
         etype = obj.get("type")
@@ -202,6 +205,8 @@ class StreamCollector:
         # A bare object that is itself the AgentResult.
         if _looks_like_agent_result(obj):
             self._direct_obj = obj
+        elif etype is None:
+            self._text_parts.append(line.strip())
         return None
 
     def text(self) -> str:

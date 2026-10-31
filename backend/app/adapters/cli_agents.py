@@ -21,6 +21,10 @@ the fix is a single field in the table below, not a code change.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import json
+import os
+from pathlib import Path
+import tempfile
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from app.adapters.base import (
@@ -142,6 +146,21 @@ class GenericCliAdapter(AgentAdapter):
 
     # -- detection -----------------------------------------------------------
     def models(self) -> List[str]:
+        if self.id == "codex-cli":
+            # Codex refreshes this catalog itself; use account-visible entries
+            # rather than maintaining a second, quickly outdated model list.
+            home = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
+            try:
+                catalog = json.loads((home / "models_cache.json").read_text())
+                models = [
+                    entry["slug"] for entry in catalog["models"]
+                    if isinstance(entry, dict)
+                    and entry.get("visibility") == "list"
+                    and isinstance(entry.get("slug"), str) and entry["slug"]
+                ]
+                return list(dict.fromkeys(["default", *models]))
+            except (OSError, ValueError, KeyError, TypeError):
+                pass
         return list(self.spec.models_list)
 
     def detect(self) -> Dict[str, Any]:
@@ -214,7 +233,35 @@ class GenericCliAdapter(AgentAdapter):
         path = which(self.binary)
         if not path:
             raise AdapterError(self._install_hint())
-        return stream_process(self._build_cmd(path, prompt, model), cwd=cwd)
+        cmd = self._build_cmd(path, prompt, model)
+        if self.id == "codex-cli" and "OUTPUT CONTRACT" in prompt:
+            return self._stream_codex_result(cmd, cwd)
+        return stream_process(cmd, cwd=cwd)
+
+    @staticmethod
+    def _stream_codex_result(cmd: List[str], cwd: Optional[str]) -> Iterator[str]:
+        """Constrain narrative output at generation time, including repair turns."""
+        from contracts.python.models import AgentResult
+
+        schema = AgentResult.model_json_schema()
+
+        def strict(node: Any) -> None:
+            if isinstance(node, dict):
+                node.pop("default", None)
+                if node.get("type") == "object":
+                    node["additionalProperties"] = False
+                    node["required"] = list(node.get("properties", {}))
+                for value in node.values():
+                    strict(value)
+            elif isinstance(node, list):
+                for value in node:
+                    strict(value)
+
+        strict(schema)
+        with tempfile.TemporaryDirectory(prefix="yuben-codex-") as directory:
+            path = Path(directory) / "agent-result-schema.json"
+            path.write_text(json.dumps(schema))
+            yield from stream_process([*cmd, "--output-schema", str(path)], cwd=cwd)
 
     # -- helper --------------------------------------------------------------
     def _result(self, ok: bool, version: Optional[str], message: str) -> Dict[str, Any]:

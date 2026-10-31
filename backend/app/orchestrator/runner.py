@@ -33,7 +33,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from pydantic import ValidationError
 
 from contracts.python.models import AgentResult, ResearchRequest, Video
-from app.adapters.base import terminate_for_thread
+from app.adapters.base import OutputTruncated, terminate_for_thread
 from app.redact import redact
 from app.store import run_store
 
@@ -175,6 +175,9 @@ def _check_cancel(run_id: str) -> None:
 
 def _classify_external_error(exc: Exception) -> Exception:
     """Map an adapter/pipeline exception to a typed control-flow error."""
+    if isinstance(exc, OutputTruncated):
+        # Checked before the substring rules: its own message is the diagnosis.
+        return _InvalidOutput(str(exc))
     if isinstance(exc, FileNotFoundError):
         return _CliMissing(
             "We couldn't find the agent CLI. Install it, then run the "
@@ -419,7 +422,10 @@ def _run_agent(
     # than thrown away over one empty panel.
     if agent_result is not None:
         return agent_result
-    raise _InvalidOutput(err2 or err or "Agent produced no valid output.")
+    raise _InvalidOutput(
+        "The model returned an incomplete research report, even after a repair "
+        "attempt. Try another model or run the search again."
+    )
 
 
 def _expand_keywords(
@@ -429,6 +435,8 @@ def _expand_keywords(
 
     Best-effort: any failure (bad JSON, API hiccup) returns ``None`` so the
     pipeline falls back to the raw query — a flaky expansion never sinks a run.
+    The failure and its reason are shown in progress, because a silent fallback
+    hid a misconfigured model until the narrative step, after quota was spent.
     Cancellation propagates. Never lets an agent-typed string become a fact — the
     keywords only choose what the pipeline *searches*; every id/number still comes
     from the pipeline.
@@ -446,7 +454,8 @@ def _expand_keywords(
         stream = _open_stream(adapter, prompt, request)
     except _Cancelled:
         raise
-    except Exception:  # noqa: BLE001 - expansion is optional; fall back to [query]
+    except Exception as exc:  # noqa: BLE001 - expansion is optional; fall back to [query]
+        _expansion_failed(run_id, _reason(exc))
         return None
 
     handle = _get_handle(run_id)
@@ -462,8 +471,9 @@ def _expand_keywords(
     except _Cancelled:
         _safe_close(stream)
         raise
-    except Exception:  # noqa: BLE001 - fall back to [query] on any stream error
+    except Exception as exc:  # noqa: BLE001 - fall back to [query] on any stream error
         _safe_close(stream)
+        _expansion_failed(run_id, _reason(exc))
         return None
     finally:
         if handle is not None:
@@ -472,10 +482,25 @@ def _expand_keywords(
 
     keywords = _parse_keywords(collector.text()) or _parse_keywords("\n".join(parts))
     if not keywords:
+        _expansion_failed(run_id, "the model returned no search terms")
         return None
     keywords = keywords[:_MAX_EXPANDED_KEYWORDS]
     _emit(run_id, "expanding", detail="Expanded into %d search terms" % len(keywords))
     return keywords
+
+
+def _reason(exc: Exception) -> str:
+    """Short, key-free reason text for a progress line."""
+    text = " ".join((redact(str(exc)) or type(exc).__name__).split())
+    return text if len(text) <= 200 else text[:199] + "…"
+
+
+def _expansion_failed(run_id: str, reason: str) -> None:
+    _emit(
+        run_id,
+        "expanding",
+        detail="Keyword expansion failed (%s); searching your topic only" % reason,
+    )
 
 
 def _parse_keywords(text: str) -> List[str]:

@@ -29,12 +29,20 @@ import os
 import time
 from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
 
-from app.adapters.base import AdapterError, AgentAdapter, run_version, which
+from app.adapters.base import (
+    AdapterError,
+    AgentAdapter,
+    OutputTruncated,
+    output_cap_override,
+    run_version,
+    which,
+)
 
 # One tiny real turn; headroom for cold DNS + a round-trip.
 _PING_TIMEOUT = 60.0
-_PING_MAX_TOKENS = 32
-_STREAM_MAX_TOKENS = 32000
+# No output cap is sent by default: a fixed value is wrong for some model
+# (GPT-4o accepts at most 16,384), and each model already defaults to its own
+# maximum. YUBEN_MAX_OUTPUT_TOKENS sets one when a provider needs it.
 
 # Live model lists are cached per adapter id — GET /api/adapters hits models()
 # for every adapter on every call, and none of these lists move minute to minute.
@@ -112,6 +120,9 @@ class OpenAICompatibleAdapter(AgentAdapter):
     requires_key = True
     #: Where to get a key, surfaced in the "no key stored" hint.
     key_hint = ""
+    #: Request field for the output cap. OpenAI's reasoning models reject
+    #: ``max_tokens``; ``max_completion_tokens`` works on all its chat models.
+    cap_param = "max_tokens"
 
     def _stored_key(self) -> Optional[str]:  # pragma: no cover - overridden
         raise NotImplementedError
@@ -177,8 +188,8 @@ class OpenAICompatibleAdapter(AgentAdapter):
                 timeout=_PING_TIMEOUT, max_retries=1
             ).chat.completions.create(
                 model=resolved,
-                max_tokens=_PING_MAX_TOKENS,
                 messages=[{"role": "user", "content": "Reply with exactly: hello"}],
+                **self._cap_kwargs(),
             )
         except Exception as exc:
             return self._result(False, version, _api_error_message(exc, self.provider_label))
@@ -212,10 +223,20 @@ class OpenAICompatibleAdapter(AgentAdapter):
         if self.requires_key and not key:
             raise AdapterError(self.key_hint)
         return _stream_text(
-            self._client(key), self._resolve_model(model), prompt, self.provider_label
+            self._client(key),
+            self._resolve_model(model),
+            prompt,
+            self.provider_label,
+            self._cap_kwargs(),
         )
 
     # -- helpers -------------------------------------------------------------
+    def _cap_kwargs(self) -> Dict[str, int]:
+        """Output-cap request fields, shared by the check and the run so the
+        check tests the request the run makes. Empty unless overridden."""
+        cap = output_cap_override()
+        return {self.cap_param: cap} if cap else {}
+
     def _resolve_model(self, model: Optional[str]) -> str:
         """Concrete model id for a run.
 
@@ -249,7 +270,13 @@ def _text_of(response: Any) -> str:
     return getattr(message, "content", None) or ""
 
 
-def _stream_text(client: Any, model: str, prompt: str, provider: str) -> Iterator[str]:
+def _stream_text(
+    client: Any,
+    model: str,
+    prompt: str,
+    provider: str,
+    cap_kwargs: Optional[Dict[str, int]] = None,
+) -> Iterator[str]:
     """Yield one streamed completion's visible text, one LINE at a time.
 
     Line buffering matters for the same reason as the Anthropic adapter: B4's
@@ -258,21 +285,24 @@ def _stream_text(client: Any, model: str, prompt: str, provider: str) -> Iterato
     A JSON string never spans a newline, so line boundaries are always safe.
 
     A generator so B4's cancel path (``stream.close()`` → ``GeneratorExit``)
-    tears the HTTP stream down.
+    tears the HTTP stream down. A ``length`` finish reason raises
+    :class:`OutputTruncated`, so a cut-off answer is not reported as "no JSON".
     """
     buffer = ""
     stream = None
+    finish_reason = None
     try:
         stream = client.chat.completions.create(
             model=model,
-            max_tokens=_STREAM_MAX_TOKENS,
             messages=[{"role": "user", "content": prompt}],
             stream=True,
+            **(cap_kwargs or {}),
         )
         for chunk in stream:
             choices = getattr(chunk, "choices", None) or []
             if not choices:
                 continue
+            finish_reason = getattr(choices[0], "finish_reason", None) or finish_reason
             delta = getattr(choices[0], "delta", None)
             text = getattr(delta, "content", None) if delta else None
             if not text:
@@ -281,7 +311,7 @@ def _stream_text(client: Any, model: str, prompt: str, provider: str) -> Iterato
             while "\n" in buffer:
                 line, buffer = buffer.split("\n", 1)
                 yield line
-        if buffer:
+        if buffer and finish_reason != "length":
             yield buffer
     except GeneratorExit:  # cooperative cancel — close the HTTP stream
         if stream is not None:
@@ -292,6 +322,8 @@ def _stream_text(client: Any, model: str, prompt: str, provider: str) -> Iterato
         raise
     except Exception as exc:  # noqa: BLE001 - classified by the orchestrator
         raise AdapterError(_api_error_message(exc, provider)) from exc
+    if finish_reason == "length":
+        raise OutputTruncated(provider)
 
 
 # --------------------------------------------------------------------------- #
@@ -323,6 +355,7 @@ class OpenAIAdapter(OpenAICompatibleAdapter):
     default_model = "gpt-4o-mini"
     fallback_models = ["default", "gpt-4o", "gpt-4o-mini"]
     key_hint = "Paste your OpenAI API key above, then run the check again."
+    cap_param = "max_completion_tokens"
 
     def _stored_key(self) -> Optional[str]:
         return _get("get_openai_key")()

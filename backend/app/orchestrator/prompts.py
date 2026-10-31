@@ -129,6 +129,9 @@ code fences) as your final message. It must match this shape:
 }
 
 Rules:
+- topic_title and summary MUST be strings, never null. Write them from the
+  supplied topic and collected videos. keywords, top_video_ids and watch_list
+  MUST be arrays, never null. Only the four optional analysis sections may be null.
 - Every video_id in top_video_ids / watch_list / hook_breakdown / proof_video_id
   MUST be a real id from the script output. Do not carry numbers into the JSON.
 - title_analysis: { "common_features": [ {"n","pattern","note","count"} ],
@@ -220,10 +223,9 @@ def build_repair_prompt(
 ) -> str:
     """One-shot error-correcting retry prompt (validate/repair path).
 
-    ``original_prompt`` is NOT replayed: it opens with the research TASK, and a
-    fresh invocation would re-run the scripts and re-spend YouTube quota to fix
-    what is only a JSON-shape problem. The OUTPUT CONTRACT is restated instead —
-    the agent cannot repair against a schema it was never shown.
+    The narrative prompt contains already-collected videos and forbids tools.
+    Preserve that context so a fresh invocation can repair missing prose without
+    inventing facts or repeating the YouTube search.
     """
     if bad_output is None:
         prior = "(no JSON object was found in your previous output)"
@@ -237,6 +239,9 @@ def build_repair_prompt(
     return "\n\n".join(
         [
             "REPAIR REQUEST — your previous response was not a valid AgentResult.",
+            "Use the original context below ONLY to repair the response. Do not "
+            "run tools, scripts, or searches; the research has already finished.",
+            "ORIGINAL CONTEXT:\n%s" % original_prompt,
             "Validation error:\n%s" % error,
             "What you returned:\n%s" % prior,
             _OUTPUT_CONTRACT,
@@ -244,9 +249,10 @@ def build_repair_prompt(
             "above. Re-emit EXACTLY ONE valid JSON object and NOTHING else — no "
             "prose, no code fences, no explanation. Keep every real video_id and "
             "number from your previous output exactly as it was; do not re-run the "
-            "research, and do not invent IDs or numbers. If a required field is "
-            "missing and you have no real data for it, use null rather than "
-            "inventing a value.",
+            "research, and do not invent IDs or numbers. Write missing topic_title "
+            "and summary as strings grounded in the original topic and videos. "
+            "Required arrays must be arrays (empty if no supported entries). "
+            "Use null only for the optional analysis sections.",
             TRUST_INSTRUCTION,
         ]
     )

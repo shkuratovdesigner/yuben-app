@@ -33,6 +33,7 @@ from app.adapters import (  # noqa: E402
     list_adapters,
 )
 from app.adapters import base as adapters_base  # noqa: E402
+from app.adapters.base import OutputTruncated  # noqa: E402
 from app.adapters import claude_code as claude_mod  # noqa: E402
 from app.adapters import direct_anthropic as direct_mod  # noqa: E402
 from app.main import app  # noqa: E402
@@ -221,16 +222,21 @@ class _FakeBlock:
 
 
 class _FakeResponse:
-    def __init__(self, text):
+    def __init__(self, text, stop_reason="end_turn"):
         self.content = [_FakeBlock(text)] if text is not None else []
+        self.stop_reason = stop_reason
 
 
 class _FakeStreamCtx:
     """Mimics client.messages.stream(...) — a context manager exposing text_stream."""
 
-    def __init__(self, chunks, enter_exc=None):
+    def __init__(self, chunks, enter_exc=None, stop_reason="end_turn"):
         self._chunks = chunks
         self._enter_exc = enter_exc
+        self._stop_reason = stop_reason
+
+    def get_final_message(self):
+        return _FakeResponse("".join(self._chunks), self._stop_reason)
 
     def __enter__(self):
         if self._enter_exc:
@@ -247,25 +253,49 @@ class _FakeStreamCtx:
 
 
 class _FakeMessages:
-    def __init__(self, *, text=None, chunks=None, exc=None):
+    def __init__(self, *, text=None, chunks=None, exc=None, stop_reason="end_turn"):
         self._text = text
         self._chunks = chunks or []
         self._exc = exc
+        self._stop_reason = stop_reason
+        self.calls = []
 
     def create(self, **kw):
+        self.calls.append(kw)
         if self._exc:
             raise self._exc
         return _FakeResponse(self._text)
 
     def stream(self, **kw):
-        return _FakeStreamCtx(self._chunks, enter_exc=self._exc)
+        self.calls.append(kw)
+        chunks = self._chunks or ([self._text] if self._text is not None else [])
+        return _FakeStreamCtx(chunks, enter_exc=self._exc, stop_reason=self._stop_reason)
+
+
+class _FakeModelInfo:
+    def __init__(self, max_tokens, adaptive):
+        self.max_tokens = max_tokens
+        self.capabilities = {"thinking": {"types": {"adaptive": {"supported": adaptive}}}}
+
+
+class _FakeModels:
+    def __init__(self, info):
+        self._info = info
+
+    def retrieve(self, model):
+        if self._info is None:
+            raise RuntimeError("models api unavailable")
+        return self._info
 
 
 class _FakeClient:
     """with_options() returns self so .messages.create / .stream still resolve."""
 
-    def __init__(self, *, text=None, chunks=None, exc=None):
-        self._messages = _FakeMessages(text=text, chunks=chunks, exc=exc)
+    def __init__(self, *, text=None, chunks=None, exc=None, stop_reason="end_turn", info=None):
+        self._messages = _FakeMessages(
+            text=text, chunks=chunks, exc=exc, stop_reason=stop_reason
+        )
+        self.models = _FakeModels(info)
 
     @property
     def messages(self):
@@ -385,6 +415,172 @@ def test_direct_stream_api_error_becomes_adapter_error(monkeypatch):
         list(DirectAnthropicAdapter().stream("hi", model="claude-opus-4-8"))
 
 
+@pytest.fixture
+def _anthropic_ready(monkeypatch):
+    monkeypatch.setattr(direct_mod, "_sdk_version", lambda: "0.116.0")
+    monkeypatch.setattr(direct_mod, "_stored_key", lambda: "sk-ant-xxx")
+    monkeypatch.delenv("YUBEN_MAX_OUTPUT_TOKENS", raising=False)
+    direct_mod._model_info_cache.clear()
+    yield
+    direct_mod._model_info_cache.clear()
+
+
+def _install_client(monkeypatch, client):
+    monkeypatch.setattr(direct_mod.DirectAnthropicAdapter, "_client", lambda self, key: client)
+    return client
+
+
+def test_direct_haiku_45_gets_no_adaptive_thinking(monkeypatch, _anthropic_ready):
+    # Models API unreachable: the static rule still keeps adaptive off Haiku 4.5,
+    # and the check sends the same parameters as the run.
+    client = _install_client(monkeypatch, _FakeClient(text="hello"))
+    adapter = DirectAnthropicAdapter()
+    assert adapter.check_env(model="claude-haiku-4-5")["ok"] is True
+    list(adapter.stream("x", model="claude-haiku-4-5"))
+    check_kw, run_kw = client.messages.calls
+    assert "thinking" not in check_kw and "thinking" not in run_kw
+    assert check_kw["max_tokens"] == run_kw["max_tokens"] == direct_mod._FALLBACK_MAX_TOKENS
+
+
+def test_direct_adaptive_thinking_and_cap_from_models_api(monkeypatch, _anthropic_ready):
+    client = _install_client(
+        monkeypatch, _FakeClient(text="hello", info=_FakeModelInfo(128000, True))
+    )
+    adapter = DirectAnthropicAdapter()
+    assert adapter.check_env(model="claude-opus-5-5")["ok"] is True
+    list(adapter.stream("x", model="claude-opus-5-5"))
+    for kw in client.messages.calls:
+        assert kw["thinking"] == {"type": "adaptive"}
+        assert kw["max_tokens"] == 128000
+
+
+def test_direct_models_api_capability_overrides_static_rule(monkeypatch, _anthropic_ready):
+    client = _install_client(
+        monkeypatch, _FakeClient(text="hello", info=_FakeModelInfo(64000, False))
+    )
+    list(DirectAnthropicAdapter().stream("x", model="claude-some-new-model"))
+    assert "thinking" not in client.messages.calls[0]
+    assert client.messages.calls[0]["max_tokens"] == 64000
+
+
+def test_direct_reads_typed_sdk_model_info(monkeypatch, _anthropic_ready):
+    # The installed SDK returns ModelInfo with typed capabilities, not a dict.
+    from anthropic.types import ModelInfo
+
+    sup = {"supported": True}
+    no = {"supported": False}
+    info = ModelInfo.model_validate({
+        "id": "claude-haiku-4-5", "type": "model", "display_name": "Claude Haiku 4.5",
+        "created_at": "2025-10-01T00:00:00Z", "max_input_tokens": 200000, "max_tokens": 64000,
+        "capabilities": {
+            "batch": sup, "citations": sup, "code_execution": no, "image_input": sup,
+            "pdf_input": sup, "structured_outputs": sup,
+            "context_management": {"supported": False, "clear_thinking_20251015": no,
+                                   "clear_tool_uses_20250919": no, "compact_20260112": no},
+            "effort": {"supported": False, "low": no, "medium": no, "high": no, "max": no},
+            "thinking": {"supported": True, "types": {"enabled": sup, "adaptive": no}},
+        },
+    })
+    client = _install_client(monkeypatch, _FakeClient(text="hello", info=info))
+    list(DirectAnthropicAdapter().stream("x", model="claude-haiku-4-5"))
+    assert "thinking" not in client.messages.calls[0]
+    assert client.messages.calls[0]["max_tokens"] == 64000
+
+
+def test_direct_output_cap_override(monkeypatch, _anthropic_ready):
+    monkeypatch.setenv("YUBEN_MAX_OUTPUT_TOKENS", "9000")
+    client = _install_client(
+        monkeypatch, _FakeClient(text="hello", info=_FakeModelInfo(128000, True))
+    )
+    list(DirectAnthropicAdapter().stream("x", model="claude-opus-5-5"))
+    assert client.messages.calls[0]["max_tokens"] == 9000
+
+
+def test_direct_stream_max_tokens_stop_raises_truncated(monkeypatch, _anthropic_ready):
+    _install_client(
+        monkeypatch, _FakeClient(chunks=['{"topic_title": "x",\n', '"summ'], stop_reason="max_tokens")
+    )
+    with pytest.raises(OutputTruncated):
+        list(DirectAnthropicAdapter().stream("x", model="claude-opus-5-5"))
+
+
+# --- OpenAI-compatible request shape ----------------------------------------
+class _Chunk:
+    def __init__(self, text, finish_reason=None):
+        delta = type("Delta", (), {"content": text})()
+        choice = type("Choice", (), {"delta": delta, "finish_reason": finish_reason})()
+        self.choices = [choice]
+
+
+class _FakeCompletions:
+    def __init__(self, chunks, text="hello"):
+        self._chunks = chunks
+        self._text = text
+        self.calls = []
+
+    def create(self, **kw):
+        self.calls.append(kw)
+        if kw.get("stream"):
+            return iter(self._chunks)
+        message = type("Msg", (), {"content": self._text})()
+        return type("Resp", (), {"choices": [type("C", (), {"message": message})()]})()
+
+
+class _FakeOpenAIClient:
+    def __init__(self, chunks=(), text="hello"):
+        self.completions = _FakeCompletions(list(chunks), text)
+        self.chat = type("Chat", (), {"completions": self.completions})()
+
+    def with_options(self, **kw):
+        return self
+
+
+def _openai_ready(monkeypatch, adapter_id, client):
+    import app.adapters.openai_compatible as oa
+
+    adapter = get_adapter(adapter_id)
+    monkeypatch.setattr(oa, "_sdk_version", lambda: "1.0")
+    monkeypatch.setattr(type(adapter), "_stored_key", lambda self: "sk-test")
+    monkeypatch.setattr(type(adapter), "_client", lambda self, key: client)
+    return adapter
+
+
+@pytest.mark.parametrize("adapter_id", ["openai-api", "gemini-api", "openrouter"])
+def test_openai_compatible_sends_no_output_cap_by_default(monkeypatch, adapter_id):
+    monkeypatch.delenv("YUBEN_MAX_OUTPUT_TOKENS", raising=False)
+    client = _FakeOpenAIClient([_Chunk("ok", "stop")])
+    adapter = _openai_ready(monkeypatch, adapter_id, client)
+    assert adapter.check_env(model="m")["ok"] is True
+    assert list(adapter.stream("x", model="m")) == ["ok"]
+    for kw in client.completions.calls:
+        assert "max_tokens" not in kw and "max_completion_tokens" not in kw
+
+
+@pytest.mark.parametrize(
+    "adapter_id,param",
+    [("openai-api", "max_completion_tokens"), ("gemini-api", "max_tokens"),
+     ("openrouter", "max_tokens")],
+)
+def test_openai_compatible_cap_override_uses_provider_param(monkeypatch, adapter_id, param):
+    monkeypatch.setenv("YUBEN_MAX_OUTPUT_TOKENS", "4000")
+    client = _FakeOpenAIClient([_Chunk("ok", "stop")])
+    adapter = _openai_ready(monkeypatch, adapter_id, client)
+    adapter.check_env(model="m")
+    list(adapter.stream("x", model="m"))
+    check_kw, run_kw = client.completions.calls
+    assert check_kw[param] == run_kw[param] == 4000
+    other = {"max_tokens", "max_completion_tokens"} - {param}
+    assert not other & set(check_kw) and not other & set(run_kw)
+
+
+def test_openai_compatible_length_finish_raises_truncated(monkeypatch):
+    monkeypatch.delenv("YUBEN_MAX_OUTPUT_TOKENS", raising=False)
+    client = _FakeOpenAIClient([_Chunk('{"topic_title": "x",\n'), _Chunk('"summ', "length")])
+    adapter = _openai_ready(monkeypatch, "openai-api", client)
+    with pytest.raises(OutputTruncated):
+        list(adapter.stream("x", model="gpt-4o"))
+
+
 # --- registry ---------------------------------------------------------------
 def test_get_adapter_and_aliases():
     assert isinstance(get_adapter("claude-code"), ClaudeCodeAdapter)
@@ -442,6 +638,45 @@ def test_generic_cli_builds_expected_argv():
     # A spec with no model flag ignores the model rather than emitting a bare id.
     amp = get_adapter("amp-cli")
     assert amp._build_cmd("/bin/amp", "hi", "some-model") == ["/bin/amp", "-x", "hi"]
+
+
+def test_codex_models_use_visible_catalog_entries(monkeypatch, tmp_path):
+    import json
+
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path))
+    (tmp_path / "models_cache.json").write_text(json.dumps({"models": [
+        {"slug": "test-astra", "visibility": "list"},
+        {"slug": "internal", "visibility": "hide"},
+        {"slug": "test-astra", "visibility": "list"},
+        {"slug": None, "visibility": "list"},
+    ]}))
+    assert get_adapter("codex-cli").models() == ["default", "test-astra"]
+    (tmp_path / "models_cache.json").write_text("broken")
+    assert get_adapter("codex-cli").models() == ["default"]
+
+
+def test_codex_narrative_enforces_schema_and_cleans_up(monkeypatch):
+    import json
+    from pathlib import Path
+    import app.adapters.cli_agents as cli_mod
+
+    paths = []
+
+    def fake_stream(cmd, cwd=None):
+        assert cmd[cmd.index("-m") + 1] == "test-astra"
+        path = Path(cmd[cmd.index("--output-schema") + 1])
+        paths.append(path)
+        schema = json.loads(path.read_text())
+        assert schema["properties"]["topic_title"]["type"] == "string"
+        assert schema["properties"]["summary"]["type"] == "string"
+        assert set(schema["required"]) == set(schema["properties"])
+        assert schema["additionalProperties"] is False
+        yield "result"
+
+    monkeypatch.setattr(cli_mod, "which", lambda _: "/bin/codex")
+    monkeypatch.setattr(cli_mod, "stream_process", fake_stream)
+    assert list(get_adapter("codex-cli").stream("OUTPUT CONTRACT", model="test-astra")) == ["result"]
+    assert not paths[0].exists()
 
 
 def test_generic_cli_missing_binary_is_graceful(monkeypatch):

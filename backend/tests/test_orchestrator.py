@@ -403,6 +403,147 @@ def test_invalid_agent_output_triggers_one_repair_then_succeeds():
     assert run_store.get_status(run_id)["status"] == "done"
 
 
+def test_null_report_text_repairs_using_original_context():
+    req = _request()
+    run_id = run_store.create_run(req)
+    invalid = {**_agent_result_dict(), "topic_title": None, "summary": None}
+    adapter = FakeAdapter([_streamjson_lines(invalid), _streamjson_lines(_agent_result_dict())])
+    calls = []
+    pipeline = _fake_pipeline()
+
+    def counted_pipeline(*args, **kwargs):
+        calls.append(True)
+        return pipeline(*args, **kwargs)
+
+    run_research_job(run_id, req, adapter_factory=lambda _: adapter,
+                     pipeline_runner=counted_pipeline, verifier=_fake_verifier)
+    repair = adapter.narrative_prompts[1]
+    assert req.query in repair
+    assert "COLLECTED VIDEOS" in repair
+    assert "topic_title and summary MUST be strings, never null" in repair
+    assert "use null rather than" not in repair
+    assert len(calls) == 1
+    assert run_store.get_status(run_id)["status"] == "done"
+
+
+def test_pretty_printed_cli_result_preserves_standalone_json_lines():
+    expected = _agent_result_dict()
+    collector = StreamCollector()
+    for line in json.dumps(expected, indent=2).splitlines():
+        collector.feed(line)
+    assert collector.extract() == expected
+
+
+def _pretty_fenced(obj) -> list:
+    """An API model's answer as streamed: fenced, pretty-printed, with each
+    array item on its own line. The last item of an array then sits alone on
+    a line (``{"video_id": "...", "rank": 2}`` or ``"phrase"``) and is valid
+    JSON by itself, which the committed parser mistook for a non-answer line."""
+    lines = ["```json", "{"]
+    keys = list(obj)
+    for i, key in enumerate(keys):
+        comma = "," if i < len(keys) - 1 else ""
+        value = obj[key]
+        if isinstance(value, list) and value:
+            lines.append('  "%s": [' % key)
+            for j, item in enumerate(value):
+                lines.append("    %s%s" % (json.dumps(item), "," if j < len(value) - 1 else ""))
+            lines.append("  ]%s" % comma)
+        else:
+            lines.append('  "%s": %s%s' % (key, json.dumps(value), comma))
+    lines += ["}", "```"]
+    return lines
+
+
+def test_pretty_printed_fenced_answer_with_standalone_last_items_parses():
+    expected = _agent_result_dict()
+    lines = _pretty_fenced(expected)
+    last_rank = json.dumps(expected["top_video_ids"][-1])
+    assert "    " + last_rank in lines  # the standalone line this test is about
+    assert '    "%s"' % expected["keywords"][-1] in lines
+    collector = StreamCollector()
+    for line in lines:
+        collector.feed(line)
+    assert collector.extract() == expected
+
+
+def test_truncated_answer_reports_output_limit_without_repair():
+    from app.adapters.base import OutputTruncated
+
+    class TruncatingAdapter(FakeAdapter):
+        def stream(self, prompt, *, model=None, cwd=None):
+            lines = super().stream(prompt, model=model, cwd=cwd)
+            if self.calls == 1:
+                return lines
+
+            def gen():
+                yield '{"topic_title": "x",'
+                raise OutputTruncated("OpenAI")
+
+            return gen()
+
+    req = _request()
+    run_id = run_store.create_run(req)
+    adapter = TruncatingAdapter([[]])
+    run_research_job(run_id, req, adapter_factory=lambda _: adapter,
+                     pipeline_runner=_fake_pipeline(), verifier=_fake_verifier)
+    err = _last_error(run_id)
+    code = err.code if hasattr(err, "code") else err["code"]
+    message = err.message if hasattr(err, "message") else err["message"]
+    assert code == "invalid_output"
+    assert "cut off" in message and "output limit" in message
+    assert adapter.calls == 2  # expansion + narrative; a repair would be cut off too
+
+
+def _details(run_id):
+    return [
+        (e.detail if isinstance(e, ProgressEvent) else e.get("detail")) or ""
+        for e in _events(run_id)
+    ]
+
+
+def test_failed_expansion_is_reported_and_run_continues():
+    class FailingExpansion(FakeAdapter):
+        def stream(self, prompt, *, model=None, cwd=None):
+            lines = super().stream(prompt, model=model, cwd=cwd)
+            if self.calls == 1:
+                def gen():
+                    raise RuntimeError("max_tokens is too large: 32000")
+                    yield  # pragma: no cover
+                return gen()
+            return lines
+
+    req = _request()
+    run_id = run_store.create_run(req)
+    seen = []
+
+    def pipeline(request, keywords=None):
+        seen.append(keywords)
+        return _fake_pipeline()(request, keywords=keywords)
+
+    run_research_job(run_id, req,
+                     adapter_factory=lambda _: FailingExpansion([_streamjson_lines(_agent_result_dict())]),
+                     pipeline_runner=pipeline, verifier=_fake_verifier)
+    assert seen == [None]
+    assert (
+        "Keyword expansion failed (max_tokens is too large: 32000); searching your topic only"
+        in _details(run_id)
+    )
+    assert run_store.get_status(run_id)["status"] == "done"
+
+
+def test_expansion_without_terms_is_reported():
+    req = _request()
+    run_id = run_store.create_run(req)
+    adapter = FakeAdapter([_streamjson_lines(_agent_result_dict())],
+                          keyword_lines=["Sorry, I can't help with that."])
+    run_research_job(run_id, req, adapter_factory=lambda _: adapter,
+                     pipeline_runner=_fake_pipeline(), verifier=_fake_verifier)
+    assert any("Keyword expansion failed (the model returned no search terms)" in d
+               for d in _details(run_id))
+    assert run_store.get_status(run_id)["status"] == "done"
+
+
 def test_invalid_output_twice_yields_invalid_output_error():
     req = _request()
     run_id = run_store.create_run(req)

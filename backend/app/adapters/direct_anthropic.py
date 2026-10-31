@@ -24,9 +24,10 @@ to install it) — the same importable-or-not discipline as ``store/secrets.py``
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, Iterator, List, Optional
+import time
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
-from app.adapters.base import AdapterError, AgentAdapter
+from app.adapters.base import AdapterError, AgentAdapter, OutputTruncated, output_cap_override
 
 # The Messages default model (claude-api skill: default to Opus 5 unless the
 # user names another). "default" in the UI maps here.
@@ -44,11 +45,32 @@ _MODELS: List[str] = [
 ]
 
 # The hello probe runs one tiny real turn; a headroom ceiling covers cold DNS +
-# a round-trip. The stream ceiling is generous (streaming, so no HTTP timeout
-# risk) to fit a full AgentResult + analysis.
+# a round-trip.
 _PING_TIMEOUT = 60.0
-_PING_MAX_TOKENS = 32
-_STREAM_MAX_TOKENS = 32000
+# Output cap when the Models API can't be reached. Every selectable model
+# accepts it (the smallest cap, Haiku 4.5's, is 64,000), and it fits a full
+# AgentResult + analysis. Requests always stream, so a large cap is safe.
+_FALLBACK_MAX_TOKENS = 32000
+
+# Models that predate adaptive thinking (it arrived with the 4.6 generation).
+# Used only when the Models API can't say; such models get no thinking param,
+# because a fixed budget would be a second tuning knob for one fallback path.
+_NO_ADAPTIVE_PREFIXES = (
+    "claude-3",
+    "claude-haiku-4",
+    "claude-sonnet-4-0",
+    "claude-sonnet-4-2",
+    "claude-sonnet-4-5",
+    "claude-opus-4-0",
+    "claude-opus-4-1",
+    "claude-opus-4-2",
+    "claude-opus-4-5",
+)
+
+# Models API lookups (output cap + adaptive-thinking support), cached per id.
+_MODEL_TTL_SECONDS = 300.0
+_MODEL_FETCH_TIMEOUT = 5.0
+_model_info_cache: Dict[str, Tuple[float, Optional[int], Optional[bool]]] = {}
 
 _INSTALL_HINT = (
     "The 'anthropic' Python SDK isn't installed on the backend. Run "
@@ -152,13 +174,16 @@ class DirectAnthropicAdapter(AgentAdapter):
         resolved = self._resolve_model(model)
         try:
             client = self._client(key)
-            response = client.with_options(
+            # Same thinking + cap as the run, so a model that rejects them
+            # fails here instead of after YouTube quota is spent. Streamed
+            # because the SDK refuses large caps on non-streaming calls.
+            with client.with_options(
                 timeout=_PING_TIMEOUT, max_retries=1
-            ).messages.create(
-                model=resolved,
-                max_tokens=_PING_MAX_TOKENS,
+            ).messages.stream(
                 messages=[{"role": "user", "content": "Reply with exactly: hello"}],
-            )
+                **_request_params(client, resolved),
+            ) as stream:
+                response = stream.get_final_message()
         except Exception as exc:  # AuthenticationError, APIConnectionError, ...
             return self._result(False, version, _api_error_message(exc))
 
@@ -222,6 +247,52 @@ class DirectAnthropicAdapter(AgentAdapter):
         return {"ok": ok, "adapter": self.id, "version": version, "message": message}
 
 
+def _model_info(client: Any, model: str) -> Tuple[Optional[int], Optional[bool]]:
+    """``(output cap, adaptive thinking supported)`` from the Models API.
+
+    ``(None, None)`` when the lookup fails (offline, old SDK, unknown alias);
+    callers then fall back to static defaults. Cached for a few minutes.
+    """
+    cached = _model_info_cache.get(model)
+    if cached and (time.time() - cached[0]) < _MODEL_TTL_SECONDS:
+        return cached[1], cached[2]
+    try:
+        info = client.with_options(
+            timeout=_MODEL_FETCH_TIMEOUT, max_retries=0
+        ).models.retrieve(model)
+    except Exception:
+        return None, None
+    cap = getattr(info, "max_tokens", None)
+    cap = cap if isinstance(cap, int) and cap > 0 else None
+    # SDK releases differ: some type ``capabilities`` as models, others as a
+    # plain dict. Walk either.
+    node: Any = getattr(info, "capabilities", None)
+    for key in ("thinking", "types", "adaptive", "supported"):
+        node = node.get(key) if isinstance(node, dict) else getattr(node, key, None)
+    adaptive: Optional[bool] = node if isinstance(node, bool) else None
+    _model_info_cache[model] = (time.time(), cap, adaptive)
+    return cap, adaptive
+
+
+def _request_params(client: Any, model: str) -> Dict[str, Any]:
+    """Model, output cap and thinking config for one Messages request.
+
+    Adaptive thinking is sent only to models that take it: Claude Haiku 4.5 and
+    other pre-4.6 models reject it. The cap is the model's own maximum (Models
+    API) unless ``YUBEN_MAX_OUTPUT_TOKENS`` overrides it.
+    """
+    api_cap, adaptive = _model_info(client, model)
+    if adaptive is None:
+        adaptive = not model.startswith(_NO_ADAPTIVE_PREFIXES)
+    params: Dict[str, Any] = {
+        "model": model,
+        "max_tokens": output_cap_override() or api_cap or _FALLBACK_MAX_TOKENS,
+    }
+    if adaptive:
+        params["thinking"] = {"type": "adaptive"}
+    return params
+
+
 def _stream_text(client: Any, model: str, prompt: str) -> Iterator[str]:
     """Yield the visible text of one streamed Messages request, one LINE at a time.
 
@@ -231,20 +302,21 @@ def _stream_text(client: Any, model: str, prompt: str) -> Iterator[str]:
     inject a raw newline (invalid JSON). We therefore buffer deltas and emit
     complete lines — a JSON string never spans a newline, so line boundaries are
     always safe and the collector reconstructs the object losslessly. Adaptive
-    thinking is on for analysis quality (claude-api skill default); it never
-    reaches the stream because display defaults to omitted.
+    thinking is on for analysis quality where the model supports it (see
+    :func:`_request_params`); it never reaches the stream because display
+    defaults to omitted. A ``max_tokens`` stop reason raises
+    :class:`OutputTruncated`.
 
     A generator so B4's cancel path (``stream.close()`` → ``GeneratorExit``) exits
     the ``with`` block and tears down the SDK stream. Any API failure surfaces as
     an ``AdapterError`` the orchestrator classifies.
     """
     buffer = ""
+    stop_reason = None
     try:
         with client.messages.stream(
-            model=model,
-            max_tokens=_STREAM_MAX_TOKENS,
-            thinking={"type": "adaptive"},
             messages=[{"role": "user", "content": prompt}],
+            **_request_params(client, model),
         ) as stream:
             for text in stream.text_stream:
                 if not text:
@@ -253,9 +325,14 @@ def _stream_text(client: Any, model: str, prompt: str) -> Iterator[str]:
                 while "\n" in buffer:
                     line, buffer = buffer.split("\n", 1)
                     yield line
-            if buffer:
+            final = getattr(stream, "get_final_message", None)
+            if callable(final):
+                stop_reason = getattr(final(), "stop_reason", None)
+            if buffer and stop_reason != "max_tokens":
                 yield buffer
     except GeneratorExit:  # cooperative cancel — let the with-block close the stream
         raise
     except Exception as exc:  # noqa: BLE001 - classified by the orchestrator
         raise AdapterError(_api_error_message(exc)) from exc
+    if stop_reason == "max_tokens":
+        raise OutputTruncated("Claude")

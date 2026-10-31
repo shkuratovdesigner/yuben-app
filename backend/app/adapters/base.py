@@ -120,6 +120,34 @@ class AdapterError(RuntimeError):
     """
 
 
+class OutputTruncated(AdapterError):
+    """The model stopped at its output-token cap, so the answer is cut off.
+
+    Raised by API adapters that can read the provider's stop reason. B4 reports
+    it as invalid output with this message instead of "no JSON was found".
+    """
+
+    def __init__(self, provider: str) -> None:
+        super().__init__(
+            "{}'s answer was cut off at the model's output limit. Pick a model "
+            "with a larger output limit, or turn off an optional analysis.".format(provider)
+        )
+
+
+def output_cap_override() -> Optional[int]:
+    """``YUBEN_MAX_OUTPUT_TOKENS`` as a positive int, else ``None``.
+
+    API adapters send no output cap by default, so each model uses its own
+    maximum; this is the escape hatch for a provider that needs one.
+    """
+    raw = os.environ.get("YUBEN_MAX_OUTPUT_TOKENS", "").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
 def extract_version(text: str) -> Optional[str]:
     """Pull a semver-ish token out of ``--version`` output.
 
