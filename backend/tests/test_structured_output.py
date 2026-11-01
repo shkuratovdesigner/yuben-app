@@ -200,7 +200,22 @@ _CORPUS = {
     "prose around": "Here is the report you asked for:\n\n" + _PRETTY + "\n\nLet me know!",
     "prose and fence": "Sure.\n```json\n" + _PRETTY + "\n```\nDone.",
     "leading whitespace": "\n\n   " + _PRETTY + "\n",
+    # A CLI on Windows can write CRLF line endings.
+    "crlf fenced": ("Sure.\n```json\n" + _PRETTY + "\n```\n").replace("\n", "\r\n"),
 }
+
+
+@pytest.mark.parametrize("cut", [0.5, 0.9, 0.999])
+def test_parser_rejects_a_truncated_answer(cut):
+    # A cut-off answer must not be half-read into a "valid" partial report;
+    # the run loop reports truncation from the stop reason instead.
+    # A complete inner object (a watch-list item) may still be found, but it
+    # must not validate as a report.
+    text = "```json\n" + _PRETTY[: int(len(_PRETTY) * cut)]
+    parsed = parse_json_text(text)
+    if parsed is not None:
+        with pytest.raises(ValidationError):
+            validate_agent_result(parsed)
 
 
 @pytest.mark.parametrize("name", sorted(_CORPUS))

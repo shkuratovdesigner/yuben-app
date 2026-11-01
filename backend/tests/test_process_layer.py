@@ -3,10 +3,13 @@
 Real cheap subprocesses (``sys.executable -c``) cover stdin delivery, UTF-8
 decoding and process-tree kills on this machine. Windows can't run here, so
 its branches (``taskkill /T /F``, new process group, the 32,767-character
-command line) are tested by forcing ``base._IS_WINDOWS`` and mocking the calls.
+command line) are also tested by forcing ``base._IS_WINDOWS`` and mocking the
+calls. Phase 5 runs this file on Windows, macOS and Linux in CI: the fake-CLI
+round trip, the ``.cmd`` shim and the tree kills then exercise the real thing.
 """
 from __future__ import annotations
 
+import hashlib
 import io
 import logging
 import os
@@ -31,6 +34,8 @@ def _py(code: str) -> list:
 
 
 def _alive(pid: int) -> bool:
+    if os.name == "nt":
+        return _alive_windows(pid)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -40,6 +45,24 @@ def _alive(pid: int) -> bool:
     # A zombie still answers signal 0; ask ps whether it has really gone.
     out = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True)
     return bool(out.stdout.strip()) and not out.stdout.strip().startswith("Z")
+
+
+def _alive_windows(pid: int) -> bool:
+    # os.kill(pid, 0) on Windows is TerminateProcess, not a probe; ask the
+    # kernel for the exit code instead.
+    import ctypes
+
+    kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+    handle = kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+    if not handle:
+        return False
+    try:
+        code = ctypes.c_ulong()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+            return False
+        return code.value == 259  # STILL_ACTIVE
+    finally:
+        kernel32.CloseHandle(handle)
 
 
 def _wait_dead(pid: int, timeout: float = 10.0) -> bool:
@@ -162,6 +185,52 @@ def test_generic_probe_uses_the_same_stdin_path(monkeypatch):
     assert seen["input"] == "Reply with exactly: hello"
 
 
+# A stand-in agent CLI: reads the prompt from stdin as UTF-8 bytes, echoes it,
+# then reports a hash of what arrived. Newlines are normalised first because a
+# text-mode pipe on Windows writes "\n" as "\r\n"; every other byte must match.
+_FAKE_CLI = (
+    "import hashlib, sys\n"
+    "data = sys.stdin.buffer.read().decode('utf-8')\n"
+    "out = sys.stdout.buffer\n"
+    "out.write(data.encode('utf-8'))\n"
+    "digest = hashlib.sha256(data.replace('\\r\\n', '\\n').encode('utf-8')).hexdigest()\n"
+    "out.write(('\\nSHA ' + digest + '\\n').encode('ascii'))\n"
+)
+
+#: Phase 5: 100,000 characters of Cyrillic, emoji and cmd.exe metacharacters.
+LONG_PROMPT = ("Как набрать 1M подписчиков 🚀🎬 & 100% \"quoted\" ^caret <pipe|> %PATH%\n" * 2000)[:100_000]
+
+
+def _fake_cli(tmp_path) -> str:
+    script = tmp_path / "fake_cli.py"
+    script.write_text(_FAKE_CLI, encoding="utf-8")
+    return str(script)
+
+
+def _assert_round_trip(lines):
+    assert lines[-1] == "SHA " + hashlib.sha256(LONG_PROMPT.encode("utf-8")).hexdigest()
+    assert "\n".join(lines[:-1]) == LONG_PROMPT
+
+
+def test_fake_cli_round_trips_a_100k_unicode_prompt(tmp_path):
+    assert len(LONG_PROMPT) == 100_000
+    cmd = [sys.executable, _fake_cli(tmp_path)]
+    _assert_round_trip(list(base.stream_process(cmd, stdin_text=LONG_PROMPT, total_timeout=60)))
+
+
+@pytest.mark.skipif(os.name != "nt", reason="npm-style .cmd shims exist only on Windows")
+def test_fake_cli_behind_a_cmd_shim_round_trips_a_100k_prompt(tmp_path):
+    """W2: npm installs CLIs as .cmd shims run by cmd.exe. With the prompt on
+    stdin the command line holds no text for cmd.exe to mangle."""
+    shim = tmp_path / "fake-cli.cmd"
+    shim.write_text(
+        '@echo off\r\n"%s" "%s" %%*\r\n' % (sys.executable, _fake_cli(tmp_path)),
+        encoding="utf-8",
+    )
+    lines = list(base.stream_process([str(shim)], stdin_text=LONG_PROMPT, total_timeout=60))
+    _assert_round_trip(lines)
+
+
 # --- command-line limits for argv-prompt CLIs ---------------------------------
 def test_windows_rejects_an_argv_prompt_past_the_limit_before_spawning(monkeypatch):
     """Cursor still takes the prompt on argv. On Windows the narrative prompt
@@ -244,7 +313,6 @@ _TREE = (
 )
 
 
-@posix_only
 def test_cancel_kills_grandchildren_too():
     box: dict = {}
     started = threading.Event()
@@ -269,7 +337,6 @@ def test_cancel_kills_grandchildren_too():
     assert _wait_dead(box["grandchild"]), "the grandchild outlived cancel"
 
 
-@posix_only
 def test_idle_timeout_kills_grandchildren_too():
     lines: list = []
     with pytest.raises(AdapterError, match="no output"):
@@ -278,7 +345,6 @@ def test_idle_timeout_kills_grandchildren_too():
     assert lines and _wait_dead(lines[0])
 
 
-@posix_only
 def test_probe_timeout_kills_grandchildren_too(tmp_path):
     pid_file = tmp_path / "pid"
     code = (

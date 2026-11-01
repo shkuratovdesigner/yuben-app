@@ -16,12 +16,16 @@ concurrency:
 
 jobs:
   backend:
-    name: Backend (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    name: Backend (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        # The floor declared in backend/pyproject.toml, plus current stable.
+        # Every OS YuBen supports (reliability plan W8: the process layer,
+        # stdin prompts, UTF-8 and tree kills differ by OS and were only ever
+        # run on Ubuntu). Each OS gets the floor declared in
+        # backend/pyproject.toml and current stable.
+        os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ['3.10', '3.13']
     steps:
       - uses: actions/checkout@v4
@@ -43,14 +47,25 @@ jobs:
         # No keychain on a CI runner — secrets.py falls back to a 0600 file.
         env:
           YUBEN_FORCE_FILE_SECRET: '1'
-        run: python -m pytest -q
+          YUBEN_DATA_DIR: ${{ runner.temp }}/yuben-data
+        # -rs lists skipped tests, so an OS-gated test that never ran shows.
+        run: python -m pytest -q -rs
+
+      - name: Launcher starts on this OS
+        # The launcher is what users run first on every OS; --help builds
+        # every subcommand's parser without installing anything. Its Python
+        # 3.9 grammar is checked by test_launcher.py.
+        run: |
+          python yuben.py --help
+          python yuben.py smoke --help
 
   frontend:
-    name: Frontend (Node ${{ matrix.node-version }})
-    runs-on: ubuntu-latest
+    name: Frontend (${{ matrix.os }}, Node ${{ matrix.node-version }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
         # Both ends of the supported range from package.json engines. Pinning
         # the low end matters: a bare '20' silently floats to whatever the
         # runner ships, so the declared 20.19 floor would never actually be

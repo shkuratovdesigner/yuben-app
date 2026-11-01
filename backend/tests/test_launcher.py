@@ -230,6 +230,55 @@ def test_cli_rejects_unknown_command() -> None:
     assert out.returncode == 2
 
 
+# --- smoke (Phase 5) ---------------------------------------------------------
+
+
+def _smoke_args(*argv):
+    return yl.build_parser().parse_args(["smoke", *argv])
+
+
+def test_smoke_runs_the_backend_module_in_the_venv() -> None:
+    args = _smoke_args("--adapter", "openai-api", "--model", "gpt-4o")
+    assert yl.smoke_command(Path("py"), args) == [
+        "py", "-m", "app.smoke", "--adapter", "openai-api", "--format", "longform",
+        "--model", "gpt-4o",
+    ]
+
+
+def test_smoke_passes_format_and_query_and_omits_unset_options() -> None:
+    args = _smoke_args("--adapter", "ollama", "--format", "shorts", "--query", "как расти")
+    cmd = yl.smoke_command(Path("py"), args)
+    assert "--model" not in cmd
+    assert cmd[cmd.index("--format") + 1] == "shorts"
+    assert cmd[cmd.index("--query") + 1] == "как расти"
+
+
+def test_smoke_requires_an_adapter() -> None:
+    with pytest.raises(SystemExit):
+        _smoke_args("--model", "gpt-4o")
+
+
+def test_smoke_reports_failure_and_runs_from_the_backend_folder(monkeypatch) -> None:
+    seen = {}
+
+    def fake_call(cmd, cwd=None, env=None):
+        seen.update(cmd=cmd, cwd=cwd, env=env)
+        return 1
+
+    monkeypatch.setattr(yl, "venv_ok", lambda *a, **k: True)
+    monkeypatch.setattr(yl.subprocess, "call", fake_call)
+    with pytest.raises(yl.LauncherError, match="smoke test failed"):
+        yl.cmd_smoke(_smoke_args("--adapter", "openai-api"))
+    assert seen["cwd"] == str(yl.BACKEND)
+    assert seen["env"]["PYTHONIOENCODING"] == "utf-8"
+
+
+def test_smoke_without_a_venv_says_to_install(monkeypatch) -> None:
+    monkeypatch.setattr(yl, "venv_ok", lambda *a, **k: False)
+    with pytest.raises(yl.LauncherError, match="yuben.py install"):
+        yl.cmd_smoke(_smoke_args("--adapter", "openai-api"))
+
+
 # --- wrappers --------------------------------------------------------------
 
 

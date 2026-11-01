@@ -6,6 +6,8 @@
     python yuben.py dev        backend + Vite with hot reload
     python yuben.py test       backend pytest + frontend typecheck
     python yuben.py build      production frontend build
+    python yuben.py smoke --adapter openai-api --model gpt-4o
+                               test one model on bundled videos, no YouTube quota
 
 Standard library only, and written to run on Python 3.9: that is what macOS
 still ships as ``python3``, and this script is what finds a newer one. The
@@ -472,6 +474,24 @@ def cmd_test(args: argparse.Namespace) -> None:
         run([tool("npx"), "tsc", "-b"], FRONTEND)
 
 
+def smoke_command(python: Path, args: argparse.Namespace) -> List[str]:
+    """The backend's smoke module (backend/app/smoke.py), run in the venv."""
+    cmd = [str(python), "-m", "app.smoke", "--adapter", args.adapter, "--format", args.format]
+    if args.model:
+        cmd += ["--model", args.model]
+    if args.query:
+        cmd += ["--query", args.query]
+    return cmd
+
+
+def cmd_smoke(args: argparse.Namespace) -> None:
+    if not venv_ok():
+        raise LauncherError("The backend venv is missing. Run: python yuben.py install")
+    code = subprocess.call(smoke_command(venv_python(), args), cwd=str(BACKEND), env=child_env(DEFAULT_PORT))
+    if code != 0:
+        raise LauncherError("The smoke test failed (see above).")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="yuben.py", description="Install and run YuBen.")
     sub = parser.add_subparsers(dest="command", metavar="command")
@@ -498,6 +518,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("build", help="production frontend build")
     p.set_defaults(func=cmd_build)
+
+    p = sub.add_parser("smoke", help="test one model on bundled videos; no YouTube quota")
+    p.add_argument("--adapter", required=True, help="adapter id, e.g. openai-api or claude-code")
+    p.add_argument("--model", help="model id; the adapter's default when omitted")
+    p.add_argument("--format", choices=("longform", "shorts"), default="longform")
+    p.add_argument("--query", help="topic to expand; the bundled run's topic when omitted")
+    p.set_defaults(func=cmd_smoke)
     return parser
 
 

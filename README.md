@@ -165,6 +165,17 @@ Model lists are **fetched live** for the API-based adapters — Anthropic (once 
 
 Whatever the adapter, the [trust rule](#how-it-works) holds — the model only ever contributes narrative, never data.
 
+**Test a model in about a minute, without spending YouTube quota:**
+
+```bash
+python yuben.py smoke --adapter openai-api --model gpt-4o
+```
+
+It runs the model check, keyword expansion and the narrative (with its repair
+retry) against the bundled example videos, and prints PASS or what failed. Only
+the model's own provider is contacted, and nothing is added to History. Add
+`--format shorts` or `--query "your topic"` to vary it.
+
 ## Architecture
 
 ```mermaid
@@ -196,6 +207,7 @@ yuben-app/
 python yuben.py dev     # backend (YUBEN_PORT, default 8000) + frontend :5173, hot reload
 python yuben.py test    # backend pytest + frontend typecheck; extra pytest args after --
 python yuben.py build   # production frontend build (what `start` serves)
+python yuben.py smoke --adapter <id> [--model <id>]   # one model, bundled videos, no quota
 make help               # the same commands as make targets, plus fixtures
 ```
 
@@ -206,6 +218,10 @@ YouTube quota. It carries `meta.is_example`, which is what stamps its exports as
 sample data; delete it from History and it stays deleted.
 
 The backend test suite runs with **no network and no keys** — the YouTube client and LLM adapters are mocked, and pipeline behavior is verified against the committed contract fixtures. A handful of raw-data parity tests skip unless local `data/*.json` pipeline output is present.
+
+CI runs the backend tests and the frontend build on Ubuntu, Windows and macOS.
+Before a release, also run the manual [release check](docs/RELEASE_CHECK.md) once
+per OS: the parts CI can't cover, like real CLIs, real keys and a real browser.
 
 Design and behavior are specified in [docs/PRD.md](docs/PRD.md); the wire format lives in [docs/CONTRACTS.md](docs/CONTRACTS.md); the phased build history is in [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md).
 
