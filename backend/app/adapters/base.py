@@ -29,6 +29,8 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterator, List, Optional
 
+from app import diagnostics
+
 __all__ = [
     "AgentAdapter",
     "AdapterError",
@@ -663,6 +665,12 @@ def stream_process(
 
     # Make the child reachable from other threads so cancel can stop it.
     _register_child(proc)
+    diagnostics.note(
+        request={
+            "argv": [arg if len(arg) <= 200 else "<%d chars>" % len(arg) for arg in cmd],
+            "stdin_chars": len(stdin_text) if stdin_text is not None else None,
+        }
+    )
 
     err_chunks: List[str] = []
 
@@ -753,6 +761,11 @@ def stream_process(
             feeder.join(timeout=1)
         drainer.join(timeout=1)
         watchdog.join(timeout=2)
+        diagnostics.note(
+            exit_code=proc.returncode,
+            timed_out=timed_out[0] if timed_out else None,
+            stderr=diagnostics.head_tail("".join(err_chunks), 2048),
+        )
 
     if timed_out:
         raise AdapterError(timed_out[0])

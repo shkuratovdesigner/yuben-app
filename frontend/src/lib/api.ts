@@ -67,6 +67,8 @@ export interface ApiClient {
   ): () => void
   getResult(runId: string): Promise<ResearchResult>
   cancelRun(runId: string): Promise<void>
+  /** The run's redacted diagnostics log as plain text (Copy diagnostics). */
+  getDiagnostics(runId: string): Promise<string>
   getHistory(): Promise<HistoryItem[]>
   deleteHistory(runId: string): Promise<void>
 }
@@ -197,6 +199,15 @@ function createLiveClient(): ApiClient {
 
     async cancelRun(runId) {
       await http<void>(`/api/research/${runId}/cancel`, { method: 'POST' })
+    },
+
+    async getDiagnostics(runId) {
+      const path = `/api/research/${runId}/diagnostics`
+      const res = await fetch(`${API_BASE}${path}`)
+      if (!res.ok) {
+        throw new ApiError(`GET ${path} failed: ${res.status} ${res.statusText}`, res.status)
+      }
+      return res.text()
     },
 
     getHistory() {

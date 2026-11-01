@@ -41,6 +41,7 @@ from app.adapters.base import (
     AdapterError,
     terminate_for_thread,
 )
+from app import diagnostics
 from app.redact import redact
 from app.store import run_store
 
@@ -203,6 +204,7 @@ def _emit(
     kwargs: Dict[str, Any] = {"detail": detail, "counts": counts, "label": label}
     if pct is not _UNSET:
         kwargs["pct"] = pct
+    diagnostics.progress(phase, detail)
     run_store.append_event(run_id, make_event(run_id, phase, **kwargs))
 
 
@@ -424,6 +426,7 @@ def _stream_and_extract(
     prompt: str,
     counts: Dict[str, int],
     request: ResearchRequest,
+    step: str = "narrative",
 ) -> Optional[Dict[str, Any]]:
     # An API adapter yields the model's answer verbatim, line by line, so it is
     # parsed once as a whole. A CLI yields an event stream (one JSON event per
@@ -431,9 +434,11 @@ def _stream_and_extract(
     raw_text = getattr(adapter, "agentic", True) is False
     lines: List[str] = []
     collector = StreamCollector()
+    diagnostics.begin_step(step, prompt)
     try:
         stream = _open_stream(adapter, prompt, request)
     except Exception as exc:  # noqa: BLE001 - classified below
+        diagnostics.note(error=_reason(exc))
         raise _classify_external_error(exc, adapter)
 
     handle = _get_handle(run_id)
@@ -444,8 +449,8 @@ def _stream_and_extract(
         for line in stream:
             _check_cancel(run_id)
             text = line if isinstance(line, str) else str(line)
+            lines.append(text)
             if raw_text:
-                lines.append(text)
                 continue
             detail = collector.feed(text)
             if detail:
@@ -455,11 +460,13 @@ def _stream_and_extract(
         raise
     except Exception as exc:  # noqa: BLE001 - classified below
         _safe_close(stream)
+        diagnostics.note(error=_reason(exc))
         raise _classify_external_error(exc, adapter)
     finally:
         if handle is not None:
             handle.closer = None
         _safe_close(stream)
+        diagnostics.note(raw=diagnostics.head_tail("\n".join(lines)))
     if raw_text:
         return parse_json_text("\n".join(lines))
     return collector.extract()
@@ -478,15 +485,17 @@ def _run_agent(
     agent_result, err = _try_validate(obj)
     if agent_result is not None:
         err = _requested_analysis_gap(request, agent_result)
-        if not err:
-            return agent_result
+    diagnostics.note(parse_error=err or None)
+    if agent_result is not None and not err:
+        return agent_result
 
     # ONE error-correcting repair retry (PRD FR-7 / CONTRACTS §7).
     _check_cancel(run_id)
     _emit(run_id, "analyzing", detail="Agent output invalid — repairing", counts=counts)
     repair_prompt = build_repair_prompt(prompt, obj, err)
-    obj2 = _stream_and_extract(run_id, adapter, repair_prompt, counts, request)
+    obj2 = _stream_and_extract(run_id, adapter, repair_prompt, counts, request, step="repair")
     agent_result2, err2 = _try_validate(obj2)
+    diagnostics.note(parse_error=err2 or None)
     if agent_result2 is not None:
         return agent_result2
     # The first pass validated and only missed a toggled-on section: keep it.
@@ -564,11 +573,13 @@ def _expand_keywords(
     prompt = build_expand_prompt(request)
     parts: List[str] = []
     collector = StreamCollector()
+    diagnostics.begin_step("expand", prompt)
     try:
         stream = _open_stream(adapter, prompt, request)
     except _Cancelled:
         raise
     except Exception as exc:  # noqa: BLE001 - expansion is optional; fall back to [query]
+        diagnostics.note(error=_reason(exc))
         _expansion_failed(run_id, _reason(exc))
         return None
 
@@ -587,15 +598,18 @@ def _expand_keywords(
         raise
     except Exception as exc:  # noqa: BLE001 - fall back to [query] on any stream error
         _safe_close(stream)
+        diagnostics.note(error=_reason(exc))
         _expansion_failed(run_id, _reason(exc))
         return None
     finally:
         if handle is not None:
             handle.closer = None
         _safe_close(stream)
+        diagnostics.note(raw=diagnostics.head_tail("\n".join(parts)))
 
     keywords = _parse_keywords(collector.text()) or _parse_keywords("\n".join(parts))
     if not keywords:
+        diagnostics.note(parse_error="No JSON array of search terms was found.")
         _expansion_failed(run_id, "the model returned no search terms")
         return None
     keywords = keywords[:_MAX_EXPANDED_KEYWORDS]
@@ -655,6 +669,15 @@ def run_research_job(
     pipeline_runner = pipeline_runner or _default_pipeline_runner
     verifier = verifier or _default_verifier
     preflight = preflight or _default_preflight
+    diag = diagnostics.start(run_id, request)
+
+    def _end(event: Any) -> None:
+        # Saved before the terminal event goes out, so the error screen's
+        # "Copy diagnostics" never asks for a log that isn't written yet.
+        if diag is not None:
+            diag.finish(event)
+            diagnostics.save(diag)
+        emit_terminal(run_id, event)
 
     try:
         _emit(run_id, "queued")
@@ -731,29 +754,29 @@ def run_research_job(
         # Terminal: done — result ready before the event fires.
         _check_cancel(run_id)
         run_store.set_result(run_id, result)
-        emit_terminal(
-            run_id,
+        _end(
             make_event(run_id, "done", counts=_result_counts(result) or counts),
         )
     except _Cancelled:
-        emit_terminal(run_id, make_error_event(run_id, "cancelled", "Run cancelled."))
+        _end(make_error_event(run_id, "cancelled", "Run cancelled."))
     except _NoResults as exc:
-        emit_terminal(run_id, make_error_event(run_id, "no_results", str(exc)))
+        _end(make_error_event(run_id, "no_results", str(exc)))
     except _CliMissing as exc:
-        emit_terminal(run_id, make_error_event(run_id, "cli_missing", str(exc)))
+        _end(make_error_event(run_id, "cli_missing", str(exc)))
     except _QuotaExceeded as exc:
-        emit_terminal(run_id, make_error_event(run_id, "quota_exceeded", str(exc)))
+        _end(make_error_event(run_id, "quota_exceeded", str(exc)))
     except _InvalidOutput as exc:
-        emit_terminal(run_id, make_error_event(run_id, "invalid_output", str(exc)))
+        _end(make_error_event(run_id, "invalid_output", str(exc)))
     except _CliFailed as exc:
-        emit_terminal(run_id, make_error_event(run_id, "cli_failed", str(exc)))
+        _end(make_error_event(run_id, "cli_failed", str(exc)))
     except _Unknown as exc:
-        emit_terminal(run_id, make_error_event(run_id, "unknown", str(exc)))
+        _end(make_error_event(run_id, "unknown", str(exc)))
     except Exception as exc:  # noqa: BLE001 - last-resort catch-all
-        emit_terminal(
-            run_id,
+        _end(
             make_error_event(run_id, "unknown", "%s: %s" % (type(exc).__name__, exc)),
         )
+    finally:
+        diagnostics.stop()
 
 
 # --- public lifecycle API (consumed by app/api/research.py) -------------------

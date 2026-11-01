@@ -17,14 +17,15 @@
  *   • a plain-language error screen mapped from the terminal ErrorCode (PRD §6),
  *     including the no-results empty state, each with a route-back affordance.
  */
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { AlertTriangle, Check, Info, Loader2, SearchX } from 'lucide-react'
+import { AlertTriangle, Check, Copy, Info, Loader2, SearchX } from 'lucide-react'
 
 import { useRun } from '@/app/stores/run-store'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import { api } from '@/lib/api'
 import type { ErrorCode, ProgressPhase } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -217,9 +218,80 @@ function StepIcon({ state }: { state: StepState }) {
   )
 }
 
+type CopyState = 'idle' | 'copying' | 'copied' | 'failed'
+
+/** Copies the run's redacted diagnostics log (backend `diagnostics.py`) so a
+ *  failed run can be reported in one message. The log is fetched when the card
+ *  mounts, so the click writes to the clipboard at once: Safari refuses a write
+ *  that waits on a fetch after the click. If the clipboard is blocked, the text
+ *  is shown to copy by hand, with where it is saved. */
+function CopyDiagnosticsButton({ runId }: { runId: string }) {
+  const [state, setState] = useState<CopyState>('idle')
+  const [text, setText] = useState<string | null>(null)
+
+  useEffect(() => {
+    let live = true
+    api
+      .getDiagnostics(runId)
+      .then((t) => live && setText(t))
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [runId])
+
+  async function onCopy() {
+    setState('copying')
+    try {
+      const value = text ?? (await api.getDiagnostics(runId))
+      setText(value)
+      await navigator.clipboard.writeText(value)
+      setState('copied')
+      window.setTimeout(() => setState('idle'), 2000)
+    } catch {
+      setState('failed')
+    }
+  }
+
+  return (
+    <div className="flex w-full flex-col items-center gap-2">
+      <Button variant="outline" size="sm" onClick={() => void onCopy()} disabled={state === 'copying'}>
+        {state === 'copied' ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}
+        {state === 'copied' ? 'Copied' : 'Copy diagnostics'}
+      </Button>
+      {state === 'failed' && (
+        <div className="flex w-full flex-col gap-2" role="status">
+          <p className="text-[13px] leading-relaxed text-brand-muted">
+            Couldn’t copy automatically. {text ? 'Select the text below and copy it. ' : ''}It’s also
+            saved as backend/.yuben/diagnostics/{runId}.json.
+          </p>
+          {text && (
+            <textarea
+              readOnly
+              value={text}
+              onFocus={(e) => e.currentTarget.select()}
+              aria-label="Diagnostics"
+              className="h-40 w-full resize-none rounded-md border border-input bg-background p-3 text-left font-mono text-[12px] text-foreground"
+            />
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** Terminal error / empty screen — a plain-language reason (PRD §6) plus a
- *  route-back action. Rendered for every non-'done' terminal, cancel included. */
-export function LoaderErrorCard({ code, message }: { code: ErrorCode; message?: string | null }) {
+ *  route-back action. Rendered for every non-'done' terminal, cancel included.
+ *  Errors also offer "Copy diagnostics" when the run id is known. */
+export function LoaderErrorCard({
+  code,
+  message,
+  runId,
+}: {
+  code: ErrorCode
+  message?: string | null
+  runId?: string
+}) {
   const navigate = useNavigate()
   const copy = errorCopy(code, message)
   const Icon = copy.tone === 'empty' ? SearchX : copy.tone === 'neutral' ? Info : AlertTriangle
@@ -236,7 +308,10 @@ export function LoaderErrorCard({ code, message }: { code: ErrorCode; message?: 
           <h1 className="font-display text-[26px] leading-tight text-foreground">{copy.title}</h1>
           <p className="text-[15px] leading-relaxed text-brand-muted">{copy.body}</p>
         </div>
-        <Button onClick={() => navigate(copy.actionTo)}>{copy.actionLabel}</Button>
+        <div className="flex flex-col items-center gap-3">
+          <Button onClick={() => navigate(copy.actionTo)}>{copy.actionLabel}</Button>
+          {copy.tone === 'error' && runId && <CopyDiagnosticsButton runId={runId} />}
+        </div>
       </Card>
     </Stage>
   )
@@ -291,7 +366,13 @@ export default function Loader() {
   // --- Terminal error / empty state (covers cancel too) --------------------
   if (status === 'error') {
     const code: ErrorCode = error?.code ?? latestEvent?.error?.code ?? 'unknown'
-    return <LoaderErrorCard code={code} message={error?.message ?? latestEvent?.error?.message} />
+    return (
+      <LoaderErrorCard
+        code={code}
+        message={error?.message ?? latestEvent?.error?.message}
+        runId={id}
+      />
+    )
   }
 
   // --- The server has no such run ------------------------------------------

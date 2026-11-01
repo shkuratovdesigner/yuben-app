@@ -7,6 +7,7 @@ Endpoints (CONTRACTS §1):
   POST /api/research                     -> {"run_id"}      (StartRunResponse)
   GET  /api/research/{run_id}/events     -> text/event-stream of ProgressEvent
   POST /api/research/{run_id}/cancel     -> {"run_id","cancelled"}
+  GET  /api/research/{run_id}/diagnostics -> text/plain, the run's redacted log
 
 SSE is implemented manually (sse-starlette is not installed): a StreamingResponse
 async-generator replays every event already recorded (so a page refresh / late
@@ -22,11 +23,12 @@ import json
 from typing import Any, AsyncIterator, Optional
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import PlainTextResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict
 
 from contracts.python.models import ProgressEvent, ResearchRequest
 
+from app import diagnostics
 from app.orchestrator import launch, request_cancel
 from app.orchestrator.events import make_error_event
 from app.store import run_store
@@ -142,3 +144,16 @@ def cancel_research(run_id: str) -> CancelResponse:
         raise HTTPException(status_code=404, detail="unknown run")
     cancelled = request_cancel(run_id)
     return CancelResponse(run_id=run_id, cancelled=bool(cancelled))
+
+
+@router.get("/research/{run_id}/diagnostics", response_class=PlainTextResponse)
+def research_diagnostics(run_id: str) -> PlainTextResponse:
+    """The run's redacted diagnostics log as text, for "Copy diagnostics".
+
+    Read from the data folder, not the in-memory run store, so it survives a
+    backend restart. 404 until the run has finished and its log is written.
+    """
+    data = diagnostics.load(run_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="no diagnostics for this run")
+    return PlainTextResponse(diagnostics.render_text(data))

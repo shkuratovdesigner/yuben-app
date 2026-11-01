@@ -31,6 +31,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
+from app import diagnostics
 from app.adapters.base import (
     KIND_AUTH,
     KIND_NOT_INSTALLED,
@@ -424,9 +425,11 @@ def _stream_text(
     buffer = ""
     stop_reason = None
     try:
+        params = _request_params(client, model, schema)
+        diagnostics.note(request=diagnostics.summarize_params(params))
         with client.messages.stream(
             messages=[{"role": "user", "content": prompt}],
-            **_request_params(client, model, schema),
+            **params,
         ) as stream:
             for text in stream.text_stream:
                 if not text:
@@ -437,7 +440,11 @@ def _stream_text(
                     yield line
             final = getattr(stream, "get_final_message", None)
             if callable(final):
-                stop_reason = getattr(final(), "stop_reason", None)
+                message = final()
+                stop_reason = getattr(message, "stop_reason", None)
+                diagnostics.note(
+                    stop_reason=stop_reason, usage=getattr(message, "usage", None)
+                )
             if buffer and stop_reason != "max_tokens":
                 yield buffer
     except GeneratorExit:  # cooperative cancel — let the with-block close the stream

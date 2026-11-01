@@ -176,6 +176,14 @@ retry) against the bundled example videos, and prints PASS or what failed. Only
 the model's own provider is contacted, and nothing is added to History. Add
 `--format shorts` or `--query "your topic"` to vary it.
 
+**When a run fails,** press **Copy diagnostics** on the error screen and paste
+it into your bug report. Every run writes one log to
+`backend/.yuben/diagnostics/<run id>.json` (the last 50 are kept): adapter,
+model, the request settings sent, token usage, stop reason, the first and last
+4 KB of each model answer, and the parse error. The prompt itself is not saved,
+and anything that looks like a key is replaced with `[redacted]` before the
+file is written.
+
 ## Architecture
 
 ```mermaid

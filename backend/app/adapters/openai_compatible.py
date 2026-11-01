@@ -39,6 +39,7 @@ import re
 import time
 from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
 
+from app import diagnostics
 from app.adapters.base import (
     AdapterError,
     KIND_AUTH,
@@ -174,9 +175,18 @@ def _create(
     """
     while True:
         try:
-            return client.chat.completions.create(
+            response = client.chat.completions.create(
                 **kwargs, **_response_format(mode, schema, name)
             )
+            diagnostics.note(
+                request={
+                    **diagnostics.summarize_params(
+                        {k: v for k, v in kwargs.items() if k != "messages"}
+                    ),
+                    "response_format": mode or "none",
+                }
+            )
+            return response
         except Exception as exc:
             if mode is None or not _rejects_format(exc):
                 raise
@@ -426,6 +436,9 @@ def _stream_text(
             AGENT_RESULT_SCHEMA_NAME,
         )
         for chunk in stream:
+            usage = getattr(chunk, "usage", None)
+            if usage is not None:
+                diagnostics.note(usage=usage)
             choices = getattr(chunk, "choices", None) or []
             if not choices:
                 continue
@@ -438,6 +451,7 @@ def _stream_text(
             while "\n" in buffer:
                 line, buffer = buffer.split("\n", 1)
                 yield line
+        diagnostics.note(stop_reason=finish_reason)
         if buffer and finish_reason != "length":
             yield buffer
     except GeneratorExit:  # cooperative cancel — close the HTTP stream
@@ -805,6 +819,9 @@ def _ollama_chat(
     }
     if schema is not None:
         body["format"] = schema
+    diagnostics.note(
+        request=diagnostics.summarize_params({k: v for k, v in body.items() if k != "messages"})
+    )
     buffer = ""
     done_reason = None
     try:
@@ -830,6 +847,14 @@ def _ollama_chat(
                         yield line
                 if event.get("done"):
                     done_reason = event.get("done_reason")
+                    diagnostics.note(
+                        stop_reason=done_reason,
+                        usage={
+                            k: event.get(k)
+                            for k in ("prompt_eval_count", "eval_count", "total_duration")
+                            if k in event
+                        },
+                    )
                     break
         if buffer and done_reason != "length":
             yield buffer
