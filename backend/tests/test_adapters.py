@@ -671,9 +671,9 @@ def test_codex_models_use_visible_catalog_entries(monkeypatch, tmp_path):
         {"slug": "internal", "visibility": "hide"},
         {"slug": "test-astra", "visibility": "list"},
         {"slug": None, "visibility": "list"},
-    ]}))
+    ]}), encoding="utf-8")
     assert get_adapter("codex-cli").models() == ["default", "test-astra"]
-    (tmp_path / "models_cache.json").write_text("broken")
+    (tmp_path / "models_cache.json").write_text("broken", encoding="utf-8")
     assert get_adapter("codex-cli").models() == ["default"]
 
 
@@ -689,7 +689,7 @@ def test_codex_narrative_enforces_schema_and_cleans_up(monkeypatch):
         assert cmd[cmd.index("-m") + 1] == "test-astra"
         path = Path(cmd[cmd.index("--output-schema") + 1])
         paths.append(path)
-        schema = json.loads(path.read_text())
+        schema = json.loads(path.read_text(encoding="utf-8"))
         assert schema["properties"]["topic_title"]["type"] == "string"
         assert schema["properties"]["summary"]["type"] == "string"
         assert set(schema["required"]) == set(schema["properties"])

@@ -164,14 +164,14 @@ def build_result(*, run_id, created_at, request, topic_title, summary, meta_extr
 
 def write(name: str, obj) -> None:
     path = FIXTURES / name
-    path.write_text(json.dumps(obj, indent=2, ensure_ascii=False) + "\n")
+    path.write_text(json.dumps(obj, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"  wrote {name}")
 
 
 def main() -> None:
-    spec = json.loads((CURATED / "spec.json").read_text())
-    longform = build_result(**{**spec["longform"], "videos": json.loads((CURATED / "longform.json").read_text())})
-    shorts = build_result(**{**spec["shorts"], "videos": json.loads((CURATED / "shorts.json").read_text())})
+    spec = json.loads((CURATED / "spec.json").read_text(encoding="utf-8"))
+    longform = build_result(**{**spec["longform"], "videos": json.loads((CURATED / "longform.json").read_text(encoding="utf-8"))})
+    shorts = build_result(**{**spec["shorts"], "videos": json.loads((CURATED / "shorts.json").read_text(encoding="utf-8"))})
 
     print("Writing fixtures ->", FIXTURES)
     write("research-result.longform.json", longform)

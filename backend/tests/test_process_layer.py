@@ -350,12 +350,12 @@ def test_probe_timeout_kills_grandchildren_too(tmp_path):
     code = (
         "import subprocess, sys, time\n"
         "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)'])\n"
-        "open(sys.argv[1], 'w').write(str(child.pid))\n"
+        "open(sys.argv[1], 'w', encoding='utf-8').write(str(child.pid))\n"
         "time.sleep(120)\n"
     )
     with pytest.raises(subprocess.TimeoutExpired):
         base.run_probe([sys.executable, "-c", code, str(pid_file)], timeout=3)
-    assert _wait_dead(int(pid_file.read_text()))
+    assert _wait_dead(int(pid_file.read_text(encoding="utf-8")))
 
 
 @posix_only

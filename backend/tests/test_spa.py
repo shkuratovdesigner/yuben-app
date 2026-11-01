@@ -25,11 +25,11 @@ _INDEX_HTML = "<!doctype html><title>YuBen</title><div id=root></div>"
 @pytest.fixture
 def dist(tmp_path: Path) -> Path:
     """A minimal stand-in for `npm run build` output."""
-    (tmp_path / "index.html").write_text(_INDEX_HTML)
-    (tmp_path / "favicon.svg").write_text("<svg/>")
+    (tmp_path / "index.html").write_text(_INDEX_HTML, encoding="utf-8")
+    (tmp_path / "favicon.svg").write_text("<svg/>", encoding="utf-8")
     assets = tmp_path / "assets"
     assets.mkdir()
-    (assets / "index-abc123.js").write_text("console.log(1)")
+    (assets / "index-abc123.js").write_text("console.log(1)", encoding="utf-8")
     return tmp_path
 
 
@@ -150,7 +150,7 @@ def test_non_read_method_on_an_app_path_is_405(client: TestClient):
 def test_traversal_cannot_escape_the_build(client: TestClient, dist: Path):
     """`..` in the URL must not reach files outside dist/."""
     secret = dist.parent / "outside.txt"
-    secret.write_text("do not serve me")
+    secret.write_text("do not serve me", encoding="utf-8")
 
     for attempt in ("/../outside.txt", "/%2e%2e%2foutside.txt", "/assets/../../outside.txt"):
         resp = client.get(attempt)

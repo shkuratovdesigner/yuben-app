@@ -24,7 +24,7 @@ def build_registry():
 
     resources = []
     for path in SCHEMAS.glob("*.schema.json"):
-        schema = json.loads(path.read_text())
+        schema = json.loads(path.read_text(encoding="utf-8"))
         resources.append((schema["$id"], Resource.from_contents(schema)))
     return Registry().with_resources(resources)
 
@@ -45,7 +45,7 @@ def validate(instance, schema_id, registry, label) -> int:
 
 
 def load(name):
-    return json.loads((FIXTURES / name).read_text())
+    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
 
 
 def check_referential_integrity(result, label) -> int:
@@ -133,7 +133,7 @@ def main() -> int:
         failures += validate(a, f"{S}/adapter.schema.json", registry, f"adapters.json[{i}]")
     for i, h in enumerate(load("history.json")):
         failures += validate(h, f"{S}/history-item.schema.json", registry, f"history.json[{i}]")
-    for i, line in enumerate((FIXTURES / "progress-events.jsonl").read_text().splitlines()):
+    for i, line in enumerate((FIXTURES / "progress-events.jsonl").read_text(encoding="utf-8").splitlines()):
         if line.strip():
             failures += validate(json.loads(line), f"{S}/progress-event.schema.json", registry, f"progress-events[{i}]")
 

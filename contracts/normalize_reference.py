@@ -103,7 +103,7 @@ def normalize_video(raw: dict, *, keep_multiplier: bool) -> dict | None:
 
 
 def load_videos(filename: str, *, keep_multiplier: bool) -> tuple[list[dict], dict]:
-    src = json.loads((DATA / filename).read_text())
+    src = json.loads((DATA / filename).read_text(encoding="utf-8"))
     videos = []
     for raw in src.get("videos", []):
         v = normalize_video(raw, keep_multiplier=keep_multiplier)

@@ -47,7 +47,7 @@ from contracts.python.models import (  # noqa: E402
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _FIXTURE = json.loads(
-    (_REPO_ROOT / "contracts" / "fixtures" / "research-result.longform.json").read_text()
+    (_REPO_ROOT / "contracts" / "fixtures" / "research-result.longform.json").read_text(encoding="utf-8")
 )
 _NARRATIVE = "... OUTPUT CONTRACT — emit EXACTLY ONE JSON object ..."
 _EXPANSION = "OUTPUT: a single JSON array of strings and NOTHING else."

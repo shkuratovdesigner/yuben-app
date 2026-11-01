@@ -58,7 +58,7 @@ class StubVerifier:
 
 def _fixture() -> ResearchResult:
     return ResearchResult.model_validate(
-        json.loads((FIXTURES / "research-result.longform.json").read_text())
+        json.loads((FIXTURES / "research-result.longform.json").read_text(encoding="utf-8"))
     )
 
 

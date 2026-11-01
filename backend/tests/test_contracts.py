@@ -21,7 +21,7 @@ FIXTURES = Path(__file__).resolve().parents[2] / "contracts" / "fixtures"
 
 
 def _load(name):
-    return json.loads((FIXTURES / name).read_text())
+    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
 
 
 @pytest.mark.parametrize("name", ["research-result.longform.json", "research-result.shorts.json"])
@@ -60,7 +60,7 @@ def test_history_fixture_loads():
 
 
 def test_progress_events_fixture_loads():
-    lines = (FIXTURES / "progress-events.jsonl").read_text().strip().splitlines()
+    lines = (FIXTURES / "progress-events.jsonl").read_text(encoding="utf-8").strip().splitlines()
     events = [ProgressEvent.model_validate(json.loads(line)) for line in lines]
     assert events[0].phase == "queued"
     assert events[-1].phase == "done"

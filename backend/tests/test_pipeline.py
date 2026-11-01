@@ -35,7 +35,7 @@ requires_raw_data = pytest.mark.skipif(
 
 
 def _load(name):
-    return json.loads((DATA / name).read_text())
+    return json.loads((DATA / name).read_text(encoding="utf-8"))
 
 
 # ---------------------------------------------------------------------------

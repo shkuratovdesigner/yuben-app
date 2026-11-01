@@ -106,7 +106,7 @@ def _pipeline_with_videos():
     from pathlib import Path
 
     fixture = json.loads(
-        (Path(__file__).resolve().parents[2] / "contracts" / "fixtures" / "research-result.longform.json").read_text()
+        (Path(__file__).resolve().parents[2] / "contracts" / "fixtures" / "research-result.longform.json").read_text(encoding="utf-8")
     )
     videos = [Video.model_validate(v) for v in fixture["top_videos"]]
     return lambda request, keywords=None: (videos, dict(fixture["meta"]))

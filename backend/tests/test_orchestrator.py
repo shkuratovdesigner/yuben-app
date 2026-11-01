@@ -48,7 +48,7 @@ client = TestClient(app)
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _FIXTURE = json.loads(
-    (_REPO_ROOT / "contracts" / "fixtures" / "research-result.longform.json").read_text()
+    (_REPO_ROOT / "contracts" / "fixtures" / "research-result.longform.json").read_text(encoding="utf-8")
 )
 
 
