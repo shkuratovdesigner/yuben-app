@@ -138,6 +138,9 @@ def set_key(body: KeyBody) -> OkResponse:
         write(body.key)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+    from app.adapters import forget_detection
+
+    forget_detection()  # a new key can change that provider's model list
     return OkResponse(ok=True)
 
 

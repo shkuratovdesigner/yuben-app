@@ -19,6 +19,35 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+import logging  # noqa: E402
+
+
+def _utf8_console() -> None:
+    """UTF-8 server output on every OS (reliability W3, W4).
+
+    A Windows console or redirected stream defaults to cp1252 / cp1251, where a
+    Cyrillic topic or an emoji title raises ``UnicodeEncodeError``. ``replace``
+    keeps a stray character from ever killing a run. Pipeline progress logs to
+    the ``yuben`` logger, shown here at INFO the way its prints used to be.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            try:
+                reconfigure(encoding="utf-8", errors="replace")
+            except Exception:  # pragma: no cover - a stream that can't switch
+                pass
+    log = logging.getLogger("yuben")
+    if not log.handlers:
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(logging.Formatter("[%(name)s] %(message)s"))
+        log.addHandler(handler)
+        log.setLevel(logging.INFO)
+        log.propagate = False
+
+
+_utf8_console()
+
 from contextlib import asynccontextmanager  # noqa: E402
 
 from fastapi import FastAPI  # noqa: E402

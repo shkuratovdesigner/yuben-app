@@ -19,8 +19,10 @@ anything built on top of ``stream()``.
 """
 from __future__ import annotations
 
+import atexit
 import os
 import shutil
+import signal
 import subprocess
 import threading
 import time
@@ -30,9 +32,79 @@ from typing import Any, Dict, Iterator, List, Optional
 __all__ = [
     "AgentAdapter",
     "AdapterError",
+    "command_line_problem",
     "extract_version",
+    "kill_tree",
     "terminate_for_thread",
 ]
+
+_IS_WINDOWS = os.name == "nt"
+
+#: Every subprocess pipe is UTF-8. ``text=True`` alone decodes with the locale,
+#: which on Windows is cp1252 / cp1251 and garbles non-English titles (W3).
+#: ``replace`` keeps one undecodable byte from killing a whole run.
+_TEXT: Dict[str, Any] = {"encoding": "utf-8", "errors": "replace"}
+
+
+def _spawn_flags() -> Dict[str, Any]:
+    """Popen kwargs that put the child at the head of its own process tree.
+
+    A new session on macOS / Linux (so ``killpg`` reaches its children) and a
+    new process group on Windows (so ``taskkill /T`` does). On Windows the
+    direct child of an npm-installed CLI is a ``.cmd`` shim; killing only that
+    left the real CLI running and billing (W5).
+    """
+    if _IS_WINDOWS:
+        return {"creationflags": getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)}
+    return {"start_new_session": True}
+
+
+def kill_tree(proc: "subprocess.Popen", *, force: bool = False) -> None:
+    """Stop ``proc`` and everything it started. Never raises.
+
+    POSIX sends SIGTERM (SIGKILL with ``force``) to the child's process group;
+    Windows runs ``taskkill /T /F``, which has no graceful form. Falls back to
+    signalling the child alone when the tree call fails.
+    """
+    try:
+        if proc.poll() is not None:
+            return
+    except Exception:  # pragma: no cover - handle already unusable
+        return
+    try:
+        if _IS_WINDOWS:
+            subprocess.run(
+                ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=10,
+            )
+        else:
+            os.killpg(proc.pid, signal.SIGKILL if force else signal.SIGTERM)
+        return
+    except Exception:
+        pass
+    try:
+        proc.kill() if force else proc.terminate()
+    except Exception:  # pragma: no cover - already gone
+        pass
+
+
+def command_line_problem(cmd: List[str]) -> Optional[str]:
+    """Why the OS would refuse ``cmd``, or ``None`` when it fits.
+
+    Windows caps the whole command line at 32,767 characters; Linux caps one
+    argument at 128 KiB. Only adapters that still pass the prompt as an
+    argument can hit these (W1); checking first turns an obscure launch error
+    into a clear one.
+    """
+    if _IS_WINDOWS:
+        if len(subprocess.list2cmdline(cmd)) >= 32_000:
+            return "longer than the 32,767 characters Windows allows on a command line"
+    elif any(len(arg.encode("utf-8")) >= 128 * 1024 for arg in cmd):
+        return "longer than the 128 KiB the OS allows for one command-line argument"
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -88,11 +160,21 @@ def terminate_for_thread(ident: Optional[int]) -> int:
     for proc in procs:
         try:
             if proc.poll() is None:
-                proc.terminate()
+                kill_tree(proc)
                 killed += 1
         except Exception:  # pragma: no cover - process already reaped
             pass
     return killed
+
+
+@atexit.register
+def _kill_all_live() -> None:
+    """Children run in their own session, so Ctrl+C on the server no longer
+    reaches them. Stop every live tree when the server exits."""
+    with _LIVE_LOCK:
+        procs = [proc for group in _LIVE.values() for proc in group]
+    for proc in procs:
+        kill_tree(proc, force=True)
 
 
 #: Names scrubbed from the environment of every CLI spawn. A YouTube Data API
@@ -108,6 +190,8 @@ def _child_env() -> Dict[str, str]:
     env = dict(os.environ)
     for name in _SCRUBBED_ENV:
         env.pop(name, None)
+    # Python-based CLIs then write UTF-8 to our pipes whatever the OS locale.
+    env["PYTHONIOENCODING"] = "utf-8"
     return env
 
 
@@ -444,17 +528,48 @@ def run_version(path: str, *, flag: str = "--version", timeout: float = 10.0) ->
     raises — any failure yields ``None``.
     """
     try:
-        proc = subprocess.run(
-            [path, flag],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=_child_env(),
-        )
+        proc = _run([path, flag], timeout=timeout)
     except Exception:
         return None
     out = (proc.stdout or "").strip() or (proc.stderr or "").strip()
     return extract_version(out)
+
+
+def _run(
+    cmd: List[str],
+    *,
+    timeout: float,
+    cwd: Optional[str] = None,
+    input: Optional[str] = None,
+) -> subprocess.CompletedProcess:
+    """:func:`subprocess.run`, except a timeout kills the whole process tree.
+
+    ``subprocess.run`` kills only the direct child on timeout, which on Windows
+    is the ``.cmd`` shim, not the CLI.
+    """
+    proc = subprocess.Popen(
+        cmd,
+        stdin=subprocess.PIPE if input is not None else subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=cwd,
+        env=_child_env(),
+        **_TEXT,
+        **_spawn_flags(),
+    )
+    try:
+        out, err = proc.communicate(input, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        kill_tree(proc, force=True)
+        try:
+            proc.communicate(timeout=5)
+        except Exception:  # pragma: no cover - pipes held open by a straggler
+            pass
+        raise
+    except BaseException:
+        kill_tree(proc, force=True)
+        raise
+    return subprocess.CompletedProcess(cmd, proc.returncode, out, err)
 
 
 def run_probe(
@@ -462,27 +577,24 @@ def run_probe(
     *,
     timeout: float,
     cwd: Optional[str] = None,
+    input: Optional[str] = None,
 ) -> subprocess.CompletedProcess:
-    """Run ``cmd`` to completion, capturing text stdout/stderr.
+    """Run ``cmd`` to completion, capturing UTF-8 stdout/stderr.
 
-    Thin wrapper over :func:`subprocess.run`; the caller interprets the result.
-    May raise :class:`subprocess.TimeoutExpired` / ``OSError`` — callers in
-    ``check_env`` catch these and convert them to ``ok:false``.
+    The caller interprets the result. May raise
+    :class:`subprocess.TimeoutExpired` / ``OSError`` — callers in ``check_env``
+    catch these and convert them to ``ok:false``.
 
-    ``stdin`` is closed explicitly: under uvicorn the child would otherwise
-    inherit a pipe that never delivers data, and agent CLIs stall waiting on it
-    (Claude Code burns 3s, then warns on stderr) — noise that used to mask the
-    real error. Every probe here is non-interactive, so DEVNULL is always right.
+    ``input`` is written to the child's stdin (the prompt, for CLIs that read
+    it there) and stdin is then closed. Without ``input`` stdin is DEVNULL:
+    under uvicorn the child would otherwise inherit a pipe that never delivers
+    data, and agent CLIs stall waiting on it (Claude Code burns 3s, then warns
+    on stderr) — noise that used to mask the real error.
     """
-    return subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        cwd=cwd,
-        stdin=subprocess.DEVNULL,
-        env=_child_env(),
-    )
+    problem = command_line_problem(cmd)
+    if problem:
+        raise OSError("The command is {}.".format(problem))
+    return _run(cmd, timeout=timeout, cwd=cwd, input=input)
 
 
 #: A research run is minutes, not hours. These bound the two ways an agent CLI
@@ -497,6 +609,7 @@ def stream_process(
     cmd: List[str],
     *,
     cwd: Optional[str] = None,
+    stdin_text: Optional[str] = None,
     idle_timeout: Optional[float] = STREAM_IDLE_TIMEOUT,
     total_timeout: Optional[float] = STREAM_TOTAL_TIMEOUT,
 ) -> Iterator[str]:
@@ -514,17 +627,32 @@ def stream_process(
     stdout and the loop below ends normally; ``AdapterError`` is then raised
     from the timeout branch so the caller can tell a hang from a clean exit.
     Pass ``None`` for either bound to disable it.
+
+    ``stdin_text`` (the prompt, for CLIs that read it there) is written from
+    its own thread and stdin is then closed, so a prompt larger than the pipe
+    buffer cannot deadlock against a child that is already writing stdout.
+    Without it stdin is DEVNULL (see :func:`run_probe`). The child heads its
+    own process tree, and every stop below kills the whole tree.
     """
+    problem = command_line_problem(cmd)
+    if problem:
+        raise AdapterError(
+            "The prompt is too long to pass to {} as an argument: it is {}.".format(
+                os.path.basename(cmd[0]), problem
+            ),
+            kind=KIND_CONTEXT_TOO_LONG,
+        )
     try:
         proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
             bufsize=1,
             cwd=cwd,
             env=_child_env(),
-            stdin=subprocess.DEVNULL,  # see run_probe: never let the CLI wait on stdin
+            stdin=subprocess.PIPE if stdin_text is not None else subprocess.DEVNULL,
+            **_TEXT,
+            **_spawn_flags(),
         )
     except FileNotFoundError as exc:
         raise AdapterError(
@@ -549,6 +677,23 @@ def stream_process(
     drainer = threading.Thread(target=_drain_stderr, daemon=True)
     drainer.start()
 
+    def _feed_stdin() -> None:
+        try:
+            assert proc.stdin is not None
+            proc.stdin.write(stdin_text or "")
+        except (BrokenPipeError, OSError, ValueError):
+            pass  # the child exited or closed stdin early; its exit code says why
+        finally:
+            try:
+                proc.stdin.close()  # type: ignore[union-attr]
+            except Exception:
+                pass
+
+    feeder: Optional[threading.Thread] = None
+    if stdin_text is not None:
+        feeder = threading.Thread(target=_feed_stdin, daemon=True)
+        feeder.start()
+
     # Watchdog: the reader below blocks in the kernel, so the only way to bound
     # it is from another thread. `timed_out` is set before the kill so the
     # timeout branch can distinguish this from an ordinary exit.
@@ -572,10 +717,7 @@ def stream_process(
                 )
             else:
                 continue
-            try:
-                proc.terminate()
-            except Exception:  # pragma: no cover - already gone
-                pass
+            kill_tree(proc)
             return
 
     watchdog = threading.Thread(target=_watchdog, daemon=True)
@@ -596,17 +738,19 @@ def stream_process(
         # it from another thread — this is where it gets waited on.
         _unregister_child(proc)
         if proc.poll() is None:
-            proc.terminate()
+            kill_tree(proc)
             try:
                 proc.wait(timeout=5)
             except Exception:
-                proc.kill()
+                kill_tree(proc, force=True)
                 try:
                     proc.wait(timeout=5)
                 except Exception:
                     pass
         else:
             proc.wait()
+        if feeder is not None:
+            feeder.join(timeout=1)
         drainer.join(timeout=1)
         watchdog.join(timeout=2)
 

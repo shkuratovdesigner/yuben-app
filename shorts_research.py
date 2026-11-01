@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import sys
 import json
+import logging
 import time
 import statistics
 from datetime import datetime, timedelta, timezone
@@ -47,8 +48,14 @@ from youtube_research.youtube_api import (
 MAX_SHORT_SECONDS = 65  # tolerance above 60 for rounding / true Shorts
 
 
+#: Progress goes through logging, not print: a handler never kills the run on a
+#: console that can't encode the text (a Cyrillic keyword on a Windows console
+#: with redirected output raised UnicodeEncodeError; reliability W4).
+logger = logging.getLogger("yuben.research")
+
+
 def log(msg: str) -> None:
-    print(msg, file=sys.stderr)
+    logger.info(msg)
 
 
 def get_channel_stats(channel_ids: list) -> dict:
@@ -166,6 +173,8 @@ def run(
 
 if __name__ == "__main__":
     import argparse
+
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     p = argparse.ArgumentParser()
     p.add_argument("--keywords", nargs="+", required=True)

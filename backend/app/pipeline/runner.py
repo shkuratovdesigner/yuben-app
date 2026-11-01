@@ -40,6 +40,7 @@ for ``top_videos``; ``counts.curated`` already reflects that cap.
 """
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -56,6 +57,8 @@ from .params import (
     map_request_to_params,
     region_tier,
 )
+
+logger = logging.getLogger("yuben.pipeline")
 
 # Cap transcript fetches so a live run never balloons; transcripts feed the
 # agent's script analysis, which only looks at the curated head anyway.
@@ -190,16 +193,12 @@ def _fetch_transcripts(video_ids: List[str]) -> Dict[str, Optional[str]]:
         install_youtube_research_alias()
         from youtube_research.transcript import get_transcripts_batch  # type: ignore
     except Exception as exc:  # pragma: no cover - dep/network guarded
-        import sys
-
-        print(f"[pipeline] transcript fetch unavailable: {exc}", file=sys.stderr)
+        logger.warning("transcript fetch unavailable: %s", exc)
         return {vid: None for vid in video_ids}
     try:
         return get_transcripts_batch(video_ids)
     except Exception as exc:  # pragma: no cover - network guarded
-        import sys
-
-        print(f"[pipeline] transcript batch failed: {exc}", file=sys.stderr)
+        logger.warning("transcript batch failed: %s", exc)
         return {vid: None for vid in video_ids}
 
 
@@ -218,12 +217,7 @@ def _validate_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             Video(**row)
             ok.append(row)
         except Exception as exc:  # pragma: no cover - guard only
-            import sys
-
-            print(
-                f"[pipeline] dropping invalid Video row {row.get('video_id')!r}: {exc}",
-                file=sys.stderr,
-            )
+            logger.warning("dropping invalid Video row %r: %s", row.get("video_id"), exc)
     return ok
 
 

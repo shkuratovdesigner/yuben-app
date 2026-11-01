@@ -7,6 +7,7 @@ long-form content, and calculating channel median views.
 
 from __future__ import annotations
 
+import logging
 import re
 import time
 import statistics
@@ -23,6 +24,8 @@ from youtube_research.config import (
     CHANNEL_SAMPLE_SIZE,
     CHANNEL_MEDIAN_SAMPLE,
 )
+
+logger = logging.getLogger("yuben.research")
 
 # ---------------------------------------------------------------------------
 # Error formatting
@@ -135,7 +138,7 @@ def handle_http_error(exc: HttpError, what: str) -> bool:
     reasons = set(http_error_reasons(exc))
     if status in (403, 429) and reasons & _QUOTA_REASONS:
         _quota_hit = True
-        print(f"WARNING: YouTube API quota exceeded during {what}: {http_error_note(exc)}")
+        logger.warning("YouTube API quota exceeded during %s: %s", what, http_error_note(exc))
         return True
     if reasons & {"accessnotconfigured", "service_disabled"}:
         raise YouTubeSetupError(_NOT_ENABLED)
@@ -483,19 +486,19 @@ def get_channel_median_views(
     # Step 1: Get uploads playlist
     playlist_id = get_channel_uploads_playlist(channel_id)
     if not playlist_id:
-        print(f"  Could not find uploads playlist for {channel_name}")
+        logger.info("  Could not find uploads playlist for %s", channel_name)
         return (0.0, 0, 0)
 
     # Step 2: Fetch recent video IDs
     video_ids = get_playlist_video_ids(playlist_id, max_results=CHANNEL_SAMPLE_SIZE)
     if not video_ids:
-        print(f"  No videos found for {channel_name}")
+        logger.info("  No videos found for %s", channel_name)
         return (0.0, 0, 0)
 
     # Step 3: Get full details
     details = get_video_details(video_ids)
     if not details:
-        print(f"  Could not fetch video details for {channel_name}")
+        logger.info("  Could not fetch video details for %s", channel_name)
         return (0.0, 0, 0)
 
     # Step 4: Filter out Shorts and immature videos
@@ -519,7 +522,7 @@ def get_channel_median_views(
         qualifying.append(v)
 
     if not qualifying:
-        print(f"  No qualifying long-form videos for {channel_name}")
+        logger.info("  No qualifying long-form videos for %s", channel_name)
         return (0.0, 0, 0)
 
     # Step 5: Take up to CHANNEL_MEDIAN_SAMPLE most recent
@@ -551,9 +554,9 @@ def get_channel_median_views(
 
     video_count_sampled = len(sample)
 
-    print(
-        f"  {channel_name}: median={median_views:.0f} views, "
-        f"sampled={video_count_sampled}, window={sample_window_days} days"
+    logger.info(
+        "  %s: median=%.0f views, sampled=%s, window=%s days",
+        channel_name, median_views, video_count_sampled, sample_window_days,
     )
 
     return (median_views, video_count_sampled, sample_window_days)

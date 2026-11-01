@@ -155,9 +155,10 @@ def test_claude_stream_missing_raises(monkeypatch):
 def test_claude_stream_builds_headless_cmd(monkeypatch):
     seen = {}
 
-    def fake_stream_process(cmd, cwd=None):
+    def fake_stream_process(cmd, cwd=None, stdin_text=None):
         seen["cmd"] = cmd
         seen["cwd"] = cwd
+        seen["stdin"] = stdin_text
         yield '{"type":"system"}'
         yield '{"type":"result","result":"ok"}'
 
@@ -169,7 +170,9 @@ def test_claude_stream_builds_headless_cmd(monkeypatch):
     cmd = seen["cmd"]
     assert cmd[0] == "/bin/claude"
     assert cmd[1] == "-p"
-    assert cmd[2] == "do research"
+    # The prompt goes on stdin, never argv (reliability W1, W2).
+    assert "do research" not in cmd
+    assert seen["stdin"] == "do research"
     assert "--output-format" in cmd and "stream-json" in cmd
     assert "--verbose" in cmd
     assert "--model" in cmd and "claude-sonnet-5" in cmd
@@ -626,25 +629,32 @@ def test_cli_specs_are_well_formed():
     """Every spec must be dispatchable and reachable — the table is the API."""
     for spec in CLI_SPECS:
         assert spec.id and spec.name and spec.binary
-        assert spec.prompt_args, "a spec with no prompt args can't be invoked"
+        assert spec.prompt_args or spec.prompt_via_stdin, "no way to hand over the prompt"
         assert spec.install_url.startswith("https://")
         assert isinstance(get_adapter(spec.id), GenericCliAdapter)
 
 
 def test_generic_cli_builds_expected_argv():
-    """The prompt lands in argv and the model flag is only added when asked for."""
+    """Stdin CLIs keep the prompt out of argv; the model flag only when asked for."""
     codex = get_adapter("codex-cli")
-    assert codex._build_cmd("/bin/codex", "hi", None) == ["/bin/codex", "exec", "hi"]
-    assert codex._build_cmd("/bin/codex", "hi", "default") == ["/bin/codex", "exec", "hi"]
-    assert codex._build_cmd("/bin/codex", "hi", "o3") == ["/bin/codex", "exec", "hi", "-m", "o3"]
-    # extra_args ride after the prompt (Cursor forces plain-text output).
+    assert codex._build_cmd("/bin/codex", "hi", None) == (["/bin/codex", "exec", "-"], "hi")
+    assert codex._build_cmd("/bin/codex", "hi", "default") == (["/bin/codex", "exec", "-"], "hi")
+    assert codex._build_cmd("/bin/codex", "hi", "o3") == (
+        ["/bin/codex", "exec", "-", "-m", "o3"], "hi",
+    )
+    # Cursor isn't documented to read stdin, so its prompt stays on argv and
+    # extra_args ride after it (forcing plain-text output).
     cursor = get_adapter("cursor-cli")
-    assert cursor._build_cmd("/bin/cursor-agent", "hi", None) == [
-        "/bin/cursor-agent", "-p", "hi", "--output-format", "text",
-    ]
+    assert cursor._build_cmd("/bin/cursor-agent", "hi", None) == (
+        ["/bin/cursor-agent", "-p", "hi", "--output-format", "text"], None,
+    )
     # A spec with no model flag ignores the model rather than emitting a bare id.
     amp = get_adapter("amp-cli")
-    assert amp._build_cmd("/bin/amp", "hi", "some-model") == ["/bin/amp", "-x", "hi"]
+    assert amp._build_cmd("/bin/amp", "hi", "some-model") == (["/bin/amp", "-x"], "hi")
+    # Copilot ignores piped input when -p is given, so the bare binary reads it.
+    assert get_adapter("copilot-cli")._build_cmd("/bin/copilot", "hi", None) == (
+        ["/bin/copilot"], "hi",
+    )
 
 
 def test_codex_models_use_visible_catalog_entries(monkeypatch, tmp_path):
@@ -669,7 +679,8 @@ def test_codex_narrative_enforces_schema_and_cleans_up(monkeypatch):
 
     paths = []
 
-    def fake_stream(cmd, cwd=None):
+    def fake_stream(cmd, cwd=None, stdin_text=None):
+        assert stdin_text == "OUTPUT CONTRACT" and "OUTPUT CONTRACT" not in cmd
         assert cmd[cmd.index("-m") + 1] == "test-astra"
         path = Path(cmd[cmd.index("--output-schema") + 1])
         paths.append(path)

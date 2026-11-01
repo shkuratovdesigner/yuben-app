@@ -10,3 +10,15 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
+
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _fresh_adapter_detection():
+    """Detection is cached for a few seconds; no test may see another's."""
+    from app.adapters import forget_detection
+
+    forget_detection()
+    yield
+    forget_detection()

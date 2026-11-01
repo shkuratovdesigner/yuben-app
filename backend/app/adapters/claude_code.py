@@ -1,10 +1,14 @@
 """ClaudeCodeAdapter — headless Claude Code CLI (``claude``).
 
 * detect   : ``shutil.which("claude")`` + ``claude --version``.
-* check_env: ``claude -p "Reply with exactly: hello"`` (a tiny real turn) and
-             confirm the CLI actually responded.
-* stream   : ``claude -p <prompt> --output-format stream-json --verbose`` — the
-             headless event stream B4's orchestrator consumes.
+* check_env: ``claude -p`` with "Reply with exactly: hello" on stdin (a tiny
+             real turn) and confirm the CLI actually responded.
+* stream   : ``claude -p --output-format stream-json --verbose`` with the prompt
+             on stdin — the headless event stream B4's orchestrator consumes.
+
+The prompt always goes on stdin, never argv: the narrative prompt (~42k chars)
+exceeds Windows' 32,767-character command line, and ``cmd.exe`` mangles
+multi-line arguments to npm's ``.cmd`` shims (reliability W1, W2).
 
 Ships first (BUILD_PLAN B2 / PRD §12: "ship Claude Code first").
 """
@@ -148,12 +152,12 @@ class ClaudeCodeAdapter(AgentAdapter):
 
         version = run_version(path, timeout=_DETECT_TIMEOUT)
 
-        cmd = [path, "-p", "Reply with exactly: hello"]
+        cmd = [path, "-p"]
         if model and model != "default":
             cmd += ["--model", model]
 
         try:
-            proc = run_probe(cmd, timeout=_PROBE_TIMEOUT)
+            proc = run_probe(cmd, timeout=_PROBE_TIMEOUT, input="Reply with exactly: hello")
         except Exception as exc:  # TimeoutExpired, OSError, ...
             import subprocess
 
@@ -203,14 +207,13 @@ class ClaudeCodeAdapter(AgentAdapter):
         cmd = [
             path,
             "-p",
-            prompt,
             "--output-format",
             "stream-json",
             "--verbose",  # required companion of stream-json in headless mode
         ]
         if model and model != "default":
             cmd += ["--model", model]
-        return stream_process(cmd, cwd=cwd)
+        return stream_process(cmd, cwd=cwd, stdin_text=prompt)
 
     # -- helper --------------------------------------------------------------
     def _result(

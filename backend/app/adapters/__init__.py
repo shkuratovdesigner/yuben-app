@@ -21,7 +21,9 @@ user), then the local CLIs. ``build_cli_adapters()`` expands the spec table in
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import threading
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from contracts.python.models import Adapter
@@ -42,6 +44,7 @@ from app.adapters.openai_compatible import (
 __all__ = [
     "get_adapter",
     "list_adapters",
+    "forget_detection",
     "check_env",
     "AgentAdapter",
     "AdapterError",
@@ -139,23 +142,58 @@ def get_adapter(adapter_id: str) -> AgentAdapter:
     return _ADAPTERS[canon]
 
 
+#: How long one adapter's detection (``--version`` and any live model list) is
+#: reused. Short, so installing a CLI shows up on the next look; long enough
+#: that the picker's repeated ``GET /api/adapters`` calls don't respawn every
+#: CLI each time (reliability R2). Saving a key clears it.
+DETECT_TTL_SECONDS = 15.0
+
+_DETECTED: Dict[str, Tuple[float, Adapter]] = {}
+_DETECT_LOCK = threading.Lock()
+
+
+def _describe(adapter: AgentAdapter) -> Adapter:
+    detected = adapter.detect()
+    return Adapter(
+        id=adapter.id,
+        name=adapter.name,
+        installed=bool(detected.get("installed", False)),
+        version=detected.get("version"),
+        models=adapter.models(),
+    )
+
+
 def list_adapters() -> List[Adapter]:
-    """Detect every adapter and return ``Adapter[]`` (contracts model)."""
-    out: List[Adapter] = []
-    for adapter in _ADAPTERS.values():
-        if not getattr(adapter, "selectable", True):
-            continue
-        detected = adapter.detect()
-        out.append(
-            Adapter(
-                id=adapter.id,
-                name=adapter.name,
-                installed=bool(detected.get("installed", False)),
-                version=detected.get("version"),
-                models=adapter.models(),
-            )
-        )
-    return out
+    """Detect every adapter and return ``Adapter[]`` (contracts model).
+
+    Adapters not detected in the last :data:`DETECT_TTL_SECONDS` are detected
+    in parallel, so the slowest CLI or model fetch bounds the call, not their sum.
+    """
+    shown = [a for a in _ADAPTERS.values() if getattr(a, "selectable", True)]
+    now = time.monotonic()
+    with _DETECT_LOCK:
+        fresh = {
+            a.id: entry[1]
+            for a in shown
+            for entry in [_DETECTED.get(a.id)]
+            if entry is not None and now - entry[0] < DETECT_TTL_SECONDS
+        }
+    stale = [a for a in shown if a.id not in fresh]
+    if stale:
+        with ThreadPoolExecutor(max_workers=len(stale), thread_name_prefix="yuben-detect") as pool:
+            described = list(pool.map(_describe, stale))
+        done_at = time.monotonic()
+        with _DETECT_LOCK:
+            for item in described:
+                _DETECTED[item.id] = (done_at, item)
+                fresh[item.id] = item
+    return [fresh[a.id] for a in shown]
+
+
+def forget_detection() -> None:
+    """Drop cached detection, e.g. after a key change alters a model list."""
+    with _DETECT_LOCK:
+        _DETECTED.clear()
 
 
 def check_env(adapter: str, model: Optional[str] = None) -> Dict[str, Any]:

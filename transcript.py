@@ -5,6 +5,7 @@ consuming any YouTube Data API quota. Handles errors gracefully so
 one failed video never kills a batch run.
 """
 
+import logging
 import sys
 import time
 from typing import Optional
@@ -15,9 +16,13 @@ from youtube_transcript_api._errors import (
 )
 
 
+logger = logging.getLogger("yuben.research")
+
+
 def _log(msg: str) -> None:
-    """Print to stderr so stdout JSON stays clean."""
-    print(msg, file=sys.stderr)
+    """Log, never print: stdout JSON stays clean and an unencodable title on a
+    Windows console can't raise (reliability W4)."""
+    logger.info(msg)
 
 
 def get_transcript(video_id: str, languages: list = None) -> Optional[str]:

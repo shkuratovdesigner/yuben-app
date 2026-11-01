@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import sys
 import json
+import logging
 import time
 import statistics
 import urllib.request
@@ -52,8 +53,14 @@ from youtube_research.youtube_api import (
 MIN_LONG_SECONDS = 120  # keep >= 2 min; drops Shorts and tiny clips
 
 
+#: Progress goes through logging, not print: a handler never kills the run on a
+#: console that can't encode the text (a Cyrillic keyword on a Windows console
+#: with redirected output raised UnicodeEncodeError; reliability W4).
+logger = logging.getLogger("yuben.research")
+
+
 def log(msg: str) -> None:
-    print(msg, file=sys.stderr)
+    logger.info(msg)
 
 
 def oembed_ok(video_id: str) -> bool:
@@ -248,6 +255,8 @@ def run(
 if __name__ == "__main__":
     import argparse
 
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+
     p = argparse.ArgumentParser()
     p.add_argument("--keywords", nargs="+", required=True)
     p.add_argument("--days", type=int, default=365)
@@ -258,5 +267,5 @@ if __name__ == "__main__":
     result = run(a.keywords, a.days, a.floor, a.medians)
     payload = json.dumps(result, indent=2, default=str)
     if a.out:
-        Path(a.out).write_text(payload)
+        Path(a.out).write_text(payload, encoding="utf-8")
     print(payload)

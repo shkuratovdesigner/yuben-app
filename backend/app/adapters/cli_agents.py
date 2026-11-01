@@ -1,7 +1,7 @@
 """Spec-driven adapters for local agent CLIs (Codex, Cursor, opencode, …).
 
 Every one of these tools does the same thing from YuBen's point of view: take a
-prompt on argv, print text on stdout, exit. The only differences are the binary
+prompt (on stdin where the CLI supports it), print text on stdout, exit. The only differences are the binary
 name, the sub-command or flag that means "one-shot, non-interactive", and how to
 name a model. So they are ROWS IN A TABLE, not classes — adding another agent is
 one ``CliSpec`` entry, which is what the README's "adding your own is one small
@@ -17,6 +17,13 @@ conventions of the CLIs they descend from but have NOT been run end-to-end here
 — none of these tools were installed on the machine this shipped from. They are
 marked ``verified=False`` and the UI labels them experimental. If one is wrong,
 the fix is a single field in the table below, not a code change.
+
+STDIN. A spec with ``prompt_via_stdin`` gets the prompt on stdin, so its command
+line holds only fixed flags. That avoids Windows' 32,767-character command-line
+limit and ``cmd.exe`` quoting of npm ``.cmd`` shims (reliability W1, W2). Each
+row records where its stdin behaviour is documented. A CLI not confirmed to read
+stdin keeps the prompt on argv, and ``stream_process`` refuses a command line the
+OS would reject with a clear message instead of an obscure launch error.
 """
 from __future__ import annotations
 
@@ -54,9 +61,14 @@ class CliSpec:
     id: str
     name: str
     binary: str
-    #: Argv that precedes the prompt — a sub-command ("exec", "run") or a flag ("-p").
+    #: Argv that precedes the prompt — a sub-command ("exec", "run") or a flag
+    #: ("-p"). Empty when piping to the bare binary is the headless mode.
     prompt_args: Tuple[str, ...]
     install_url: str
+    #: Send the prompt on stdin instead of argv. Only set where documented.
+    prompt_via_stdin: bool = False
+    #: Argv that stands in for the prompt when it goes on stdin (Codex's ``-``).
+    stdin_args: Tuple[str, ...] = ()
     #: Flag that selects a model, or None when the CLI has no such flag.
     model_flag: Optional[str] = None
     #: Argv appended after the prompt (e.g. forcing plain-text output).
@@ -75,8 +87,11 @@ CLI_SPECS: List[CliSpec] = [
         name="Codex CLI",
         binary="codex",
         # `codex exec` is the documented non-interactive mode: streams progress to
-        # stderr, prints only the final agent message to stdout.
+        # stderr, prints only the final agent message to stdout. `codex exec
+        # --help`: "if `-` is used, instructions are read from stdin".
         prompt_args=("exec",),
+        prompt_via_stdin=True,
+        stdin_args=("-",),
         model_flag="-m",
         install_url="https://developers.openai.com/codex",
         verified=True,
@@ -86,6 +101,8 @@ CLI_SPECS: List[CliSpec] = [
         name="Cursor CLI",
         binary="cursor-agent",
         # Print mode; --output-format text keeps stdout free of JSON envelopes.
+        # Prompt stays on argv: the headless docs (cursor.com/docs/cli/headless)
+        # don't say print mode reads stdin. Long prompts fail on Windows.
         prompt_args=("-p",),
         model_flag="--model",
         extra_args=("--output-format", "text"),
@@ -96,7 +113,10 @@ CLI_SPECS: List[CliSpec] = [
         id="opencode-cli",
         name="opencode",
         binary="opencode",
+        # `opencode run` reads non-TTY stdin as the message (issue
+        # anomalyco/opencode#42064; not in the official docs, not run here).
         prompt_args=("run",),
+        prompt_via_stdin=True,
         model_flag="--model",
         install_url="https://opencode.ai/docs/cli/",
         verified=True,
@@ -105,8 +125,10 @@ CLI_SPECS: List[CliSpec] = [
         id="qwen-cli",
         name="Qwen Code",
         binary="qwen",
-        # A Gemini-CLI fork, so it inherits -p / --model. Unconfirmed here.
-        prompt_args=("-p",),
+        # A Gemini-CLI fork, so it inherits --model. Its headless docs show
+        # `echo "…" | qwen` as non-interactive text input. Unconfirmed here.
+        prompt_args=(),
+        prompt_via_stdin=True,
         model_flag="--model",
         install_url="https://github.com/QwenLM/qwen-code",
     ),
@@ -114,7 +136,10 @@ CLI_SPECS: List[CliSpec] = [
         id="copilot-cli",
         name="GitHub Copilot CLI",
         binary="copilot",
-        prompt_args=("-p",),
+        # GitHub's "run CLI programmatically" docs: `echo "…" | copilot`; piped
+        # input is ignored when -p is also given, so -p is dropped.
+        prompt_args=(),
+        prompt_via_stdin=True,
         model_flag="--model",
         install_url="https://docs.github.com/copilot/concepts/agents/about-copilot-cli",
     ),
@@ -122,7 +147,10 @@ CLI_SPECS: List[CliSpec] = [
         id="amp-cli",
         name="Amp",
         binary="amp",
+        # Execute mode reads piped stdin: `echo "…" | amp -x` (ampcode.com
+        # execute-mode docs).
         prompt_args=("-x",),
+        prompt_via_stdin=True,
         install_url="https://ampcode.com/manual",
     ),
 ]
@@ -153,7 +181,7 @@ class GenericCliAdapter(AgentAdapter):
             # rather than maintaining a second, quickly outdated model list.
             home = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
             try:
-                catalog = json.loads((home / "models_cache.json").read_text())
+                catalog = json.loads((home / "models_cache.json").read_text(encoding="utf-8"))
                 models = [
                     entry["slug"] for entry in catalog["models"]
                     if isinstance(entry, dict)
@@ -172,11 +200,16 @@ class GenericCliAdapter(AgentAdapter):
         return {"installed": True, "version": run_version(path, timeout=_DETECT_TIMEOUT)}
 
     # -- argv ----------------------------------------------------------------
-    def _build_cmd(self, path: str, prompt: str, model: Optional[str]) -> List[str]:
-        cmd = [path, *self.spec.prompt_args, prompt, *self.spec.extra_args]
-        if model and model != "default" and self.spec.model_flag:
-            cmd += [self.spec.model_flag, model]
-        return cmd
+    def _build_cmd(
+        self, path: str, prompt: str, model: Optional[str]
+    ) -> Tuple[List[str], Optional[str]]:
+        """``(argv, stdin_text)``. ``stdin_text`` is ``None`` for argv-prompt CLIs."""
+        spec = self.spec
+        prompt_argv = list(spec.stdin_args) if spec.prompt_via_stdin else [prompt]
+        cmd = [path, *spec.prompt_args, *prompt_argv, *spec.extra_args]
+        if model and model != "default" and spec.model_flag:
+            cmd += [spec.model_flag, model]
+        return cmd, (prompt if spec.prompt_via_stdin else None)
 
     def _install_hint(self) -> str:
         return (
@@ -191,10 +224,10 @@ class GenericCliAdapter(AgentAdapter):
             return self._result(False, None, self._install_hint())
 
         version = run_version(path, timeout=_DETECT_TIMEOUT)
-        cmd = self._build_cmd(path, "Reply with exactly: hello", model)
+        cmd, stdin_text = self._build_cmd(path, "Reply with exactly: hello", model)
 
         try:
-            proc = run_probe(cmd, timeout=_PROBE_TIMEOUT)
+            proc = run_probe(cmd, timeout=_PROBE_TIMEOUT, input=stdin_text)
         except Exception as exc:
             import subprocess
 
@@ -235,18 +268,22 @@ class GenericCliAdapter(AgentAdapter):
         path = which(self.binary)
         if not path:
             raise AdapterError(self._install_hint(), kind=KIND_NOT_INSTALLED)
-        cmd = self._build_cmd(path, prompt, model)
+        cmd, stdin_text = self._build_cmd(path, prompt, model)
         if self.id == "codex-cli" and wants_agent_result(prompt):
-            return self._stream_codex_result(cmd, cwd)
-        return stream_process(cmd, cwd=cwd)
+            return self._stream_codex_result(cmd, cwd, stdin_text)
+        return stream_process(cmd, cwd=cwd, stdin_text=stdin_text)
 
     @staticmethod
-    def _stream_codex_result(cmd: List[str], cwd: Optional[str]) -> Iterator[str]:
+    def _stream_codex_result(
+        cmd: List[str], cwd: Optional[str], stdin_text: Optional[str]
+    ) -> Iterator[str]:
         """Constrain narrative output at generation time, including repair turns."""
         with tempfile.TemporaryDirectory(prefix="yuben-codex-") as directory:
             path = Path(directory) / "agent-result-schema.json"
-            path.write_text(json.dumps(agent_result_schema()))
-            yield from stream_process([*cmd, "--output-schema", str(path)], cwd=cwd)
+            path.write_text(json.dumps(agent_result_schema()), encoding="utf-8")
+            yield from stream_process(
+                [*cmd, "--output-schema", str(path)], cwd=cwd, stdin_text=stdin_text
+            )
 
     # -- helper --------------------------------------------------------------
     def _result(self, ok: bool, version: Optional[str], message: str) -> Dict[str, Any]:

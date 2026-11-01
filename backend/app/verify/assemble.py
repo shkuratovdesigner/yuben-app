@@ -36,8 +36,10 @@ persisted exactly when a result is assembled — see the B5 handoff note.
 """
 from __future__ import annotations
 
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 import logging
-from typing import Any, List, Mapping, Optional
+import time
+from typing import Any, Callable, Dict, List, Mapping, Optional
 from uuid import uuid4
 
 from contracts.python.models import (
@@ -73,6 +75,12 @@ _WINDOW = {
 }
 _FILTER = {"longform": "long-form ≥120s", "shorts": "Shorts ≤65s"}
 _PROMOTED_THRESHOLD = 1.5  # PRD §8 engagement guard: Eng/1k < 1.5 → promoted/dead.
+
+#: Link checks run in parallel under one time budget (reliability R1): 40 links
+#: one at a time with a 5 s timeout each could add minutes on a slow connection.
+#: A link not checked in time keeps its pipeline status, like any inconclusive one.
+VERIFY_WORKERS = 8
+VERIFY_BUDGET_SECONDS = 15.0
 
 
 # --- derived-field helpers (pure functions of authoritative raw fields) -------
@@ -143,6 +151,48 @@ def _meta_get(meta: Any, key: str, default: Any = None) -> Any:
     return getattr(meta, key, default)
 
 
+def _verify_links(
+    verifier: LinkVerifier,
+    video_ids: List[str],
+    should_stop: Optional[Callable[[], bool]] = None,
+    *,
+    budget: float = VERIFY_BUDGET_SECONDS,
+) -> Dict[str, Optional[LinkStatus]]:
+    """Check ``video_ids`` in parallel. Missing ids were not checked in time.
+
+    Stops early, keeping what finished, when ``should_stop()`` turns true
+    (the run was cancelled) or the budget runs out. A verifier that raises
+    counts as inconclusive.
+    """
+    if not video_ids:
+        return {}
+    results: Dict[str, Optional[LinkStatus]] = {}
+    pool = ThreadPoolExecutor(
+        max_workers=min(VERIFY_WORKERS, len(video_ids)), thread_name_prefix="yuben-link"
+    )
+    try:
+        pending = {pool.submit(verifier.verify, vid): vid for vid in video_ids}
+        deadline = time.monotonic() + budget
+        while pending:
+            if should_stop is not None and should_stop():
+                break
+            left = deadline - time.monotonic()
+            if left <= 0:
+                logger.info("link check budget spent; %d links keep pipeline status", len(pending))
+                break
+            done, _ = wait(list(pending), timeout=min(left, 0.25), return_when=FIRST_COMPLETED)
+            for future in done:
+                vid = pending.pop(future)
+                try:
+                    results[vid] = future.result()
+                except Exception:
+                    results[vid] = None
+    finally:
+        # Don't wait for requests still in flight; each ends at its own timeout.
+        pool.shutdown(wait=False, cancel_futures=True)
+    return results
+
+
 def _write_history(result: ResearchResult, request: ResearchRequest) -> None:
     """Persist a HistoryItem (best-effort: never fail assembly on a DB hiccup)."""
     try:
@@ -170,13 +220,14 @@ def assemble_and_verify(
     verifier: Optional[LinkVerifier] = None,
     verify_links: bool = True,
     write_history: bool = True,
+    should_stop: Optional[Callable[[], bool]] = None,
 ) -> ResearchResult:
     """Join agent narrative to authoritative videos, verify links, validate.
 
     Positional signature is the B4 contract:
     ``assemble_and_verify(request, agent_result, pipeline_videos, meta)``.
     Keyword-only extras let tests inject a stub verifier / skip network / skip
-    the history write.
+    the history write. ``should_stop`` ends link checks early on cancel.
     """
     index = {v.video_id: v for v in pipeline_videos}
 
@@ -196,12 +247,13 @@ def assemble_and_verify(
         verifier = OEmbedVerifier()
         own_verifier = True
     try:
+        statuses: Dict[str, Optional[LinkStatus]] = {}
+        if verify_links and verifier is not None:
+            statuses = _verify_links(verifier, top_ids, should_stop)
         top_videos: List[Video] = []
         for vid in top_ids:
             src = index[vid]
-            status: Optional[LinkStatus] = None
-            if verify_links and verifier is not None:
-                status = verifier.verify(vid)
+            status = statuses.get(vid)
             # inconclusive → keep the pipeline status; last resort "verified"
             # (the id is already proven real via the pipeline join above).
             final_status: LinkStatus = status or src.link_status or "verified"

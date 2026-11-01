@@ -183,7 +183,9 @@ def _default_verifier(
 ) -> Any:
     from app.verify import assemble_and_verify  # B5
 
-    return assemble_and_verify(request, agent_result, videos, meta)
+    run_id = meta.get("run_id") if isinstance(meta, dict) else getattr(meta, "run_id", None)
+    should_stop = (lambda: is_cancelled(run_id)) if run_id else None
+    return assemble_and_verify(request, agent_result, videos, meta, should_stop=should_stop)
 
 
 # --- helpers ------------------------------------------------------------------
