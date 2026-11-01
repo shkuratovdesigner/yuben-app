@@ -40,6 +40,7 @@ from youtube_research.youtube_api import (
     build_service,
     search_videos,
     get_video_details,
+    handle_http_error,
     http_error_note,
 )
 
@@ -70,6 +71,8 @@ def get_channel_stats(channel_ids: list) -> dict:
                 .execute()
             )
         except HttpError as e:
+            # Setup errors stop the run; quota keeps what was fetched.
+            handle_http_error(e, "channel stats")
             log(f"channel stats error: {http_error_note(e)}")
             continue
         for item in resp.get("items", []):

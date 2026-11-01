@@ -614,7 +614,9 @@ def test_quota_error_from_pipeline_maps_to_quota_exceeded():
     run_id = run_store.create_run(req)
 
     def quota_pipeline(request, keywords=None):
-        raise RuntimeError("HTTP 403: quota exceeded for youtube.data")
+        from app.pipeline import PipelineError
+
+        raise PipelineError("YouTube's daily quota is used up.", code="quota_exceeded")
 
     run_research_job(
         run_id,

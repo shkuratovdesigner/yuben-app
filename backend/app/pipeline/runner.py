@@ -155,6 +155,33 @@ def _run_script(params: PipelineParams) -> Tuple[Dict[str, Any], str, bool]:
     return raw, "longform_research", True
 
 
+#: Terminal message when quota runs out before anything was collected.
+QUOTA_MESSAGE = (
+    "YouTube's daily quota is used up. Try again after it resets "
+    "(midnight Pacific time), or use a key from another Google Cloud project."
+)
+
+
+def _run_youtube(params: PipelineParams) -> Tuple[Dict[str, Any], str, bool]:
+    """:func:`_run_script` with YouTube API errors mapped to ``PipelineError``.
+
+    A key/project setup problem stops the run with the fix. A quota error is
+    absorbed by ``youtube_api`` as partial results; when nothing at all came
+    back, it becomes the quota error instead of "no standout videos".
+    """
+    install_youtube_research_alias()
+    from youtube_research import youtube_api  # type: ignore
+
+    youtube_api.reset_quota_flag()
+    try:
+        raw, script_name, keep_multiplier = _run_script(params)
+    except youtube_api.YouTubeSetupError as exc:
+        raise PipelineError(str(exc), code="quota_exceeded") from exc
+    if youtube_api.quota_was_hit() and not (raw.get("videos") or []):
+        raise PipelineError(QUOTA_MESSAGE, code="quota_exceeded")
+    return raw, script_name, keep_multiplier
+
+
 def _fetch_transcripts(video_ids: List[str]) -> Dict[str, Optional[str]]:
     """Best-effort transcript fetch (no YouTube Data API quota). Never raises."""
     if not video_ids:
@@ -220,7 +247,7 @@ def run_pipeline(
     key = _require_live_key()
     _prime_key(key)
 
-    raw, script_name, keep_multiplier = _run_script(params)
+    raw, script_name, keep_multiplier = _run_youtube(params)
     raw_rows = raw.get("videos", []) or []
 
     videos = normalize_videos(raw_rows, keep_multiplier=keep_multiplier)

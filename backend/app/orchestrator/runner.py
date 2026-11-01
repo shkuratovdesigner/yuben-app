@@ -33,7 +33,14 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from pydantic import ValidationError
 
 from contracts.python.models import AgentResult, ResearchRequest, Video
-from app.adapters.base import OutputTruncated, terminate_for_thread
+from app.adapters.base import (
+    KIND_AUTH,
+    KIND_MODEL_NOT_FOUND,
+    KIND_NOT_INSTALLED,
+    KIND_OUTPUT_LIMIT,
+    AdapterError,
+    terminate_for_thread,
+)
 from app.redact import redact
 from app.store import run_store
 
@@ -85,6 +92,23 @@ class _InvalidOutput(Exception):
     pass
 
 
+class _Unknown(Exception):
+    pass
+
+
+#: PipelineError.code -> the control-flow exception that emits that code.
+_CODE_TO_EXC = {
+    "quota_exceeded": _QuotaExceeded,
+    "cli_missing": _CliMissing,
+    "cli_failed": _CliFailed,
+    "no_results": _NoResults,
+    "invalid_output": _InvalidOutput,
+}
+
+#: Adapter error kinds the user fixes on the model setup screen.
+_SETUP_KINDS = {KIND_AUTH, KIND_MODEL_NOT_FOUND, KIND_NOT_INSTALLED}
+
+
 # --- per-run handle registry (cancellation + terminal-emit guard) -------------
 @dataclass
 class _Handle:
@@ -134,6 +158,12 @@ def _default_adapter_factory(adapter_id: str) -> Any:
     return get_adapter(adapter_id)
 
 
+def _default_preflight(adapter: Any, model: Optional[str]) -> Optional[str]:
+    from app.adapters import ensure_checked  # B2
+
+    return ensure_checked(adapter, model)
+
+
 def _default_pipeline_runner(
     request: ResearchRequest, *, keywords: Optional[List[str]] = None
 ) -> Any:
@@ -173,44 +203,67 @@ def _check_cancel(run_id: str) -> None:
         raise _Cancelled()
 
 
-def _classify_external_error(exc: Exception) -> Exception:
-    """Map an adapter/pipeline exception to a typed control-flow error."""
-    if isinstance(exc, OutputTruncated):
-        # Checked before the substring rules: its own message is the diagnosis.
-        return _InvalidOutput(str(exc))
+def _agent_noun(adapter: Any) -> str:
+    """"the agent CLI" for CLI adapters, "the model" for API adapters."""
+    return "the agent CLI" if getattr(adapter, "agentic", True) else "the model"
+
+
+def _pipeline_error_type() -> Optional[type]:
+    try:
+        from app.pipeline import PipelineError  # B3
+    except Exception:  # pragma: no cover - pipeline always present in-app
+        return None
+    return PipelineError
+
+
+def _classify_external_error(exc: Exception, adapter: Any = None) -> Exception:
+    """Map an adapter/pipeline exception to a typed control-flow error.
+
+    Classification is by type only: ``AdapterError.kind`` for adapters and
+    ``PipelineError.code`` for the pipeline. Message text is never matched,
+    because an OpenAI 429 once surfaced as "YouTube's daily quota is used up".
+    """
+    pipeline_error = _pipeline_error_type()
+    if pipeline_error is not None and isinstance(exc, pipeline_error):
+        code = getattr(exc, "code", "unknown")
+        return _CODE_TO_EXC.get(code, _Unknown)(redact(str(exc)) or type(exc).__name__)
+    if isinstance(exc, AdapterError):
+        # The adapters already wrote a plain-language, provider-named message.
+        message = redact(str(exc)) or type(exc).__name__
+        if exc.kind == KIND_OUTPUT_LIMIT:
+            return _InvalidOutput(message)
+        if exc.kind in _SETUP_KINDS:
+            return _CliMissing(message)
+        if getattr(adapter, "agentic", True):
+            return _CliFailed("The agent CLI failed: %s" % message)
+        return _CliFailed(message)
     if isinstance(exc, FileNotFoundError):
         return _CliMissing(
             "We couldn't find the agent CLI. Install it, then run the "
             "environment check again."
         )
-    msg = str(exc).lower()
-    if any(tok in msg for tok in ("quota", "429", "403", "rate limit", "ratelimit")):
-        return _QuotaExceeded(
-            "YouTube's daily quota is used up. Try again after it resets, or use "
-            "a different key."
-        )
-    if any(
-        tok in msg
-        for tok in (
-            "command not found",
-            "no such file",
-            "not installed",
-            "cannot find",
-            "not found",
-            "unknown adapter",
-            "no adapter",
-            "install",
-        )
-    ):
+    if isinstance(exc, NotImplementedError):
         return _CliMissing(
-            "We couldn't find the agent CLI. Install it, then run the "
-            "environment check again."
+            "This adapter can't run research yet. Pick another model in setup."
         )
     # Never interpolate a raw external exception: googleapiclient's HttpError
     # repr carries the request URI, which carries the API key. `redact` strips
     # it; `make_error_event` scrubs again on the way out (app/redact.py).
+    noun = _agent_noun(adapter)
     return _CliFailed(
-        "The agent CLI failed: %s" % (redact(str(exc)) or type(exc).__name__)
+        "%s%s failed: %s"
+        % (noun[0].upper(), noun[1:], redact(str(exc)) or type(exc).__name__)
+    )
+
+
+def _classify_pipeline_error(exc: Exception) -> Exception:
+    """A pipeline failure that is not a ``PipelineError`` is a search failure,
+    not an agent failure."""
+    pipeline_error = _pipeline_error_type()
+    if pipeline_error is not None and isinstance(exc, pipeline_error):
+        return _classify_external_error(exc)
+    return _Unknown(
+        "The YouTube search failed: %s" % (redact(str(exc)) or type(exc).__name__)
     )
 
 
@@ -245,7 +298,7 @@ def _unpack_pipeline(out: Any) -> Tuple[List[Video], Any]:
         return _coerce_videos(videos), getattr(out, "meta", {})
     if isinstance(out, list):
         return _coerce_videos(out), {}
-    raise _CliFailed("pipeline returned an unrecognized shape: %r" % type(out))
+    raise _Unknown("The YouTube search returned an unrecognized shape: %r" % type(out))
 
 
 def _stamp_run(meta: Any, run_id: str) -> None:
@@ -368,7 +421,7 @@ def _stream_and_extract(
     try:
         stream = _open_stream(adapter, prompt, request)
     except Exception as exc:  # noqa: BLE001 - classified below
-        raise _classify_external_error(exc)
+        raise _classify_external_error(exc, adapter)
 
     handle = _get_handle(run_id)
     stream_closer = getattr(stream, "close", None)
@@ -385,7 +438,7 @@ def _stream_and_extract(
         raise
     except Exception as exc:  # noqa: BLE001 - classified below
         _safe_close(stream)
-        raise _classify_external_error(exc)
+        raise _classify_external_error(exc, adapter)
     finally:
         if handle is not None:
             handle.closer = None
@@ -532,6 +585,7 @@ def run_research_job(
     adapter_factory: Optional[Callable[[str], Any]] = None,
     pipeline_runner: Optional[Callable[[ResearchRequest], Any]] = None,
     verifier: Optional[Callable[..., Any]] = None,
+    preflight: Optional[Callable[[Any, Optional[str]], Optional[str]]] = None,
 ) -> None:
     """Execute one research run start-to-terminal. Emits ProgressEvents through
     ``run_store``; on success sets the result BEFORE the terminal ``done`` event
@@ -539,6 +593,7 @@ def run_research_job(
     adapter_factory = adapter_factory or _default_adapter_factory
     pipeline_runner = pipeline_runner or _default_pipeline_runner
     verifier = verifier or _default_verifier
+    preflight = preflight or _default_preflight
 
     try:
         _emit(run_id, "queued")
@@ -546,6 +601,11 @@ def run_research_job(
 
         try:
             adapter = adapter_factory(request.model.adapter)
+        except KeyError:
+            raise _CliMissing(
+                "No adapter is installed for '%s'. Pick a model in setup."
+                % request.model.adapter
+            )
         except Exception as exc:  # noqa: BLE001 - classified below
             raise _classify_external_error(exc)
         if adapter is None:
@@ -554,6 +614,18 @@ def run_research_job(
                 % request.model.adapter
             )
         filters = map_filters(request)
+
+        # Preflight: the model must pass its check for the current settings
+        # before any YouTube quota is spent. A check that already passed for
+        # this adapter, model, key and cap is reused, not re-run.
+        failure = preflight(adapter, getattr(request.model, "model", None))
+        if failure:
+            raise _CliMissing(
+                "The model check failed, so nothing was searched and no YouTube "
+                "quota was used: %s Fix it in setup, then run the search again."
+                % redact(failure).rstrip()
+            )
+        _check_cancel(run_id)
 
         # Phase: expanding — LLM step 1, for every adapter. An agentic CLI could
         # search for itself, but only the pipeline's ids survive B5's join, so it
@@ -570,7 +642,7 @@ def run_research_job(
         except (_Cancelled,):
             raise
         except Exception as exc:  # noqa: BLE001 - classified below
-            raise _classify_external_error(exc)
+            raise _classify_pipeline_error(exc)
         videos, meta = _unpack_pipeline(pipeline_out)
         _stamp_run(meta, run_id)
         counts = _counts_from(meta, videos)
@@ -614,6 +686,8 @@ def run_research_job(
         emit_terminal(run_id, make_error_event(run_id, "invalid_output", str(exc)))
     except _CliFailed as exc:
         emit_terminal(run_id, make_error_event(run_id, "cli_failed", str(exc)))
+    except _Unknown as exc:
+        emit_terminal(run_id, make_error_event(run_id, "unknown", str(exc)))
     except Exception as exc:  # noqa: BLE001 - last-resort catch-all
         emit_terminal(
             run_id,

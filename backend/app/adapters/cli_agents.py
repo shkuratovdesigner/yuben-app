@@ -29,6 +29,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from app.adapters.base import (
     AdapterError,
+    KIND_NOT_INSTALLED,
     AgentAdapter,
     run_probe,
     run_version,
@@ -232,7 +233,7 @@ class GenericCliAdapter(AgentAdapter):
     ) -> Iterator[str]:
         path = which(self.binary)
         if not path:
-            raise AdapterError(self._install_hint())
+            raise AdapterError(self._install_hint(), kind=KIND_NOT_INSTALLED)
         cmd = self._build_cmd(path, prompt, model)
         if self.id == "codex-cli" and "OUTPUT CONTRACT" in prompt:
             return self._stream_codex_result(cmd, cwd)

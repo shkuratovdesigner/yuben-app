@@ -47,6 +47,108 @@ def http_error_note(exc: HttpError) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Error reasons: quota (partial results) vs. setup (stop and say how to fix)
+# ---------------------------------------------------------------------------
+
+class YouTubeSetupError(RuntimeError):
+    """The key or project cannot call the YouTube Data API at all.
+
+    Raised instead of returning an empty list, so a misconfigured key is not
+    reported as "no standout videos". The message names the fix and never
+    includes the key or request URI.
+    """
+
+
+#: Reasons that mean "quota or rate limit": keep partial results and warn.
+_QUOTA_REASONS = {
+    "quotaexceeded",
+    "dailylimitexceeded",
+    "ratelimitexceeded",
+    "userratelimitexceeded",
+    "rate_limit_exceeded",
+    "resource_exhausted",
+}
+
+_NOT_ENABLED = (
+    "YouTube Data API v3 isn't enabled for this key's Google Cloud project. "
+    "Enable YouTube Data API v3 for the project, wait a minute, then try again."
+)
+_KEY_INVALID = "The YouTube API key is invalid or expired. Paste a new key in Setup."
+_KEY_RESTRICTED = (
+    "YouTube refused this key. It may be restricted to other APIs, IP addresses "
+    "or websites. Allow YouTube Data API v3 for this key in Google Cloud, or "
+    "remove the restriction, then try again."
+)
+
+_quota_hit = False
+
+
+def reset_quota_flag() -> None:
+    """Clear the quota marker before a run (see :func:`quota_was_hit`)."""
+    global _quota_hit
+    _quota_hit = False
+
+
+def quota_was_hit() -> bool:
+    """Whether a quota/rate-limit error was absorbed since the last reset."""
+    return _quota_hit
+
+
+def http_error_reasons(exc: HttpError) -> list:
+    """Lowercased Google error reasons from the response body.
+
+    Reads ``error.errors[].reason`` (classic) and ``error.details[].reason`` /
+    ``error.status`` (newer google.rpc form). Never the URI.
+    """
+    import json
+
+    reasons = []
+    try:
+        content = getattr(exc, "content", b"") or b""
+        if isinstance(content, bytes):
+            content = content.decode("utf-8", "replace")
+        error = json.loads(content).get("error", {})
+        for item in error.get("errors", []) or []:
+            reasons.append(str(item.get("reason", "")))
+        for item in error.get("details", []) or []:
+            reasons.append(str(item.get("reason", "")))
+        reasons.append(str(error.get("status", "")))
+        message = str(error.get("message", ""))
+    except Exception:
+        message = ""
+    out = [r.strip().lower() for r in reasons if r and r.strip()]
+    if "api key not valid" in message.lower():
+        out.append("keyinvalid")
+    return out
+
+
+def handle_http_error(exc: HttpError, what: str) -> bool:
+    """Classify a YouTube ``HttpError`` for the callers below.
+
+    * quota / rate limit -> print a warning, mark the run, return ``True``
+      (the caller returns what it has so far);
+    * key or project setup problem -> raise :class:`YouTubeSetupError`;
+    * anything else -> return ``False`` (the caller re-raises).
+    """
+    global _quota_hit
+    status = getattr(getattr(exc, "resp", None), "status", None)
+    reasons = set(http_error_reasons(exc))
+    if status in (403, 429) and reasons & _QUOTA_REASONS:
+        _quota_hit = True
+        print(f"WARNING: YouTube API quota exceeded during {what}: {http_error_note(exc)}")
+        return True
+    if reasons & {"accessnotconfigured", "service_disabled"}:
+        raise YouTubeSetupError(_NOT_ENABLED)
+    if reasons & {"keyinvalid", "keyexpired", "api_key_invalid", "api_key_expired"}:
+        raise YouTubeSetupError(_KEY_INVALID)
+    if status == 403:
+        # forbidden, ipRefererBlocked, API_KEY_SERVICE_BLOCKED, ... — and any
+        # 403 we can't read: still a setup problem, never "no results".
+        raise YouTubeSetupError(_KEY_RESTRICTED)
+    return False
+
+
+# ---------------------------------------------------------------------------
 # Service builder
 # ---------------------------------------------------------------------------
 
@@ -144,8 +246,7 @@ def search_videos(
             .execute()
         )
     except HttpError as e:
-        if e.resp.status == 403:
-            print(f"WARNING: YouTube API quota exceeded during search: {http_error_note(e)}")
+        if handle_http_error(e, "search"):
             return []
         raise
 
@@ -205,8 +306,7 @@ def get_video_details(video_ids: list) -> list:
                 .execute()
             )
         except HttpError as e:
-            if e.resp.status == 403:
-                print(f"WARNING: YouTube API quota exceeded during video details: {http_error_note(e)}")
+            if handle_http_error(e, "video details"):
                 return all_details  # return partial results
             raise
 
@@ -283,8 +383,7 @@ def get_channel_uploads_playlist(channel_id: str) -> Optional[str]:
             .execute()
         )
     except HttpError as e:
-        if e.resp.status == 403:
-            print(f"WARNING: YouTube API quota exceeded fetching channel: {http_error_note(e)}")
+        if handle_http_error(e, "channel lookup"):
             return None
         raise
 
@@ -334,8 +433,7 @@ def get_playlist_video_ids(
             .execute()
         )
     except HttpError as e:
-        if e.resp.status == 403:
-            print(f"WARNING: YouTube API quota exceeded fetching playlist: {http_error_note(e)}")
+        if handle_http_error(e, "playlist fetch"):
             return []
         raise
 

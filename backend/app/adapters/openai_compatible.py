@@ -31,6 +31,10 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
 
 from app.adapters.base import (
     AdapterError,
+    KIND_AUTH,
+    KIND_NOT_INSTALLED,
+    api_error,
+    key_digest,
     AgentAdapter,
     OutputTruncated,
     output_cap_override,
@@ -78,19 +82,15 @@ def _sdk_version() -> Optional[str]:
         return None
 
 
+def _api_error(exc: Exception, provider: str) -> AdapterError:
+    """Typed, plain-language error for a completion failure (never a stack trace)."""
+    import openai  # type: ignore
+
+    return api_error(exc, openai, provider)
+
+
 def _api_error_message(exc: Exception, provider: str) -> str:
-    """Plain-language message for a completion failure (never a stack trace)."""
-    name = type(exc).__name__
-    detail = getattr(exc, "message", None) or str(exc)
-    if "Authentication" in name or "PermissionDenied" in name:
-        return "{} rejected the API key. Check that it's correct and active.".format(provider)
-    if "NotFound" in name:
-        return "That model isn't available on {}. Pick another model.".format(provider)
-    if "RateLimit" in name:
-        return "{}'s rate limit was hit. Wait a moment and try again.".format(provider)
-    if "Connection" in name or "Timeout" in name:
-        return "Couldn't reach {}. Check your connection and try again.".format(provider)
-    return _truncate("{} API error: {}".format(provider, detail))
+    return str(_api_error(exc, provider))
 
 
 class OpenAICompatibleAdapter(AgentAdapter):
@@ -218,16 +218,21 @@ class OpenAICompatibleAdapter(AgentAdapter):
         cwd: Optional[str] = None,
     ) -> Iterator[str]:
         if _sdk_version() is None:
-            raise AdapterError(_SDK_HINT)
+            raise AdapterError(_SDK_HINT, kind=KIND_NOT_INSTALLED)
         key = self._stored_key()
         if self.requires_key and not key:
-            raise AdapterError(self.key_hint)
+            raise AdapterError(self.key_hint, kind=KIND_AUTH)
         return _stream_text(
             self._client(key),
             self._resolve_model(model),
             prompt,
             self.provider_label,
             self._cap_kwargs(),
+        )
+
+    def settings_fingerprint(self, model: str) -> str:
+        return "{}|key={}|base={}".format(
+            super().settings_fingerprint(model), key_digest(self._stored_key()), self._base_url()
         )
 
     # -- helpers -------------------------------------------------------------
@@ -321,7 +326,7 @@ def _stream_text(
                 pass
         raise
     except Exception as exc:  # noqa: BLE001 - classified by the orchestrator
-        raise AdapterError(_api_error_message(exc, provider)) from exc
+        raise _api_error(exc, provider) from exc
     if finish_reason == "length":
         raise OutputTruncated(provider)
 

@@ -16,6 +16,7 @@ from app.adapters.base import (
     REMEDY_INSTALL,
     REMEDY_SIGN_IN,
     AdapterError,
+    KIND_NOT_INSTALLED,
     AgentAdapter,
     remedy,
     run_probe,
@@ -195,7 +196,7 @@ class ClaudeCodeAdapter(AgentAdapter):
     ) -> Iterator[str]:
         path = which(self.binary)
         if not path:
-            raise AdapterError(_INSTALL_HINT)
+            raise AdapterError(_INSTALL_HINT, kind=KIND_NOT_INSTALLED)
         cmd = [
             path,
             "-p",

@@ -111,13 +111,31 @@ def _child_env() -> Dict[str, str]:
     return env
 
 
+#: ``AdapterError.kind`` values. B4 picks the terminal ErrorCode from the kind,
+#: never from the message text.
+KIND_AUTH = "auth"  # key missing, rejected or lacking permission
+KIND_RATE_LIMIT = "rate_limit"
+KIND_OUTPUT_LIMIT = "output_limit"
+KIND_CONTEXT_TOO_LONG = "context_too_long"
+KIND_NETWORK = "network"
+KIND_SERVER = "server"  # provider-side 5xx / overloaded
+KIND_MODEL_NOT_FOUND = "model_not_found"
+KIND_BAD_REQUEST = "bad_request"
+KIND_NOT_INSTALLED = "not_installed"  # CLI or SDK absent
+KIND_UNKNOWN = "unknown"
+
+
 class AdapterError(RuntimeError):
     """An unrecoverable adapter/CLI failure.
 
     ``check_env`` never raises this (it always returns an ``ok:false`` dict), but
-    ``stream`` does — B4 maps it to a ``cli_missing`` / ``cli_failed``
-    ProgressEvent.
+    ``stream`` does — B4 maps its ``kind`` to a ``cli_missing`` / ``cli_failed``
+    / ``invalid_output`` ProgressEvent. The message is already plain language.
     """
+
+    def __init__(self, message: str = "", *, kind: str = KIND_UNKNOWN) -> None:
+        super().__init__(message)
+        self.kind = kind
 
 
 class OutputTruncated(AdapterError):
@@ -130,8 +148,96 @@ class OutputTruncated(AdapterError):
     def __init__(self, provider: str) -> None:
         super().__init__(
             "{}'s answer was cut off at the model's output limit. Pick a model "
-            "with a larger output limit, or turn off an optional analysis.".format(provider)
+            "with a larger output limit, or turn off an optional analysis.".format(provider),
+            kind=KIND_OUTPUT_LIMIT,
         )
+
+
+def _clip(text: str, limit: int = 300) -> str:
+    text = " ".join(str(text).split())
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def _is_context_error(exc: Exception) -> bool:
+    """A 400 that means the prompt exceeds the model's context window.
+
+    OpenAI-compatible APIs set ``code="context_length_exceeded"``; Anthropic and
+    others only say so in the message, so that is checked as a second signal.
+    """
+    if getattr(exc, "code", None) == "context_length_exceeded":
+        return True
+    text = str(getattr(exc, "message", None) or exc).lower()
+    return any(
+        tok in text
+        for tok in ("prompt is too long", "context length", "context window", "maximum context")
+    )
+
+
+def api_error(exc: Exception, sdk: Any, provider: str) -> AdapterError:
+    """Typed :class:`AdapterError` for an ``anthropic`` / ``openai`` SDK exception.
+
+    ``sdk`` is the imported SDK module. Both SDKs export the same typed
+    exception hierarchy, so classification is by ``isinstance`` on those
+    classes, most specific first. Never includes the request URL or key.
+    """
+    detail = _clip(getattr(exc, "message", None) or str(exc) or type(exc).__name__)
+
+    def cls(name: str) -> Any:
+        found = getattr(sdk, name, None)
+        return found if isinstance(found, type) else ()
+
+    if isinstance(exc, cls("AuthenticationError")):
+        return AdapterError(
+            "{} rejected the API key. Check that it's correct and active.".format(provider),
+            kind=KIND_AUTH,
+        )
+    if isinstance(exc, cls("PermissionDeniedError")):
+        return AdapterError(
+            "{} refused this key permission for the request. Check the key's "
+            "project, region and model access.".format(provider),
+            kind=KIND_AUTH,
+        )
+    if isinstance(exc, cls("NotFoundError")):
+        return AdapterError(
+            "That model isn't available on {} for this key. Pick another model.".format(provider),
+            kind=KIND_MODEL_NOT_FOUND,
+        )
+    if isinstance(exc, cls("RateLimitError")):
+        if getattr(exc, "code", None) == "insufficient_quota":
+            return AdapterError(
+                "{} says this account is out of credit or over its spending "
+                "limit. Check billing, then try again.".format(provider),
+                kind=KIND_RATE_LIMIT,
+            )
+        return AdapterError(
+            "{}'s rate limit was hit. Wait a moment and try again.".format(provider),
+            kind=KIND_RATE_LIMIT,
+        )
+    if isinstance(exc, cls("RequestTooLargeError")) or (
+        isinstance(exc, cls("BadRequestError")) and _is_context_error(exc)
+    ):
+        return AdapterError(
+            "The research prompt is longer than this model's context window. "
+            "Pick a model with a larger context window.",
+            kind=KIND_CONTEXT_TOO_LONG,
+        )
+    if isinstance(exc, cls("BadRequestError")) or isinstance(
+        exc, cls("UnprocessableEntityError")
+    ):
+        return AdapterError(
+            "{} rejected the request: {}".format(provider, detail), kind=KIND_BAD_REQUEST
+        )
+    if isinstance(exc, cls("APIConnectionError")):  # includes APITimeoutError
+        return AdapterError(
+            "Couldn't reach {}. Check your connection and try again.".format(provider),
+            kind=KIND_NETWORK,
+        )
+    if isinstance(exc, cls("APIStatusError")) and (getattr(exc, "status_code", 0) or 0) >= 500:
+        return AdapterError(
+            "{} had a server error or is overloaded. Try again in a moment.".format(provider),
+            kind=KIND_SERVER,
+        )
+    return AdapterError("{} API error: {}".format(provider, detail), kind=KIND_UNKNOWN)
 
 
 def output_cap_override() -> Optional[int]:
@@ -146,6 +252,13 @@ def output_cap_override() -> Optional[int]:
     except ValueError:
         return None
     return value if value > 0 else None
+
+
+def key_digest(key: Optional[str]) -> str:
+    """Short one-way digest of a credential, for fingerprints only."""
+    import hashlib
+
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()[:16] if key else "none"
 
 
 def extract_version(text: str) -> Optional[str]:
@@ -211,6 +324,15 @@ class AgentAdapter(ABC):
         (and an install hint when the CLI is absent). ``model`` is optional;
         ``None`` or ``"default"`` uses the CLI's own default model.
         """
+
+    def settings_fingerprint(self, model: str) -> str:
+        """What a passing check depends on besides the adapter id and model.
+
+        The orchestrator's preflight reuses a passing check only while this is
+        unchanged. API adapters add their key and base URL; never return a
+        secret itself, only a digest of it.
+        """
+        return "cap={}".format(output_cap_override())
 
     # -- headless run surface (consumed by B4's orchestrator) ----------------
     @abstractmethod
@@ -380,7 +502,9 @@ def stream_process(
             stdin=subprocess.DEVNULL,  # see run_probe: never let the CLI wait on stdin
         )
     except FileNotFoundError as exc:
-        raise AdapterError("CLI not found: {}".format(cmd[0])) from exc
+        raise AdapterError(
+            "CLI not found: {}".format(cmd[0]), kind=KIND_NOT_INSTALLED
+        ) from exc
     except OSError as exc:
         raise AdapterError("Could not launch CLI {}: {}".format(cmd[0], exc)) from exc
 

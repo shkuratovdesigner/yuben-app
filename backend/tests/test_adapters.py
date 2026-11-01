@@ -309,8 +309,15 @@ def _fake_client(**kw):
     return lambda self, key: _FakeClient(**kw)
 
 
-class _AuthenticationError(Exception):
-    """Stand-in whose class name triggers the auth-error branch."""
+def _AuthenticationError(message):
+    """A real ``anthropic.AuthenticationError``: adapters classify by SDK type."""
+    import anthropic
+    import httpx2
+
+    request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+    return anthropic.AuthenticationError(
+        message, response=httpx2.Response(401, request=request), body=None
+    )
 
 
 def test_direct_is_not_agentic():

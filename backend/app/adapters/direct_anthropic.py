@@ -27,7 +27,16 @@ import os
 import time
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
-from app.adapters.base import AdapterError, AgentAdapter, OutputTruncated, output_cap_override
+from app.adapters.base import (
+    KIND_AUTH,
+    KIND_NOT_INSTALLED,
+    AdapterError,
+    AgentAdapter,
+    OutputTruncated,
+    api_error,
+    key_digest,
+    output_cap_override,
+)
 
 # The Messages default model (claude-api skill: default to Opus 5 unless the
 # user names another). "default" in the UI maps here.
@@ -130,19 +139,16 @@ def _text_of(response: Any) -> str:
     return "\n".join(parts)
 
 
+def _api_error(exc: Exception) -> AdapterError:
+    """Typed, plain-language error for a Messages API failure, classified by the
+    SDK's own exception classes (never a stack trace)."""
+    import anthropic  # type: ignore
+
+    return api_error(exc, anthropic, "Anthropic")
+
+
 def _api_error_message(exc: Exception) -> str:
-    """A plain-language message for a Messages API failure (never a stack trace)."""
-    name = type(exc).__name__
-    detail = getattr(exc, "message", None) or str(exc)
-    if "Authentication" in name or "PermissionDenied" in name:
-        return "Anthropic rejected the API key. Check that it's correct and active."
-    if "NotFound" in name:
-        return "That model isn't available for this key. Pick another model."
-    if "RateLimit" in name:
-        return "Anthropic's rate limit was hit. Wait a moment and try again."
-    if "Connection" in name or "Timeout" in name:
-        return "Couldn't reach the Anthropic API. Check your connection and try again."
-    return _truncate("Anthropic API error: " + detail)
+    return str(_api_error(exc))
 
 
 class DirectAnthropicAdapter(AgentAdapter):
@@ -207,15 +213,21 @@ class DirectAnthropicAdapter(AgentAdapter):
         cwd: Optional[str] = None,
     ) -> Iterator[str]:
         if _sdk_version() is None:
-            raise AdapterError(_INSTALL_HINT)
+            raise AdapterError(_INSTALL_HINT, kind=KIND_NOT_INSTALLED)
         key = _stored_key()
         if not key:
             raise AdapterError(
-                "No Anthropic API key is stored. Add it in onboarding, then re-run."
+                "No Anthropic API key is stored. Add it in onboarding, then re-run.",
+                kind=KIND_AUTH,
             )
         resolved = self._resolve_model(model)
         client = self._client(key)
         return _stream_text(client, resolved, prompt)
+
+    def settings_fingerprint(self, model: str) -> str:
+        return "{}|key={}|base={}".format(
+            super().settings_fingerprint(model), key_digest(_stored_key()), _base_url()
+        )
 
     # -- helpers -------------------------------------------------------------
     def _resolve_model(self, model: Optional[str]) -> str:
@@ -333,6 +345,6 @@ def _stream_text(client: Any, model: str, prompt: str) -> Iterator[str]:
     except GeneratorExit:  # cooperative cancel — let the with-block close the stream
         raise
     except Exception as exc:  # noqa: BLE001 - classified by the orchestrator
-        raise AdapterError(_api_error_message(exc)) from exc
+        raise _api_error(exc) from exc
     if stop_reason == "max_tokens":
         raise OutputTruncated("Claude")

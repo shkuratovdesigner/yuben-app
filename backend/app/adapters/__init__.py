@@ -20,7 +20,8 @@ user), then the local CLIs. ``build_cli_adapters()`` expands the spec table in
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+import threading
+from typing import Any, Dict, List, Optional, Tuple
 
 from contracts.python.models import Adapter
 
@@ -173,4 +174,74 @@ def check_env(adapter: str, model: Optional[str] = None) -> Dict[str, Any]:
                 adapter, ", ".join(_ADAPTERS)
             ),
         }
-    return impl.check_env(model)
+    result = impl.check_env(model)
+    _record_check(impl, model, result)
+    return result
+
+
+# --------------------------------------------------------------------------- #
+# Preflight — a passing check per (adapter, model, settings)
+# --------------------------------------------------------------------------- #
+#
+# A run spends YouTube quota before the model's narrative step. A model that
+# cannot answer must fail before that, so the orchestrator asks
+# :func:`ensure_checked` first. Passing checks are remembered in memory for the
+# exact adapter, resolved model and settings fingerprint they ran with; a new
+# key, base URL, model or output cap means a new check.
+
+_PASSED_CHECKS: Dict[Tuple[str, str, str], bool] = {}
+_CHECK_LOCK = threading.Lock()
+
+
+def _check_key(impl: Any, model: Optional[str]) -> Optional[Tuple[str, str, str]]:
+    try:
+        resolve = getattr(impl, "_resolve_model", None)
+        resolved = resolve(model) if callable(resolve) else (model or "default")
+        fingerprint = getattr(impl, "settings_fingerprint", None)
+        settings = fingerprint(resolved) if callable(fingerprint) else ""
+    except Exception:  # an unreadable store means "not checked", not a crash
+        return None
+    return (getattr(impl, "id", type(impl).__name__), resolved or "default", settings)
+
+
+def _record_check(impl: Any, model: Optional[str], result: Any) -> None:
+    key = _check_key(impl, model)
+    if key is None or not isinstance(result, dict):
+        return
+    with _CHECK_LOCK:
+        if result.get("ok"):
+            _PASSED_CHECKS[key] = True
+        else:
+            _PASSED_CHECKS.pop(key, None)
+
+
+def has_passing_check(impl: Any, model: Optional[str]) -> bool:
+    key = _check_key(impl, model)
+    with _CHECK_LOCK:
+        return key is not None and key in _PASSED_CHECKS
+
+
+def ensure_checked(impl: Any, model: Optional[str]) -> Optional[str]:
+    """Run the model check unless one already passed for these settings.
+
+    Returns ``None`` when the model is ready, else the failed check's message.
+    Adapters without a ``check_env`` (test fakes) are treated as ready.
+    """
+    check = getattr(impl, "check_env", None)
+    if not callable(check) or has_passing_check(impl, model):
+        return None
+    try:
+        result = check(model)
+    except Exception as exc:  # check_env must not raise; be safe anyway
+        return str(exc) or type(exc).__name__
+    _record_check(impl, model, result)
+    if isinstance(result, dict) and result.get("ok"):
+        return None
+    message = result.get("message") if isinstance(result, dict) else None
+    return message or "The model check did not pass."
+
+
+def reset_checks() -> None:
+    """Test helper: forget every passing check."""
+    with _CHECK_LOCK:
+        _PASSED_CHECKS.clear()

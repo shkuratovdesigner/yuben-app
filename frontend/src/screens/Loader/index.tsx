@@ -92,8 +92,11 @@ interface ErrorCopy {
   actionTo: string
 }
 
-/** PRD §6 empty/error copy. `message` (backend detail) is preferred when it adds
- *  specifics (e.g. which CLI is missing); otherwise the canonical §6 string. */
+/** PRD §6 empty/error copy. The backend detail (`message`) is the body for every
+ *  code: it names the actual cause and fix (a disabled YouTube API, a rejected
+ *  model key), which one fixed string per code cannot. The canonical §6 string
+ *  is the fallback. Titles stay generic enough to fit every cause behind a code;
+ *  `cancelled` keeps its own copy, since its detail adds nothing. */
 function errorCopy(code: ErrorCode, message?: string | null): ErrorCopy {
   const detail = message?.trim()
   switch (code) {
@@ -101,22 +104,24 @@ function errorCopy(code: ErrorCode, message?: string | null): ErrorCopy {
       return {
         tone: 'empty',
         title: 'No standout videos found',
-        body: 'No standout videos matched those filters. Try a broader date range or lower the outperformance bar.',
+        body:
+          detail ||
+          'No standout videos matched those filters. Try a broader date range or lower the outperformance bar.',
         actionLabel: 'Adjust filters',
         actionTo: '/',
       }
     case 'quota_exceeded':
       return {
         tone: 'error',
-        title: 'YouTube quota used up',
-        body: "YouTube's daily quota is used up. Try again after it resets, or use a different key.",
-        actionLabel: 'Back to search',
-        actionTo: '/',
+        title: "YouTube couldn't run the search",
+        body: detail || "YouTube's daily quota is used up. Try again after it resets, or use a different key.",
+        actionLabel: 'Check YouTube key',
+        actionTo: '/onboarding/setup',
       }
     case 'cli_missing':
       return {
         tone: 'error',
-        title: "Couldn't find the agent CLI",
+        title: 'Finish the model setup',
         body:
           detail ||
           "We couldn't find the agent CLI. Install it, then run the environment check again.",
@@ -134,8 +139,8 @@ function errorCopy(code: ErrorCode, message?: string | null): ErrorCopy {
     case 'cli_failed':
       return {
         tone: 'error',
-        title: 'The agent hit an error',
-        body: detail || 'The agent CLI failed partway through the run. Trying again often clears it.',
+        title: 'The model hit an error',
+        body: detail || 'The model failed partway through the run. Trying again often clears it.',
         actionLabel: 'Back to search',
         actionTo: '/',
       }
