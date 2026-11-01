@@ -1,0 +1,4 @@
+# Double-click start scripts keep the line endings their OS needs, whatever
+# core.autocrlf says: cmd.exe misreads LF labels, bash fails on CRLF.
+*.cmd     text eol=crlf
+*.command text eol=lf

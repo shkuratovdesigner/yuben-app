@@ -1,20 +1,20 @@
 """Serve the built frontend from the backend, so real use is one port.
 
-``make dev`` runs two processes on two ports because the runtimes differ: Vite
+``python yuben.py dev`` (``make dev``) runs two processes on two ports because the runtimes differ: Vite
 compiles React and hot-reloads, uvicorn runs the pipeline. That split is a
 *development* need — the browser still only ever talks to :5173, which proxies
 ``/api/*`` across (see frontend/vite.config.ts).
 
 For real use there is no reason to run Node at all: the build is static files.
 ``mount_spa`` attaches ``frontend/dist`` to the same app that serves the API, so
-``make start`` is one process on http://localhost:8000 with no proxy hop. The
-SPA then calls ``/api/*`` same-origin, which is the case ``ALLOWED_ORIGINS`` in
-security.py already allows.
+``python yuben.py start`` is one process on http://localhost:8000 (or the
+``YUBEN_PORT`` it picked) with no proxy hop. The SPA then calls ``/api/*``
+same-origin, which ``allowed_origins()`` in security.py allows for that port.
 
-Serving is opt-in via ``YUBEN_SERVE_SPA``, which only ``make start`` sets — it
+Serving is opt-in via ``YUBEN_SERVE_SPA``, which only the launcher's ``start`` sets — it
 is deliberately *not* inferred from ``dist/`` being present. A leftover build
 directory would otherwise make ``:8000`` answer with a stale copy of the app
-during ``make dev``, which is a worse failure than answering ``404``: a UI that
+during ``dev``, which is a worse failure than answering ``404``: a UI that
 is quietly out of date invites debugging code you are not running. Keying off an
 explicit switch also keeps the route table identical between developers, rather
 than depending on who has run a build.
@@ -32,14 +32,14 @@ from starlette.staticfiles import StaticFiles
 # backend/app/spa.py -> parents[2] == repo root.
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
-#: Where `npm run build` (via `make build`) writes the SPA.
+#: Where `npm run build` (via `python yuben.py build`) writes the SPA.
 DIST_DIR = _REPO_ROOT / "frontend" / "dist"
 
 #: Methods the SPA fallback answers. Anything else against a non-API path is a
 #: method error, not a missing page.
 _READ_METHODS = frozenset({"GET", "HEAD"})
 
-#: Set by `make start`. Absent or falsey => the backend is a JSON API only.
+#: Set by `python yuben.py start`. Absent or falsey => the backend is a JSON API only.
 SERVE_SPA_ENV = "YUBEN_SERVE_SPA"
 
 #: Spellings accepted as "on", so `YUBEN_SERVE_SPA=0` reads as off rather than

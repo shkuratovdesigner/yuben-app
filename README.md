@@ -58,31 +58,77 @@ The core signal is **VSR (views ÷ subscribers)**. In the demo run above, a 140k
 ## Quickstart
 
 Needs **Python 3.10+** and **Node 20.19+ or 22.12+** (what Vite and oxlint
-require — plain "Node 20" is not enough, and 21.x will not work). On macOS `python3` is still 3.9, so
-`make install` picks the newest suitable interpreter on your PATH — point it
-somewhere specific with `make install PYTHON=/path/to/python3.12`.
+require — plain "Node 20" is not enough, and 21.x will not work). Everything
+goes through one launcher, `yuben.py`, which only needs the standard library and
+runs on any Python 3.9+; it finds a 3.10+ for the backend itself.
+
+### macOS
 
 ```bash
 git clone https://github.com/shkuratovdesigner/yuben-app.git
 cd yuben-app
-make install     # backend venv + frontend node deps
-make start       # builds the frontend, then serves everything on :8000
+python3 yuben.py start
 ```
 
-Then open `http://localhost:8000` in your browser — the app runs entirely on your own machine (nothing is hosted).
+Or double-click `start.command` in Finder. The stock `python3` is 3.9, which is
+fine for the launcher: it looks for a newer Python on your PATH and in the usual
+Homebrew and python.org folders. No newer Python yet? `brew install python@3.13`
+or the installer from [python.org](https://www.python.org/downloads/). `make start` works too.
+
+### Windows
+
+Install Python from [python.org](https://www.python.org/downloads/) (it adds the
+`py` launcher) and Node from [nodejs.org](https://nodejs.org), then in PowerShell
+or Command Prompt:
+
+```bat
+git clone https://github.com/shkuratovdesigner/yuben-app.git
+cd yuben-app
+py yuben.py start
+```
+
+Or double-click `start.cmd`. There is no `make` on Windows, and you do not need it.
+
+### Linux
+
+```bash
+git clone https://github.com/shkuratovdesigner/yuben-app.git
+cd yuben-app
+python3 yuben.py start
+```
+
+Debian and Ubuntu need the venv module as a separate package: `sudo apt install python3-venv`
+(or the versioned one, e.g. `python3.12-venv`). `make start` works too.
+
+### What `start` does
+
+The first run installs everything (`python yuben.py install`: a backend venv and
+the frontend's node modules). Every run then builds the frontend, starts the
+server on `http://localhost:8000` and opens your browser. If 8000 is busy it takes
+the next free port and prints it. To pin a port, set `YUBEN_PORT` (for example
+`YUBEN_PORT=8100 python3 yuben.py start`, or `set YUBEN_PORT=8100` first on
+Windows); a busy pinned port is an error rather than a silent switch. The app runs
+entirely on your own machine (nothing is hosted).
 
 That is one process on one URL: the frontend is compiled to static files and served by the backend itself, so there is no Node process running and nothing to proxy.
 
-For development use `make dev` instead, which trades that for hot reload — Vite on `:5173` compiling React, uvicorn on `:8000` running the API, started as a pair (Ctrl-C stops both). You still only open one URL, `http://localhost:5173`; it proxies `/api/*` to the backend for you.
+For development use `python yuben.py dev` (`make dev`) instead, which trades that for hot reload — Vite on `:5173` compiling React, uvicorn running the API on `YUBEN_PORT`, started as a pair (Ctrl-C stops both). You still only open one URL, `http://localhost:5173`; it proxies `/api/*` to the backend's port for you.
 
-Under `make dev` the backend has no interface of its own — `:8000` is a JSON API and answers `404` at the root. It serves the built SPA only when `YUBEN_SERVE_SPA=1`, which just `make start` sets. That is deliberately not inferred from `frontend/dist/` existing: a leftover build would otherwise let `:8000` hand you a stale copy of the app mid-development, and debugging a UI you are not running is worse than getting a `404`.
+Under `dev` the backend has no interface of its own — its port is a JSON API and answers `404` at the root. It serves the built SPA only when `YUBEN_SERVE_SPA=1`, which just `start` sets. That is deliberately not inferred from `frontend/dist/` existing: a leftover build would otherwise let the backend hand you a stale copy of the app mid-development, and debugging a UI you are not running is worse than getting a `404`.
+
+### Connect YouTube and a model
 
 To do real research, connect two things in the app's onboarding flow:
 
 | What | Used for | Where to get it |
 |---|---|---|
-| YouTube Data API v3 key | search + video/channel stats | [Google Cloud Console](https://console.cloud.google.com/) → enable *YouTube Data API v3* → create an API key |
+| YouTube Data API v3 key | search + video/channel stats | [Google Cloud Console](https://console.cloud.google.com/) → create a project → *APIs & Services* → *Library* → enable **YouTube Data API v3** → *Credentials* → *Create credentials* → *API key* |
 | An LLM, via any [model adapter](#model-adapters) | topic expansion + narrative analysis | e.g. an [Anthropic API key](https://console.anthropic.com/) or a CLI agent you already have installed |
+
+The step people miss is **enabling** YouTube Data API v3 on the project. A key
+from a project without it is a valid key, but YuBen stops with "YouTube Data API v3
+isn't enabled for this key's Google Cloud project". Enable it, wait a minute and try
+again. The free quota is 10,000 units a day; a run costs about 1,400.
 
 ### Your keys stay on your machine
 
@@ -147,10 +193,10 @@ yuben-app/
 ## Development
 
 ```bash
-make dev         # backend :8000 + frontend :5173, hot reload
-make test        # backend pytest + frontend typecheck
-make build       # production frontend build (what `make start` serves)
-make help        # everything else
+python yuben.py dev     # backend (YUBEN_PORT, default 8000) + frontend :5173, hot reload
+python yuben.py test    # backend pytest + frontend typecheck; extra pytest args after --
+python yuben.py build   # production frontend build (what `start` serves)
+make help               # the same commands as make targets, plus fixtures
 ```
 
 There is no mock mode — the app always talks to its backend. A fresh install is

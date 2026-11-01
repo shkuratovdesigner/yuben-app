@@ -2,7 +2,8 @@
 
 YuBen's backend is a localhost daemon holding four provider keys, so the
 threat model is not a remote attacker — it is *a website the user happens to
-visit* reaching http://localhost:8000 from their browser.
+visit* reaching http://localhost:8000 (or whatever ``YUBEN_PORT`` names) from
+their browser.
 
 CORS does not stop this. CORS governs whether a cross-origin page may **read**
 a response; it does nothing about the side effect having already happened. Two
@@ -25,7 +26,8 @@ is allowed through.
 """
 from __future__ import annotations
 
-from typing import Iterable, Sequence
+import os
+from typing import Iterable, Mapping, Optional, Sequence
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -34,14 +36,46 @@ from starlette.responses import JSONResponse
 #: Hostnames this daemon will answer to. Anything else is a rebinding attempt.
 ALLOWED_HOSTS: Sequence[str] = ("localhost", "127.0.0.1", "[::1]", "testserver")
 
-#: Origins the real client can present: the Vite dev server, or the backend
-#: itself when the built SPA is served same-origin.
-ALLOWED_ORIGINS: Sequence[str] = (
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-)
+#: The backend's port. ``python yuben.py start`` and ``dev`` set it for the
+#: server and the Vite proxy alike, so all three agree (reliability W7).
+PORT_ENV = "YUBEN_PORT"
+DEFAULT_PORT = 8000
+#: The Vite dev server. Fixed: vite.config.ts uses strictPort.
+DEV_FRONTEND_PORT = 5173
+
+
+def backend_port(env: Optional[Mapping[str, str]] = None) -> int:
+    """The port from ``YUBEN_PORT``, or 8000.
+
+    A malformed value fails loudly at startup. Falling back to 8000 instead
+    would serve on one port and allow another, so every save or run would 403.
+    """
+    raw = (os.environ if env is None else env).get(PORT_ENV, "").strip()
+    if not raw:
+        return DEFAULT_PORT
+    try:
+        port = int(raw)
+    except ValueError:
+        port = 0
+    if not 1 <= port <= 65535:
+        raise ValueError(f"{PORT_ENV} must be a port number from 1 to 65535, got {raw!r}.")
+    return port
+
+
+def allowed_origins(port: Optional[int] = None) -> tuple[str, ...]:
+    """Origins the real client can present: the Vite dev server, or the backend
+    itself when the built SPA is served same-origin on ``port``."""
+    port = backend_port() if port is None else port
+    return (
+        f"http://localhost:{DEV_FRONTEND_PORT}",
+        f"http://127.0.0.1:{DEV_FRONTEND_PORT}",
+        f"http://localhost:{port}",
+        f"http://127.0.0.1:{port}",
+    )
+
+
+#: The allowlist for the default port, kept for callers that want a constant.
+ALLOWED_ORIGINS: Sequence[str] = allowed_origins(DEFAULT_PORT)
 
 #: Methods that can change state or spend the user's quota.
 _UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
@@ -60,9 +94,11 @@ def _forbidden(reason: str) -> JSONResponse:
 class SameOriginGuardMiddleware(BaseHTTPMiddleware):
     """Reject state-changing requests that originate from a third-party page."""
 
-    def __init__(self, app, allowed_origins: Iterable[str] = ALLOWED_ORIGINS) -> None:
+    def __init__(self, app, origins: Optional[Iterable[str]] = None) -> None:
         super().__init__(app)
-        self._allowed = frozenset(allowed_origins)
+        # Read at construction, i.e. app startup, so YUBEN_PORT set by the
+        # launcher is what the guard enforces.
+        self._allowed = frozenset(allowed_origins() if origins is None else origins)
 
     async def dispatch(self, request: Request, call_next):
         if request.method not in _UNSAFE_METHODS:

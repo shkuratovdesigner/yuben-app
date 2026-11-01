@@ -125,7 +125,7 @@ _model_list_cache: Dict[str, Tuple[float, List[str]]] = {}
 
 _INSTALL_HINT = (
     "The 'anthropic' Python SDK isn't installed on the backend. Run "
-    "'pip install anthropic' (or 'make install'), then run the check again."
+    "'pip install anthropic' (or 'python yuben.py install'), then run the check again."
 )
 _MISSING_KEY_HINT = "Paste your Anthropic API key above, then run the check again."
 

@@ -93,7 +93,7 @@ _model_meta: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
 _SDK_HINT = (
     "The 'openai' Python SDK isn't installed on the backend. Run "
-    "'pip install openai' (or 'make install'), then run the check again."
+    "'pip install openai' (or 'python yuben.py install'), then run the check again."
 )
 
 
