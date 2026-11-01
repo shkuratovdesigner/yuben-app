@@ -475,6 +475,8 @@ def test_direct_models_api_capability_overrides_static_rule(monkeypatch, _anthro
 
 def test_direct_reads_typed_sdk_model_info(monkeypatch, _anthropic_ready):
     # The installed SDK returns ModelInfo with typed capabilities, not a dict.
+    # The fixture carries the union of fields required by SDK 1.x and 2.x;
+    # ModelInfo allows extra keys, so an older SDK accepts the newer ones.
     from anthropic.types import ModelInfo
 
     sup = {"supported": True}
@@ -482,13 +484,16 @@ def test_direct_reads_typed_sdk_model_info(monkeypatch, _anthropic_ready):
     info = ModelInfo.model_validate({
         "id": "claude-haiku-4-5", "type": "model", "display_name": "Claude Haiku 4.5",
         "created_at": "2025-10-01T00:00:00Z", "max_input_tokens": 200000, "max_tokens": 64000,
+        "lifecycle": "active",
         "capabilities": {
             "batch": sup, "citations": sup, "code_execution": no, "image_input": sup,
             "pdf_input": sup, "structured_outputs": sup,
             "context_management": {"supported": False, "clear_thinking_20251015": no,
                                    "clear_tool_uses_20250919": no, "compact_20260112": no},
             "effort": {"supported": False, "low": no, "medium": no, "high": no, "max": no},
-            "thinking": {"supported": True, "types": {"enabled": sup, "adaptive": no}},
+            "server_tools": {"supported": False, "code_execution": no, "web_search": no},
+            "thinking": {"supported": True, "types": {"enabled": sup, "adaptive": no,
+                                                      "between_tools": no, "disabled": sup}},
         },
     })
     client = _install_client(monkeypatch, _FakeClient(text="hello", info=info))

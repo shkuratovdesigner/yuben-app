@@ -24,20 +24,7 @@
 import { execFileSync } from 'node:child_process'
 
 /** Advisories reviewed against this app's actual usage and found unreachable. */
-const ALLOWLIST = [
-  {
-    id: 'GHSA-qwww-vcr4-c8h2',
-    package: 'react-router',
-    reviewBy: '2026-10-31',
-    reason:
-      'CSRF bypass in the unstable RSC (React Server Components) APIs. The ' +
-      'advisory states it only affects apps using those APIs; YuBen is a ' +
-      'client-only SPA on BrowserRouter with no server rendering and no RSC ' +
-      'entry point, so the vulnerable code path is not reachable. The fix is ' +
-      'react-router 8.3.0, which for us means migrating off react-router-dom ' +
-      '(v8 folded it into react-router) — tracked separately, not a patch bump.',
-  },
-]
+const ALLOWLIST = []
 
 /** Severities that fail the build, matching the old `--audit-level=high`. */
 const BLOCKING = new Set(['high', 'critical'])
