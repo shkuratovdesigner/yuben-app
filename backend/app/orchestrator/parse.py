@@ -9,6 +9,10 @@ string, and reports a short human ``detail`` per line so the run loop can drive
 the "analyzing" progress. :func:`find_last_json_object` then recovers the last
 balanced ``{...}`` that parses.
 
+API adapters (``agentic = False``) yield the model's answer and nothing else, so
+their output skips the event parsing: :func:`parse_json_text` reads the whole
+text once (fences stripped, then ``json.loads``, then the brace scan).
+
 Trust boundary: this module only *parses* — it never trusts the agent's numbers.
 The parsed dict is validated against the ``AgentResult`` schema (narrative +
 ``video_id`` refs only); the authoritative join happens later in B5.
@@ -16,9 +20,13 @@ The parsed dict is validated against the ``AgentResult`` schema (narrative +
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Dict, List, Optional
 
+from app.adapters.structured import agent_result_schema, prune_unknown_keys
 from contracts.python.models import AgentResult
+
+_FENCE = re.compile(r"^```[A-Za-z0-9_-]*\s*\n(.*?)\n?```$", re.DOTALL)
 
 
 def _try_json(line: str) -> Optional[Any]:
@@ -237,9 +245,37 @@ class StreamCollector:
         return parsed if isinstance(parsed, dict) else None
 
 
-def validate_agent_result(obj: Dict[str, Any]) -> AgentResult:
-    """Validate a parsed dict against the strict ``AgentResult`` schema.
+def parse_json_text(text: str) -> Optional[Dict[str, Any]]:
+    """The JSON object in a model's complete answer, or ``None``.
 
-    Raises ``pydantic.ValidationError`` on any contract drift.
+    Tried in order: the text itself, the text inside one surrounding code fence,
+    then the last balanced ``{...}`` anywhere (an answer wrapped in prose).
     """
-    return AgentResult.model_validate(obj)
+    stripped = (text or "").strip()
+    if not stripped:
+        return None
+    fenced = _FENCE.match(stripped)
+    candidates = [stripped] + ([fenced.group(1).strip()] if fenced else [])
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+        except ValueError:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+    blob = find_last_json_object(stripped)
+    if blob is None:
+        return None
+    parsed = json.loads(blob)
+    return parsed if isinstance(parsed, dict) else None
+
+
+def validate_agent_result(obj: Dict[str, Any]) -> AgentResult:
+    """Validate a parsed dict against the ``AgentResult`` contract.
+
+    Keys the contract doesn't name are dropped first: a model adding one harmless
+    field should not cost a repair call. Everything else stays strict (types,
+    required fields, id patterns), and the final ``ResearchResult`` still forbids
+    extras. Raises ``pydantic.ValidationError`` on any other drift.
+    """
+    return AgentResult.model_validate(prune_unknown_keys(obj, agent_result_schema()))

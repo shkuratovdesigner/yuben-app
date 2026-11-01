@@ -254,6 +254,18 @@ def output_cap_override() -> Optional[int]:
     return value if value > 0 else None
 
 
+def estimate_tokens(text: str) -> int:
+    """Rough token count for sizing a prompt: about 3 characters per token.
+
+    Deliberately high for English (nearer 4) so a prompt sized with it fits.
+    """
+    return len(text or "") // 3 + 1
+
+
+#: Tokens kept free for the answer when a prompt is sized to a context window.
+NARRATIVE_OUTPUT_RESERVE = 8192
+
+
 def key_digest(key: Optional[str]) -> str:
     """Short one-way digest of a credential, for fingerprints only."""
     import hashlib
@@ -292,12 +304,17 @@ class AgentAdapter(ABC):
                       B4 feeds every adapter the already-collected videos and
                       lets none of them research on their own, because only
                       pipeline ids survive B5's join. Defaults to ``True``.
+                      The orchestrator parses a non-agentic adapter's output as
+                      one text, and an agentic one's as a line event stream.
+      * ``selectable`` — listed in ``GET /api/adapters``. ``False`` hides an
+                      adapter that can't run yet; a stored config still resolves.
     """
 
     id: str = ""
     name: str = ""
     binary: str = ""
     agentic: bool = True
+    selectable: bool = True
 
     # -- detection (cheap, read-only, never raises) --------------------------
     @abstractmethod
@@ -324,6 +341,14 @@ class AgentAdapter(ABC):
         (and an install hint when the CLI is absent). ``model`` is optional;
         ``None`` or ``"default"`` uses the CLI's own default model.
         """
+
+    def context_window(self, model: Optional[str] = None) -> Optional[int]:
+        """The model's input limit in tokens, from provider metadata.
+
+        ``None`` when the provider doesn't say (the default); the orchestrator
+        then sends the prompt unsized. Never raises.
+        """
+        return None
 
     def settings_fingerprint(self, model: str) -> str:
         """What a passing check depends on besides the adapter id and model.

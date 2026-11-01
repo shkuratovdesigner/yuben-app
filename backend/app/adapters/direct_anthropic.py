@@ -13,9 +13,12 @@ collected videos and drives the two LLM steps explicitly (keyword expansion, the
 the AgentResult narrative) instead of one "go run the scripts" prompt.
 
 * detect   : the ``anthropic`` SDK importable + its version (no CLI to find).
-* check_env: a cheap real Messages "reply hello" ping with the stored key.
-* stream   : stream one Messages request's visible text (``text_stream``), yielded
-             chunk-by-chunk so B4's ``StreamCollector`` recovers the final JSON.
+* models   : the Models API list for the stored key, static list otherwise.
+* check_env: a cheap real Messages "reply hello" ping with the stored key, sent
+             with the same thinking, cap and output format as a run.
+* stream   : stream one Messages request's visible text (``text_stream``). The
+             narrative step asks for schema-valid JSON (``output_config.format``)
+             on models that support structured outputs.
 
 The ``anthropic`` import is LAZY in every method so this module loads even when the
 SDK is absent (``detect`` then reports ``installed: False`` and ``check_env`` hints
@@ -25,6 +28,7 @@ from __future__ import annotations
 
 import os
 import time
+from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from app.adapters.base import (
@@ -37,20 +41,30 @@ from app.adapters.base import (
     key_digest,
     output_cap_override,
 )
+from app.adapters.structured import (
+    PLAIN_PROBE_PROMPT,
+    PROBE_PROMPT,
+    PROBE_SCHEMA,
+    agent_result_schema,
+    wants_agent_result,
+)
 
-# The Messages default model (claude-api skill: default to Opus 5 unless the
+# The Messages default model (claude-api skill: default to Opus 5.5 unless the
 # user names another). "default" in the UI maps here.
-_DEFAULT_MODEL = "claude-opus-5"
+_DEFAULT_MODEL = "claude-opus-5-5"
 
-# Current selectable Claude model ids — mirrors ClaudeCodeAdapter so the onboarding
-# model select is identical whichever path the user connects through.
+# Shown when the Models API can't be asked (no key yet, offline). Mirrors
+# ClaudeCodeAdapter so the onboarding select matches whichever path is used.
 _MODELS: List[str] = [
     "default",
+    "claude-opus-5-5",
+    "claude-sonnet-5-5",
+    "claude-haiku-5-5",
+    "claude-fable-5-1",
     "claude-opus-5",
     "claude-opus-4-8",
     "claude-sonnet-5",
     "claude-haiku-4-5",
-    "claude-fable-5",
 ]
 
 # The hello probe runs one tiny real turn; a headroom ceiling covers cold DNS +
@@ -76,10 +90,38 @@ _NO_ADAPTIVE_PREFIXES = (
     "claude-opus-4-5",
 )
 
-# Models API lookups (output cap + adaptive-thinking support), cached per id.
+# Models that take ``output_config.format``, used only when the Models API
+# can't say (claude-api skill, structured outputs). Others get the prompt alone.
+_STRUCTURED_PREFIXES = (
+    "claude-fable-",
+    "claude-mythos-",
+    "claude-opus-5",
+    "claude-opus-4-8",
+    "claude-opus-4-5",
+    "claude-opus-4-1",
+    "claude-sonnet-5",
+    "claude-haiku-5",
+    "claude-haiku-4-5",
+)
+
+# Models API lookups, cached per id, and the model list, cached per key.
 _MODEL_TTL_SECONDS = 300.0
 _MODEL_FETCH_TIMEOUT = 5.0
-_model_info_cache: Dict[str, Tuple[float, Optional[int], Optional[bool]]] = {}
+
+
+@dataclass(frozen=True)
+class _ModelInfo:
+    """What the Models API says about one model; ``None`` means it didn't say."""
+
+    max_tokens: Optional[int] = None
+    max_input_tokens: Optional[int] = None
+    adaptive: Optional[bool] = None
+    structured: Optional[bool] = None
+
+
+_UNKNOWN = _ModelInfo()
+_model_info_cache: Dict[str, Tuple[float, _ModelInfo]] = {}
+_model_list_cache: Dict[str, Tuple[float, List[str]]] = {}
 
 _INSTALL_HINT = (
     "The 'anthropic' Python SDK isn't installed on the backend. Run "
@@ -160,7 +202,36 @@ class DirectAnthropicAdapter(AgentAdapter):
     agentic = False
 
     def models(self) -> List[str]:
-        return list(_MODELS)
+        """Models the stored key can use (Models API), else the static list."""
+        key = _stored_key() if _sdk_version() is not None else None
+        if not key:
+            return list(_MODELS)
+        digest = key_digest(key)
+        cached = _model_list_cache.get(digest)
+        if cached and (time.time() - cached[0]) < _MODEL_TTL_SECONDS:
+            return list(cached[1])
+        try:
+            page = self._client(key).with_options(
+                timeout=_MODEL_FETCH_TIMEOUT, max_retries=0
+            ).models.list()
+            ids = [str(m.id) for m in page if getattr(m, "id", None)]
+        except Exception:
+            return list(_MODELS)
+        if not ids:
+            return list(_MODELS)
+        result = ["default"] + list(dict.fromkeys(ids))
+        _model_list_cache[digest] = (time.time(), result)
+        return result
+
+    def context_window(self, model: Optional[str] = None) -> Optional[int]:
+        """The model's input limit from the Models API, or ``None``."""
+        key = _stored_key() if _sdk_version() is not None else None
+        if not key:
+            return None
+        try:
+            return _model_info(self._client(key), self._resolve_model(model)).max_input_tokens
+        except Exception:
+            return None
 
     # -- detection (SDK presence stands in for "installed") ------------------
     def detect(self) -> Dict[str, Any]:
@@ -180,14 +251,16 @@ class DirectAnthropicAdapter(AgentAdapter):
         resolved = self._resolve_model(model)
         try:
             client = self._client(key)
-            # Same thinking + cap as the run, so a model that rejects them
-            # fails here instead of after YouTube quota is spent. Streamed
-            # because the SDK refuses large caps on non-streaming calls.
+            # Same thinking, cap and output format as the run, so a model that
+            # rejects them fails here instead of after YouTube quota is spent.
+            # Streamed because the SDK refuses large caps on non-streaming calls.
+            params = _request_params(client, resolved, PROBE_SCHEMA)
+            prompt = PROBE_PROMPT if "output_config" in params else PLAIN_PROBE_PROMPT
             with client.with_options(
                 timeout=_PING_TIMEOUT, max_retries=1
             ).messages.stream(
-                messages=[{"role": "user", "content": "Reply with exactly: hello"}],
-                **_request_params(client, resolved),
+                messages=[{"role": "user", "content": prompt}],
+                **params,
             ) as stream:
                 response = stream.get_final_message()
         except Exception as exc:  # AuthenticationError, APIConnectionError, ...
@@ -222,7 +295,8 @@ class DirectAnthropicAdapter(AgentAdapter):
             )
         resolved = self._resolve_model(model)
         client = self._client(key)
-        return _stream_text(client, resolved, prompt)
+        schema = agent_result_schema() if wants_agent_result(prompt) else None
+        return _stream_text(client, resolved, prompt, schema)
 
     def settings_fingerprint(self, model: str) -> str:
         return "{}|key={}|base={}".format(
@@ -259,61 +333,85 @@ class DirectAnthropicAdapter(AgentAdapter):
         return {"ok": ok, "adapter": self.id, "version": version, "message": message}
 
 
-def _model_info(client: Any, model: str) -> Tuple[Optional[int], Optional[bool]]:
-    """``(output cap, adaptive thinking supported)`` from the Models API.
+def _model_info(client: Any, model: str) -> _ModelInfo:
+    """Output cap, context window and capabilities from the Models API.
 
-    ``(None, None)`` when the lookup fails (offline, old SDK, unknown alias);
-    callers then fall back to static defaults. Cached for a few minutes.
+    All fields ``None`` when the lookup fails (offline, old SDK, unknown alias);
+    callers then fall back to static rules. Cached for a few minutes.
     """
     cached = _model_info_cache.get(model)
     if cached and (time.time() - cached[0]) < _MODEL_TTL_SECONDS:
-        return cached[1], cached[2]
+        return cached[1]
     try:
         info = client.with_options(
             timeout=_MODEL_FETCH_TIMEOUT, max_retries=0
         ).models.retrieve(model)
     except Exception:
-        return None, None
-    cap = getattr(info, "max_tokens", None)
-    cap = cap if isinstance(cap, int) and cap > 0 else None
-    # SDK releases differ: some type ``capabilities`` as models, others as a
-    # plain dict. Walk either.
-    node: Any = getattr(info, "capabilities", None)
-    for key in ("thinking", "types", "adaptive", "supported"):
+        return _UNKNOWN
+
+    def positive(value: Any) -> Optional[int]:
+        return value if isinstance(value, int) and value > 0 else None
+
+    caps: Any = getattr(info, "capabilities", None)
+    result = _ModelInfo(
+        max_tokens=positive(getattr(info, "max_tokens", None)),
+        max_input_tokens=positive(getattr(info, "max_input_tokens", None)),
+        adaptive=_capability(caps, "thinking", "types", "adaptive", "supported"),
+        structured=_capability(caps, "structured_outputs", "supported"),
+    )
+    _model_info_cache[model] = (time.time(), result)
+    return result
+
+
+def _capability(node: Any, *path: str) -> Optional[bool]:
+    """A ``supported`` leaf of ``capabilities``, or ``None`` when absent.
+
+    SDK releases differ: some type ``capabilities`` as models, others as a
+    plain dict. Walk either.
+    """
+    for key in path:
         node = node.get(key) if isinstance(node, dict) else getattr(node, key, None)
-    adaptive: Optional[bool] = node if isinstance(node, bool) else None
-    _model_info_cache[model] = (time.time(), cap, adaptive)
-    return cap, adaptive
+    return node if isinstance(node, bool) else None
 
 
-def _request_params(client: Any, model: str) -> Dict[str, Any]:
-    """Model, output cap and thinking config for one Messages request.
+def _request_params(
+    client: Any, model: str, schema: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Model, output cap, thinking and output format for one Messages request.
 
     Adaptive thinking is sent only to models that take it: Claude Haiku 4.5 and
     other pre-4.6 models reject it. The cap is the model's own maximum (Models
-    API) unless ``YUBEN_MAX_OUTPUT_TOKENS`` overrides it.
+    API) unless ``YUBEN_MAX_OUTPUT_TOKENS`` overrides it. ``schema`` becomes
+    ``output_config.format`` on models with structured outputs.
     """
-    api_cap, adaptive = _model_info(client, model)
+    info = _model_info(client, model)
+    adaptive = info.adaptive
     if adaptive is None:
         adaptive = not model.startswith(_NO_ADAPTIVE_PREFIXES)
     params: Dict[str, Any] = {
         "model": model,
-        "max_tokens": output_cap_override() or api_cap or _FALLBACK_MAX_TOKENS,
+        "max_tokens": output_cap_override() or info.max_tokens or _FALLBACK_MAX_TOKENS,
     }
     if adaptive:
         params["thinking"] = {"type": "adaptive"}
+    structured = info.structured
+    if structured is None:
+        structured = model.startswith(_STRUCTURED_PREFIXES)
+    if schema is not None and structured:
+        params["output_config"] = {"format": {"type": "json_schema", "schema": schema}}
     return params
 
 
-def _stream_text(client: Any, model: str, prompt: str) -> Iterator[str]:
+def _stream_text(
+    client: Any, model: str, prompt: str, schema: Optional[Dict[str, Any]] = None
+) -> Iterator[str]:
     """Yield the visible text of one streamed Messages request, one LINE at a time.
 
     ``text_stream`` yields only ``text_delta`` content (not thinking), but at
-    arbitrary token boundaries. B4's ``StreamCollector`` strips each item and
-    re-joins with ``"\\n"``, so yielding raw deltas could split a JSON string and
-    inject a raw newline (invalid JSON). We therefore buffer deltas and emit
-    complete lines — a JSON string never spans a newline, so line boundaries are
-    always safe and the collector reconstructs the object losslessly. Adaptive
+    arbitrary token boundaries. Deltas are buffered into complete lines (the
+    adapter stream contract); B4 re-joins them with ``"\\n"`` and parses the
+    whole answer once, so the text is reconstructed losslessly. ``schema``
+    (narrative step only) is sent as ``output_config.format``. Adaptive
     thinking is on for analysis quality where the model supports it (see
     :func:`_request_params`); it never reaches the stream because display
     defaults to omitted. A ``max_tokens`` stop reason raises
@@ -328,7 +426,7 @@ def _stream_text(client: Any, model: str, prompt: str) -> Iterator[str]:
     try:
         with client.messages.stream(
             messages=[{"role": "user", "content": prompt}],
-            **_request_params(client, model),
+            **_request_params(client, model, schema),
         ) as stream:
             for text in stream.text_stream:
                 if not text:

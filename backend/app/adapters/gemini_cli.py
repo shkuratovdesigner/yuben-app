@@ -31,6 +31,8 @@ class GeminiCliAdapter(AgentAdapter):
     id = "gemini-cli"
     name = "Gemini CLI"
     binary = "gemini"
+    # Hidden from the picker until ``stream`` is implemented (reliability A6).
+    selectable = False
 
     # Left empty until the adapter is fully wired; the onboarding model select
     # falls back to "default" when this is empty.

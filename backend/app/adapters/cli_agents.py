@@ -36,6 +36,7 @@ from app.adapters.base import (
     stream_process,
     which,
 )
+from app.adapters.structured import agent_result_schema, wants_agent_result
 
 _DETECT_TIMEOUT = 10.0
 _PROBE_TIMEOUT = 90.0
@@ -235,33 +236,16 @@ class GenericCliAdapter(AgentAdapter):
         if not path:
             raise AdapterError(self._install_hint(), kind=KIND_NOT_INSTALLED)
         cmd = self._build_cmd(path, prompt, model)
-        if self.id == "codex-cli" and "OUTPUT CONTRACT" in prompt:
+        if self.id == "codex-cli" and wants_agent_result(prompt):
             return self._stream_codex_result(cmd, cwd)
         return stream_process(cmd, cwd=cwd)
 
     @staticmethod
     def _stream_codex_result(cmd: List[str], cwd: Optional[str]) -> Iterator[str]:
         """Constrain narrative output at generation time, including repair turns."""
-        from contracts.python.models import AgentResult
-
-        schema = AgentResult.model_json_schema()
-
-        def strict(node: Any) -> None:
-            if isinstance(node, dict):
-                node.pop("default", None)
-                if node.get("type") == "object":
-                    node["additionalProperties"] = False
-                    node["required"] = list(node.get("properties", {}))
-                for value in node.values():
-                    strict(value)
-            elif isinstance(node, list):
-                for value in node:
-                    strict(value)
-
-        strict(schema)
         with tempfile.TemporaryDirectory(prefix="yuben-codex-") as directory:
             path = Path(directory) / "agent-result-schema.json"
-            path.write_text(json.dumps(schema))
+            path.write_text(json.dumps(agent_result_schema()))
             yield from stream_process([*cmd, "--output-schema", str(path)], cwd=cwd)
 
     # -- helper --------------------------------------------------------------

@@ -11,7 +11,8 @@ Public surface consumed by the rest of the backend:
   probe to the right adapter. **This is the exact symbol B1's
   ``app/api/config.py`` imports** (`from app.adapters import check_env`).
 
-Claude Code is the primary adapter and is registered first; Gemini is a stub.
+Claude Code is the primary adapter. Gemini CLI is a stub, registered so a stored
+config still resolves, but left out of ``list_adapters`` until it can run.
 
 Registration order is display order, and it is deliberate: the key-paste API
 providers come first (nothing to install, so they're the shortest path for a new
@@ -142,6 +143,8 @@ def list_adapters() -> List[Adapter]:
     """Detect every adapter and return ``Adapter[]`` (contracts model)."""
     out: List[Adapter] = []
     for adapter in _ADAPTERS.values():
+        if not getattr(adapter, "selectable", True):
+            continue
         detected = adapter.detect()
         out.append(
             Adapter(

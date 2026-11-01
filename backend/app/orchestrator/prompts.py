@@ -355,6 +355,7 @@ def build_narrative_prompt(
     meta: Any = None,
     *,
     filters: Optional[Dict[str, Any]] = None,
+    max_videos: Optional[int] = None,
 ) -> str:
     """LLM step 2: the AgentResult narrative over the collected videos.
 
@@ -366,9 +367,11 @@ def build_narrative_prompt(
 
     Used for every adapter. An agentic CLI is explicitly told not to go research
     on its own: whatever it found would be invisible to the join and dropped.
+    ``max_videos`` sends only the top N (pipeline order) to a small-context model.
     """
     f = filters if filters is not None else map_filters(request)
-    briefs = [_video_brief(v) for v in list(videos)[:_DIRECT_MAX_VIDEOS]]
+    limit = _DIRECT_MAX_VIDEOS if max_videos is None else min(max_videos, _DIRECT_MAX_VIDEOS)
+    briefs = [_video_brief(v) for v in list(videos)[:limit]]
     videos_json = json.dumps(briefs, ensure_ascii=False)
     transcripts_block = _transcripts_block(list(videos), meta, f)
 

@@ -45,7 +45,13 @@ from app.redact import redact
 from app.store import run_store
 
 from app.orchestrator.events import make_error_event, make_event
-from app.orchestrator.parse import StreamCollector, find_json_array, validate_agent_result
+from app.adapters.base import NARRATIVE_OUTPUT_RESERVE, estimate_tokens
+from app.orchestrator.parse import (
+    StreamCollector,
+    find_json_array,
+    parse_json_text,
+    validate_agent_result,
+)
 from app.orchestrator.prompts import (
     build_expand_prompt,
     build_narrative_prompt,
@@ -417,6 +423,11 @@ def _stream_and_extract(
     counts: Dict[str, int],
     request: ResearchRequest,
 ) -> Optional[Dict[str, Any]]:
+    # An API adapter yields the model's answer verbatim, line by line, so it is
+    # parsed once as a whole. A CLI yields an event stream (one JSON event per
+    # line, prose, fences), which the collector unwraps.
+    raw_text = getattr(adapter, "agentic", True) is False
+    lines: List[str] = []
     collector = StreamCollector()
     try:
         stream = _open_stream(adapter, prompt, request)
@@ -430,7 +441,11 @@ def _stream_and_extract(
     try:
         for line in stream:
             _check_cancel(run_id)
-            detail = collector.feed(line if isinstance(line, str) else str(line))
+            text = line if isinstance(line, str) else str(line)
+            if raw_text:
+                lines.append(text)
+                continue
+            detail = collector.feed(text)
             if detail:
                 _emit(run_id, "analyzing", detail=detail, counts=counts)
     except _Cancelled:
@@ -443,6 +458,8 @@ def _stream_and_extract(
         if handle is not None:
             handle.closer = None
         _safe_close(stream)
+    if raw_text:
+        return parse_json_text("\n".join(lines))
     return collector.extract()
 
 
@@ -479,6 +496,48 @@ def _run_agent(
         "The model returned an incomplete research report, even after a repair "
         "attempt. Try another model or run the search again."
     )
+
+
+def _fit_narrative_prompt(
+    run_id: str,
+    request: ResearchRequest,
+    videos: List[Video],
+    meta: Any,
+    filters: Dict[str, Any],
+    adapter: Any,
+    counts: Dict[str, int],
+) -> str:
+    """The narrative prompt, with fewer videos when the model's context is small.
+
+    The window comes from provider metadata (``adapter.context_window``). When
+    the full prompt plus room for the answer doesn't fit, the lowest-ranked
+    videos are left out, never fewer than the number the user asked for. A
+    prompt that still doesn't fit is sent as is, and the provider's context
+    error is reported. Adapters that don't know their window send everything.
+    """
+    prompt = build_narrative_prompt(request, videos, meta, filters=filters)
+    try:
+        window = adapter.context_window(getattr(request.model, "model", None))
+    except Exception:  # noqa: BLE001 - metadata is optional
+        window = None
+    if not isinstance(window, int) or window <= 0:
+        return prompt
+    budget = window - NARRATIVE_OUTPUT_RESERVE
+    total = len(videos)
+    keep = total
+    floor = max(1, int(filters.get("max_results") or 1))
+    while estimate_tokens(prompt) > budget and keep > floor:
+        keep = max(floor, (keep * 3) // 4)
+        prompt = build_narrative_prompt(request, videos, meta, filters=filters, max_videos=keep)
+    if keep < total:
+        _emit(
+            run_id,
+            "analyzing",
+            detail="Sent the top %d of %d videos to fit the model's context window"
+            % (keep, total),
+            counts=counts,
+        )
+    return prompt
 
 
 def _expand_keywords(
@@ -659,7 +718,7 @@ def run_research_job(
         # Phase: analyzing — LLM step 2. Collect + validate the AgentResult
         # (narrative only) over the videos B3 just collected.
         _emit(run_id, "analyzing", counts=counts)
-        prompt = build_narrative_prompt(request, videos, meta, filters=filters)
+        prompt = _fit_narrative_prompt(run_id, request, videos, meta, filters, adapter, counts)
         agent_result = _run_agent(run_id, request, prompt, adapter, counts)
 
         # Phase: verifying — join refs -> authoritative videos + link verify (B5).

@@ -35,7 +35,8 @@ import { EnvCheckRow } from './EnvCheckRow'
 /**
  * The adapters shown up front, in grid order — paired by vendor so each row is
  * "the API key" next to "the CLI" for the same brand: Anthropic, then OpenAI,
- * then Gemini alongside Cursor. Everything else is a real option too, just one
+ * then Gemini alongside Cursor. (Gemini CLI is hidden by the backend until its
+ * run surface exists.) Everything else is a real option too, just one
  * click away under the disclosure, so the first screen stays a short choice
  * between familiar names instead of a wall of twelve cards.
  *
@@ -49,7 +50,7 @@ const FEATURED_ADAPTERS = [
   'openai-api',
   'gemini-api',
   'codex-cli',
-  'gemini-cli',
+  'cursor-cli',
 ]
 
 const FEATURED_SET = new Set(FEATURED_ADAPTERS)

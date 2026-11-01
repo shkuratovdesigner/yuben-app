@@ -111,9 +111,9 @@ YuBen doesn't care which LLM writes the narrative — the model sits behind one 
 | **Claude Code** | ✅ working |
 | **Codex CLI** · **Cursor CLI** · **opencode** | ✅ invocation per each tool's headless docs |
 | **Qwen Code** · **GitHub Copilot CLI** · **Amp** | ⚗️ experimental — flags follow each CLI's conventions but aren't confirmed end-to-end |
-| **Gemini CLI** | 🧩 stubbed — interface wired, run surface unfinished |
+| **Gemini CLI** | 🧩 stubbed — interface wired, run surface unfinished; hidden from the picker until it runs |
 
-Model lists are **fetched live** for the API-based adapters — OpenAI, OpenRouter and Ollama — so those pickers show what's actually available today (OpenRouter's and Ollama's need no credential; Ollama lists the models you've pulled). The Anthropic and Claude Code adapters ship a short hardcoded list, and the agent CLIs expose a single `default` entry, since the CLI decides its own model.
+Model lists are **fetched live** for the API-based adapters — Anthropic (once a key is saved), OpenAI, Gemini, OpenRouter and Ollama — so those pickers show what's actually available today (OpenRouter's and Ollama's need no credential; Ollama lists the models you've pulled). They're filtered to models that can write a report, so embedding, speech and image models don't appear. Claude Code ships a short hardcoded list, and the agent CLIs expose a single `default` entry, since the CLI decides its own model.
 
 **Adding your own** is a table row, not a class: append a `CliSpec` to [`backend/app/adapters/cli_agents.py`](backend/app/adapters/cli_agents.py) for an agent CLI, or subclass `OpenAICompatibleAdapter` in [`openai_compatible.py`](backend/app/adapters/openai_compatible.py) for anything speaking the OpenAI protocol (most local servers do). Register it in [`__init__.py`](backend/app/adapters/__init__.py), add a mark to [`adapter-icons.tsx`](frontend/src/app/adapter-icons.tsx), and the UI picks it up automatically via `GET /api/adapters`. **Adapter PRs very welcome** — especially confirmations or fixes for the experimental three.
 

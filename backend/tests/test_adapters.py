@@ -71,7 +71,7 @@ def test_claude_models_lists_current_ids():
     models = ClaudeCodeAdapter().models()
     assert models[0] == "default"
     assert "claude-opus-4-8" in models
-    assert "claude-fable-5" in models
+    assert "claude-fable-5-1" in models and "claude-opus-5-5" in models
 
 
 # --- ClaudeCodeAdapter check_env (mocked probe) ----------------------------
@@ -329,7 +329,7 @@ def test_direct_is_not_agentic():
 def test_direct_models_lists_current_ids():
     models = DirectAnthropicAdapter().models()
     assert models[0] == "default"
-    assert "claude-opus-4-8" in models and "claude-fable-5" in models
+    assert "claude-opus-4-8" in models and "claude-fable-5-1" in models
 
 
 def test_direct_detect_reflects_sdk(monkeypatch):
@@ -603,23 +603,23 @@ def test_list_adapters_shape_and_order():
     adapters = list_adapters()
     ids = [a.id for a in adapters]
     # Key-paste API providers first (nothing to install), then the hand-written
-    # CLIs, then the spec-driven fleet in CLI_SPECS order.
-    assert ids[:7] == [
+    # CLIs, then the spec-driven fleet in CLI_SPECS order. Gemini CLI is a stub,
+    # so it is hidden from the list (A6) but still resolvable by id.
+    assert ids[:6] == [
         "anthropic-api",
         "openai-api",
         "gemini-api",
         "openrouter",
         "ollama",
         "claude-code",
-        "gemini-cli",
     ]
-    assert ids[7:] == [spec.id for spec in CLI_SPECS]
+    assert ids[6:] == [spec.id for spec in CLI_SPECS]
+    assert "gemini-cli" not in ids
+    assert isinstance(get_adapter("gemini-cli"), GeminiCliAdapter)
     assert len(ids) == len(set(ids)), "adapter ids must be unique"
     for a in adapters:
         assert isinstance(a.installed, bool)
         assert isinstance(a.models, list)
-    gem = next(a for a in adapters if a.id == "gemini-cli")
-    assert gem.models == []
 
 
 def test_cli_specs_are_well_formed():
@@ -921,7 +921,7 @@ def test_get_adapters_route():
     claude = by_id["claude-code"]
     assert claude["name"] == "Claude Code"
     assert "default" in claude["models"]
-    assert by_id["gemini-cli"]["installed"] is False
+    assert "gemini-cli" not in by_id
     # The direct Anthropic API adapter is present with its Claude model list.
     api = by_id["anthropic-api"]
     assert api["name"] == "Anthropic API"
