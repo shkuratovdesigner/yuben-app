@@ -23,14 +23,14 @@
 
   --sky-image: url('/media/cloud-sky.webp');
 
-  /* Layout (768px and up). Header, footer and the hero/closing sky cards stay
-     full width (48px header gutter). Content sections sit in a 1600px
-     container with a proportional side gutter: 8.333vw, the Paper desktop
-     value (120px at 1440), never under 48px. */
+  /* Layout (768px and up). Header, footer and content sections share one
+     proportional side gutter: 8.333vw, the Paper desktop value (120px at
+     1440), never under 48px, and content never wider than 1600px. The hero
+     and closing sky cards sit wider, at half that gutter from the edge. */
   --container: 1600px;
   --gutter: 48px;
   --section-gutter: max(48px, 8.333vw);
-  --frame: 20px; /* sky card distance from the viewport edge */
+  --frame: max(20px, 4.1667vw); /* sky card distance from the viewport edge */
 
   /* Motion */
   --ease-ui: cubic-bezier(0.23, 1, 0.32, 1);
