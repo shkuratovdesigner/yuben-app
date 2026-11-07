@@ -1,17 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { locations, verifyDownload, targetFor, main } from './cli.mjs';
 
 test('data is outside ephemeral npm caches on each supported OS', () => {
-  assert.equal(locations({}, 'darwin', '/users/me').data, '/users/me/Library/Application Support/YuBen/data');
-  assert.equal(locations({}, 'linux', '/users/me').data, '/users/me/.local/share/yuben/data');
-  assert.equal(locations({ LOCALAPPDATA: '/local' }, 'win32', '/users/me').data, '/local/YuBen/data');
+  assert.equal(locations({}, 'darwin', '/users/me').data, join('/users/me', 'Library', 'Application Support', 'YuBen', 'data'));
+  assert.equal(locations({}, 'linux', '/users/me').data, join('/users/me', '.local', 'share', 'yuben', 'data'));
+  assert.equal(locations({ LOCALAPPDATA: '/local' }, 'win32', '/users/me').data, join('/local', 'YuBen', 'data'));
 });
 test('explicit data folder survives cwd change and home override', () => {
-  assert.deepEqual(locations({ YUBEN_HOME: '/runtime', YUBEN_DATA_DIR: 'backend/.yuben' }, 'linux', '/users/me', '/repo'), { home: '/runtime', data: '/repo/backend/.yuben' });
-  assert.equal(locations({ YUBEN_DATA_DIR: '~/old-data' }, 'linux', '/users/me').data, '/users/me/old-data');
-  assert.equal(locations({ XDG_DATA_HOME: 'relative' }, 'linux', '/users/me').home, '/users/me/.local/share/yuben');
+  assert.deepEqual(locations({ YUBEN_HOME: '/runtime', YUBEN_DATA_DIR: 'backend/.yuben' }, 'linux', '/users/me', '/repo'), { home: resolve('/runtime'), data: resolve('/repo', 'backend/.yuben') });
+  assert.equal(locations({ YUBEN_DATA_DIR: '~/old-data' }, 'linux', '/users/me').data, join('/users/me', 'old-data'));
+  assert.equal(locations({ XDG_DATA_HOME: 'relative' }, 'linux', '/users/me').home, join('/users/me', '.local', 'share', 'yuben'));
 });
 test('download corruption fails before extraction or execution', () => {
   const bytes = Buffer.from('official release');
