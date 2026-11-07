@@ -1,0 +1,124 @@
+/* Motion. Recipes adapted from transitions.dev (09 icon swap, 21 accordion,
+   34 soft text swap) with the plan's restraint: short, interruptible CSS
+   transitions on opacity, filter and transform only. Every block has a
+   reduced-motion guard at the end of this file. */
+
+/* Button press: small travel, flattened elevation. */
+.btn-gray, .btn-teal {
+  transition:
+    transform var(--press-dur) var(--ease-ui),
+    box-shadow var(--press-dur) var(--ease-ui),
+    filter var(--press-dur) var(--ease-ui);
+}
+.btn-gray:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 2px 1px #fff, inset 0 -1px 1px #c6c9cc66, 0 1px 0 #c4c7ca, 0 2px 4px #1e293b14;
+}
+.btn-teal:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 2px 1px #ffffff55, inset 0 -2px 1px #003c5266, 0 1px 0 #03465c, 0 2px 4px #003a4926;
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn-gray:hover { filter: brightness(1.015) contrast(1.02); }
+  .btn-teal:hover { filter: brightness(1.08); }
+  .nav-link, .site-footer a { transition: color 150ms var(--ease-ui), opacity 150ms var(--ease-ui); }
+  .nav-link:hover { opacity: 0.7; }
+  .site-footer a:hover { color: var(--ink); }
+  .footer-socials a:hover { opacity: 0.75; }
+  .short-card img { transition: transform 400ms var(--ease-smooth-out); }
+  .short-card:hover img { transform: scale(1.02); }
+  .short-card:hover .short-play { filter: brightness(1.08); }
+}
+.short-card:active .short-play { transform: translateY(2px); }
+.short-play { transition: transform var(--press-dur) var(--ease-ui), filter var(--press-dur) var(--ease-ui); }
+
+/* Icon swap (transitions.dev 09) */
+.t-icon-swap { position: relative; display: inline-grid; place-items: center; }
+.t-icon-swap .t-icon {
+  grid-area: 1 / 1; display: grid; place-items: center; width: 100%; height: 100%;
+  transition:
+    opacity var(--icon-swap-dur) var(--ease-in-out),
+    filter var(--icon-swap-dur) var(--ease-in-out),
+    transform var(--icon-swap-dur) var(--ease-in-out);
+}
+.t-icon-swap .t-icon svg { width: 100%; height: 100%; }
+.t-icon-swap[data-state='a'] .t-icon[data-icon='a'],
+.t-icon-swap[data-state='b'] .t-icon[data-icon='b'] { opacity: 1; filter: blur(0); transform: scale(1); }
+.t-icon-swap[data-state='a'] .t-icon[data-icon='b'],
+.t-icon-swap[data-state='b'] .t-icon[data-icon='a'] {
+  opacity: 0; filter: blur(var(--icon-swap-blur)); transform: scale(var(--icon-swap-start-scale));
+}
+
+/* Copy / Copied: the two centred layers cross-blur; the incoming icon also
+   scales up from small (transitions.dev 09 icon swap values). */
+.install-state, .install-state .install-icon {
+  transition:
+    opacity var(--icon-swap-dur) var(--ease-in-out),
+    filter var(--icon-swap-dur) var(--ease-in-out),
+    transform var(--icon-swap-dur) var(--ease-in-out);
+}
+.install-state[data-on='false'] { opacity: 0; filter: blur(var(--text-soft-blur)); }
+.install-state[data-on='false'] .install-icon { transform: scale(var(--icon-swap-start-scale)); }
+.install-hint { animation: fade-in 200ms var(--ease-ui); }
+
+/* Story copy: soft cross-blur in a fixed slot (transitions.dev 34, without
+   the single-line width tween). CSS transitions retarget mid-flight, so a
+   quick reversal reverses smoothly instead of queueing. */
+.story-copy {
+  transition:
+    opacity var(--text-soft-dur) var(--ease-in-out),
+    filter var(--text-soft-dur) var(--ease-in-out);
+}
+.story-copy[data-active='false'] { opacity: 0; filter: blur(var(--text-soft-blur)); pointer-events: none; transition-duration: 150ms; }
+
+/* FAQ accordion (transitions.dev 21). Height animates where the browser
+   supports ::details-content; elsewhere it opens instantly. */
+:root { interpolate-size: allow-keywords; }
+.faq-item::details-content {
+  block-size: 0; overflow: clip;
+  transition: block-size var(--acc-expand) var(--ease-smooth-out), content-visibility var(--acc-expand) allow-discrete;
+}
+.faq-item[open]::details-content { block-size: auto; }
+.faq-answer { transition: opacity var(--acc-expand) var(--ease-smooth-out); }
+.faq-item:not([open]) .faq-answer { opacity: 0; }
+.faq-icon-v { transform-origin: 12px 12px; transition: transform var(--acc-expand) var(--ease-smooth-out); }
+.faq-item[open] .faq-icon-v { transform: scaleY(0); }
+
+/* Mobile menu: gentle fade, links settle with a small stagger */
+.mobile-menu[data-state='open'] { animation: fade-in var(--menu-open-dur) var(--ease-ui) both; }
+.mobile-menu[data-state='open'] .menu-links a,
+.mobile-menu[data-state='open'] .menu-bottom {
+  animation: rise-in var(--menu-open-dur) var(--ease-ui) both;
+  animation-delay: calc(var(--i, 3) * var(--stagger));
+}
+.mobile-menu[data-state='closing'] { animation: fade-out var(--menu-close-dur) var(--ease-ui) both; pointer-events: none; }
+
+/* Short dialog */
+.short-dialog[open] { animation: dialog-in var(--modal-open-dur) var(--ease-smooth-out); }
+.short-dialog[open]::backdrop { animation: fade-in var(--modal-open-dur) var(--ease-smooth-out); }
+
+/* Section entrance: only after JS confirmed the observer is running. */
+.reveal-ready .reveal:not(.is-in) { opacity: 0; translate: 0 var(--reveal-rise); }
+.reveal-ready .reveal.is-in:not(.no-anim) {
+  transition: opacity var(--reveal-dur) var(--ease-ui), translate var(--reveal-dur) var(--ease-ui);
+}
+
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes fade-out { to { opacity: 0; } }
+@keyframes rise-in { from { opacity: 0; transform: translateY(8px); } }
+@keyframes dialog-in { from { opacity: 0; transform: scale(0.96); } }
+
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after, ::details-content {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+    animation-delay: 0ms !important;
+  }
+  .story-copy[data-active='false'] { filter: none; }
+  .reveal-ready .reveal:not(.is-in) { opacity: 1; translate: none; }
+  .btn-gray:active, .btn-teal:active, .short-card:active .short-play { transform: none; }
+}

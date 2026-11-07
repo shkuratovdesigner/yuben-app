@@ -1,0 +1,53 @@
+/* Colours and type from the approved Paper artboards (2026-11-07).
+   Motion tokens: the transitions.dev subset this site uses, from
+   skills/transitions-dev/root.css, plus the plan's UI ease-out. */
+:root {
+  --ink: #2b2d33;
+  --muted: #666970;
+  --muted-ui: #777274;
+  --teal: #00809c;
+  --teal-deep: #04607d;
+  --line: #d5d5d6;
+  --line-soft: #e9eaea;
+  --sky: #eaf4fb;
+  --sky-fade: #f5f9fc;
+  --band: #f6f8fa;
+  --card: #f0f1f2;
+  --panel: #f8f8f8;
+  --chip-bg: #f6ead9;
+  --chip-ink: #b45309;
+
+  --font-serif: 'Newsreader Variable', 'Newsreader', Georgia, serif;
+  --font-sans: 'Inter Variable', 'Inter', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+
+  --sky-image: url('/media/cloud-sky.webp');
+
+  /* Layout: one 1400px container. Its edges are the logo's left edge and the
+     GitHub button's right edge; every section lines up with them. */
+  --container: 1400px;
+  --gutter: 20px;
+
+  /* Motion */
+  --ease-ui: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: ease-in-out;
+  --press-dur: 150ms;
+  --text-soft-dur: 200ms;
+  --text-soft-blur: 2px;
+  --icon-swap-dur: 250ms;
+  --icon-swap-blur: 2px;
+  --icon-swap-start-scale: 0.25;
+  --acc-expand: 250ms;
+  --menu-open-dur: 240ms;
+  --menu-close-dur: 180ms;
+  --modal-open-dur: 250ms;
+  --modal-close-dur: 150ms;
+  --reveal-dur: 300ms;
+  --reveal-rise: 8px;
+  --stagger: 40ms;
+}
+
+@media (max-width: 767px) {
+  :root { --sky-image: url('/media/cloud-sky-768.webp'); }
+}
