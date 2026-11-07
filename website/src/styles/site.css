@@ -138,7 +138,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   display: flex; flex-direction: column; align-items: center; gap: 24px;
   padding: 40px 16px 28px; border-radius: 20px;
 }
-.hero .sky-image { height: 680px; }
+.hero .sky-image { height: max(680px, 100%); }
 .hero-fade { display: none; }
 .hero-copy { display: flex; flex-direction: column; gap: 20px; text-align: center; }
 .hero-title {
@@ -288,7 +288,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
        1600px content container on large screens. */
     padding: 80px max(28px, (100% - var(--container)) / 2 - var(--frame)) 28px; gap: 32px;
   }
-  .hero .sky-image { height: 1120px; }
+  .hero .sky-image { height: max(1120px, 100%); } /* never shorter than the card on tall heroes */
   .hero-fade { display: block; position: absolute; inset: auto 0 0; height: 400px; z-index: -1; background: linear-gradient(180deg, #fff0 0%, var(--sky-fade) 100%); }
   .hero-copy { width: min(1040px, 100%); }
   .hero-title { font-size: clamp(52px, 5vw, 72px); line-height: 1.0556; }
