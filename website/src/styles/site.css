@@ -375,12 +375,12 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   .faq-list { flex: 1 1 0; }
 }
 
-/* Story mode. Each panel sits in a full-viewport sticky box inside its own
-   step, so it scrolls in, holds level with the copy, then scrolls out. Step
-   heights are chosen so every copy gets the same scroll distance:
-   first and last steps hold half a viewport longer, because the copy
-   changes halfway through each panel-to-panel transition.
-   Per stage: 100svh + --hold. */
+/* Story mode. Each screenshot sits in a full-viewport sticky box inside its
+   own step, so it scrolls in, lines up with the copy, then scrolls on. The
+   first screenshot does not hold: it has already been on screen while the
+   section scrolled in, so it keeps moving as soon as it is centred. Later
+   steps hold for --hold. The copy follows whichever screenshot is nearest
+   the viewport centre. */
 @media (min-width: 1024px) and (min-height: 700px) {
   .story {
     --hold: 40svh;
@@ -394,7 +394,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   .story-copy { grid-area: 1 / 1; display: flex; flex-direction: column; gap: 24px; }
   .story-steps { grid-column: 2; grid-row: 1; }
   .story-step { padding: 0; display: block; height: calc(100vh + var(--hold)); height: calc(100svh + var(--hold)); }
-  .story-step:first-child, .story-step:last-child { height: calc(150vh + var(--hold)); height: calc(150svh + var(--hold)); }
+  .story-step:first-child { height: 100vh; height: 100svh; }
   .step-copy { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .story-stage { position: sticky; top: 0; height: 100vh; height: 100svh; align-items: center; }
 }

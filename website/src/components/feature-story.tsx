@@ -6,12 +6,12 @@ import { FeatureShot } from './feature-panels';
 /**
  * Desktop: one stationary copy slot, vertically centred in a sticky rail.
  * Each real app screenshot scrolls in, holds level with the copy, then scrolls on.
- * Every stage gets an equal share of the scroll; the swap is a short cross-blur.
+ * The copy follows the screenshot nearest the viewport centre; the swap is a short cross-blur.
  * Narrow or short screens: three stacked text + panel blocks.
  */
 export function FeatureStory() {
   const ref = useRef<HTMLElement>(null);
-  const { active, enabled } = useFeatureScroll(ref, '.story-steps');
+  const { active, enabled } = useFeatureScroll(ref, '.story-stage .panel');
 
   return (
     <section ref={ref} id="how-it-works" className="story" aria-label="How it works" data-story={enabled ? 'on' : 'off'}>

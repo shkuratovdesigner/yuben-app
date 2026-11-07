@@ -1,17 +1,17 @@
 import { useEffect, useState, type RefObject } from 'react';
-import { stageAt } from '../lib/story';
+import { pickStage } from '../lib/story';
 
 export const STORY_QUERY = '(min-width: 1024px) and (min-height: 700px)';
 
 /**
- * Tracks which feature stage is showing on desktop: the pinned scroll
- * distance through the story is divided equally between the stages.
+ * Tracks which feature stage is showing on desktop: the one whose
+ * screenshot is nearest the viewport centre.
  * One passive scroll listener, rAF-throttled, runs only while the story is
  * near the viewport. Selection uses measured geometry, never callback order,
  * so fast or reverse scrolling lands on the right stage without replaying
  * the ones it skipped.
  */
-export function useFeatureScroll(section: RefObject<HTMLElement | null>, stepsSelector: string) {
+export function useFeatureScroll(section: RefObject<HTMLElement | null>, shotSelector: string) {
   const [active, setActive] = useState(0);
   const [enabled, setEnabled] = useState(false);
 
@@ -26,13 +26,13 @@ export function useFeatureScroll(section: RefObject<HTMLElement | null>, stepsSe
     const measure = () => {
       frame = 0;
       if (!mode.matches) return;
-      // The copy is pinned while the steps list scrolls past; split that
-      // pinned distance into equal parts, one per stage.
-      const steps = root.querySelector<HTMLElement>(stepsSelector);
-      if (!steps) return;
-      const r = steps.getBoundingClientRect();
-      const count = steps.children.length;
-      const next = stageAt(-r.top, r.height - window.innerHeight, count, current);
+      // The copy follows whichever screenshot is nearest the viewport centre.
+      const shots = root.querySelectorAll<HTMLElement>(shotSelector);
+      const centers = Array.from(shots, (el) => {
+        const r = el.getBoundingClientRect();
+        return r.top + r.height / 2;
+      });
+      const next = pickStage(centers, window.innerHeight / 2, current);
       if (next !== current) { current = next; setActive(next); }
     };
     const schedule = () => { if (near && !frame) frame = requestAnimationFrame(measure); };
@@ -58,7 +58,7 @@ export function useFeatureScroll(section: RefObject<HTMLElement | null>, stepsSe
       window.removeEventListener('pageshow', now);
       mode.removeEventListener('change', onMode);
     };
-  }, [section, stepsSelector]);
+  }, [section, shotSelector]);
 
   return { active, enabled };
 }
