@@ -60,14 +60,18 @@ The core signal is **VSR (views ÷ subscribers)**. In the demo run above, a 140k
 Install [Node.js 22 LTS or newer](https://nodejs.org/) if you do not already have it, then run the same command on **macOS, Windows or Linux**:
 
 ```bash
-npx https://github.com/shkuratovdesigner/yuben-app/releases/latest/download/yuben-app.tgz
+npx yuben-app@latest
 ```
 
 Accept npm's package-install prompt. YuBen downloads a private Python runtime and its dependencies on the first launch, starts locally and opens your browser. No Git clone, manual Python installation or frontend build is needed. First launch needs internet access and can take a few minutes; later launches reuse the installed runtime.
 
 Run the same command to reopen YuBen. Keep the terminal open while using it; **Ctrl+C** stops the server. It starts at `http://localhost:8000`, or the next free port if that is occupied. The app runs on your machine; research connects to YouTube and your chosen model provider.
 
-> **npm registry:** the package is named `yuben-app`. Once its first npm publication is complete, `npx yuben-app@latest` is the shorter equivalent. Until then, use the working GitHub-release command above.
+You can also run the package directly from its GitHub release:
+
+```bash
+npx https://github.com/shkuratovdesigner/yuben-app/releases/latest/download/yuben-app.tgz
+```
 
 ### Options and saved data
 
@@ -228,7 +232,7 @@ npm run test:package
 
 `pack:app` builds the frontend and creates `dist/npm/yuben-app-<version>.tgz`. The package contains only allowlisted application sources, contracts, static assets and the launcher. It has no npm install hooks. Python setup happens only when you run it. The launcher verifies a pinned official uv release checksum, provisions Python 3.13 privately and installs hash-locked dependencies.
 
-The CI packaging job tests the tarball on macOS, Windows and Linux, including first launch, relaunch, history, static assets and shutdown. The [release workflow](.github/workflows/release.yml) builds the same tarball and attaches it as `yuben-app.tgz` to a versioned GitHub release. To publish the shorter registry command, an npm maintainer can run `npm publish ./dist/npm/yuben-app-<version>.tgz --access public` after authenticating with npm. Never publish from the repository root; publish the built tarball.
+The CI packaging job tests the tarball on macOS, Windows and Linux, including first launch, relaunch, history, static assets and shutdown. The [release workflow](.github/workflows/release.yml) builds the same tarball and attaches it as `yuben-app.tgz` to a versioned GitHub release. For npm releases, an authenticated maintainer can run `npm publish ./dist/npm/yuben-app-<version>.tgz --access public`. Never publish from the repository root; publish the built tarball.
 
 Refresh runtime dependencies with `uv pip compile backend/requirements-runtime.in --universal --python-version 3.13 --generate-hashes --output-file backend/requirements-runtime.txt`, then run the packaging checks again. Keep the uv target checksums in `launcher/uv-release.json` in sync with its pinned release.
 

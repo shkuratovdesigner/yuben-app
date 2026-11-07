@@ -39,6 +39,7 @@ for (let pass = 0; pass < 2; pass++) {
     const asset = html.match(/src="([^"]+\.js)"/)[1];
     assert.equal((await fetch(`${base}${asset}`)).status, 200);
     const history = await (await fetch(`${base}/api/history`)).json();
+    assert.ok(Array.isArray(history) && history.length > 0, 'bundled example is available');
     if (!pass) initialHistory = history;
     else assert.deepEqual(history, initialHistory, 'history survives restart');
     assert.equal((await fetch(`${base}/api/missing`)).status, 404);
