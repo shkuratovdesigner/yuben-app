@@ -60,14 +60,18 @@ The core signal is **VSR (views ÷ subscribers)**. In the demo run above, a 140k
 Install [Node.js 22 LTS or newer](https://nodejs.org/) if you do not already have it, then run the same command on **macOS, Windows or Linux**:
 
 ```bash
-npx https://github.com/shkuratovdesigner/yuben-app/releases/latest/download/yuben-app.tgz
+npx yuben-app@latest
 ```
 
 Accept npm's package-install prompt. YuBen downloads a private Python runtime and its dependencies on the first launch, starts locally and opens your browser. No Git clone, manual Python installation or frontend build is needed. First launch needs internet access and can take a few minutes; later launches reuse the installed runtime.
 
 Run the same command to reopen YuBen. Keep the terminal open while using it; **Ctrl+C** stops the server. It starts at `http://localhost:8000`, or the next free port if that is occupied. The app runs on your machine; research connects to YouTube and your chosen model provider.
 
-> **Short npm command:** `npx yuben-app@latest` is prepared but not published yet. The first npm publication is waiting on maintainer account 2FA. Use the GitHub-release command above until then.
+You can also run the package directly from its GitHub release:
+
+```bash
+npx https://github.com/shkuratovdesigner/yuben-app/releases/latest/download/yuben-app.tgz
+```
 
 ### Options and saved data
 
