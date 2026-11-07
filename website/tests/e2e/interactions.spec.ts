@@ -42,31 +42,31 @@ test.describe('faq @all', () => {
   });
 });
 
-test.describe('shorts dialog @all', () => {
-  test('creates the embed on activation, removes it on Escape and restores focus', async ({ page }) => {
+test.describe('shorts inline @all', () => {
+  test('plays inside its own card, one at a time', async ({ page }) => {
     await page.route(/youtube(-nocookie)?\.com/, (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '<p>stub</p>' }));
     await page.goto('/');
     await expect(page.locator('iframe')).toHaveCount(0);
-    const card = page.getByRole('link', { name: 'Play the first YuBen Short' });
-    await card.scrollIntoViewIfNeeded();
-    await card.click();
-    const frame = page.locator('.short-dialog iframe');
-    await expect(frame).toHaveAttribute('src', /R24JLVqW9pg/);
-    await expect(page.getByRole('link', { name: /Watch on YouTube/ })).toHaveAttribute('href', /shorts\/R24JLVqW9pg/);
-    await page.keyboard.press('Escape');
-    await expect(page.locator('iframe')).toHaveCount(0);
-    await expect(card).toBeFocused();
-  });
+    await expect(page.locator('dialog')).toHaveCount(0);
+    const first = page.getByRole('link', { name: 'Play the first YuBen Short' });
+    await first.scrollIntoViewIfNeeded();
+    const before = await page.locator('.short-card').first().boundingBox();
+    await first.click();
+    const frame = page.locator('.short-card').first().locator('iframe');
+    await expect(frame).toHaveAttribute('src', /R24JLVqW9pg.*autoplay=1/);
+    await expect(frame).toBeFocused();
+    const after = await frame.boundingBox();
+    // The embed fills the same card: same place, same size.
+    expect(Math.abs(after!.x - before!.x)).toBeLessThan(1);
+    expect(Math.abs(after!.width - before!.width)).toBeLessThan(1);
+    expect(Math.abs(after!.height - before!.height)).toBeLessThan(1);
 
-  test('close button closes the second Short', async ({ page }) => {
-    await page.route(/youtube(-nocookie)?\.com/, (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '' }));
-    await page.goto('/');
-    const card = page.getByRole('link', { name: 'Play the second YuBen Short' });
-    await card.scrollIntoViewIfNeeded();
-    await card.click();
-    await expect(page.locator('.short-dialog iframe')).toHaveAttribute('src', /opb18eNVrn0/);
-    await page.getByRole('button', { name: 'Close video' }).click();
-    await expect(page.locator('iframe')).toHaveCount(0);
+    const second = page.getByRole('link', { name: 'Play the second YuBen Short' });
+    await second.scrollIntoViewIfNeeded();
+    await second.click();
+    await expect(page.locator('iframe')).toHaveCount(1);
+    await expect(page.locator('.short-card').nth(1).locator('iframe')).toHaveAttribute('src', /opb18eNVrn0/);
+    await expect(page.getByRole('link', { name: 'Play the first YuBen Short' })).toBeVisible();
   });
 });
 

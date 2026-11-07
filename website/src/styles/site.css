@@ -176,37 +176,13 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .step-copy .feature-body { max-width: none !important; }
 .story-stage { display: flex; justify-content: center; }
 
-/* Panels: mobile artboard */
-.panel { width: 100%; }
-.ui { color: var(--ink); text-align: left; }
-.ui p { margin: 0; }
-.ui-accent { color: var(--teal); }
-.ui-muted { color: var(--muted-ui); }
-.ui-grow { flex: 1 1 0; }
-.panel-composer { background: var(--panel); border-radius: 20px; padding: 24px 16px; }
-.ui-composer { display: flex; flex-direction: column; gap: 20px; }
-.ui-composer-title { font: 400 25px/30px var(--font-serif); text-align: center; }
-.ui-composer-box { display: flex; flex-direction: column; gap: 30px; padding: 20px; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
-.ui-composer-query { font-size: 20px; line-height: 28px; }
-.ui-composer-row { display: flex; align-items: center; gap: 14px; font-size: 12px; line-height: 16px; }
-.ui-composer-row .ui-muted:nth-child(2) { flex: 1 1 0; }
-.ui-composer-row .ui-grow { display: none; }
-.ui-send { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 100px; background: var(--teal-deep); color: #fff; font-size: 22px; line-height: 28px; }
-.ui-card { background: #fff; border: 1px solid var(--line); border-radius: 16px; display: flex; flex-direction: column; padding: 20px; }
-.ui-ranked { gap: 18px; }
-.ui-ranked-title { color: var(--teal); font-size: 16px; line-height: 24px; }
-.ui-ranked-head, .ui-ranked-row { display: grid; grid-template-columns: 124px 116px auto; align-items: center; justify-items: start; }
-.ui-ranked-head { color: var(--muted-ui); font-size: 12px; line-height: 16px; }
-.ui-ranked-row { border-top: 1px solid var(--line-soft); padding-top: 16px; }
-.ui-ranked-thumb img { width: 102px; height: 58px; object-fit: cover; border-radius: 6px; outline: 1px solid oklch(0 0 0 / 0.1); outline-offset: -1px; }
-.ui-ranked-views { font-size: 16px; line-height: 20px; }
-.ui-chip { background: var(--chip-bg); color: var(--chip-ink); border-radius: 100px; padding: 6px 8px; font-size: 14px; line-height: 18px; }
-.ui-analysis { gap: 20px; }
-.ui-tabs { display: flex; gap: 28px; font-size: 15px; line-height: 18px; }
-.ui-analysis-head { justify-content: space-between; color: var(--teal); font-size: 14px; line-height: 18px; }
-.ui-feature { border-top: 1px solid var(--line-soft); padding-top: 18px; display: flex; flex-direction: column; gap: 10px; }
-.ui-feature-row { display: flex; justify-content: space-between; gap: 16px; font-size: 17px; line-height: 24px; }
-.ui-feature p { color: var(--muted-ui); font-size: 14px; line-height: 23px; }
+/* Story screenshots: real app captures in a light window frame */
+.shot {
+  width: 100%; margin: 0; border-radius: 16px; overflow: clip; background: #fff;
+  border: 1px solid var(--line-soft);
+  box-shadow: 0 1px 2px #1e293b0d, 0 12px 32px #1b3d5d1f;
+}
+.shot img { width: 100%; height: auto; aspect-ratio: 3 / 2; }
 
 /* ---------- Shorts ---------- */
 .shorts { background: var(--band); padding: 48px 20px; display: flex; flex-direction: column; gap: 28px; overflow: clip; }
@@ -224,7 +200,9 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   position: relative; flex: none; width: 254px; aspect-ratio: 254 / 452;
   border-radius: 20px; overflow: clip; background: #141416; scroll-snap-align: start;
 }
+.short-link { display: block; width: 100%; height: 100%; border-radius: inherit; }
 .short-card img { width: 100%; height: 100%; object-fit: cover; }
+.short-embed { display: block; width: 100%; height: 100%; border: 0; background: #000; }
 .short-play {
   position: absolute; left: 50%; top: 50%; translate: -50% -50%;
   width: 56px; height: 56px; display: grid; place-items: center;
@@ -236,20 +214,6 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .shorts-dots button::after { content: ''; position: absolute; inset: -12px -4px; }
 .shorts-dots button[data-on='true'] { width: 20px; background: var(--teal-deep); }
 
-.short-dialog {
-  padding: 0; border: 0; background: transparent; overflow: visible;
-  max-width: none; max-height: none; width: auto; color: #fff;
-}
-.short-dialog::backdrop { background: #0d1418d9; }
-.short-dialog-body { display: flex; flex-direction: column; gap: 12px; align-items: center; }
-.short-frame {
-  height: min(78dvh, 760px); aspect-ratio: 9 / 16; max-width: calc(100vw - 32px);
-  border-radius: 20px; overflow: clip; background: #000;
-}
-.short-frame iframe { width: 100%; height: 100%; border: 0; display: block; }
-.short-dialog-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; }
-.short-dialog-bar a { font-size: 14px; line-height: 18px; color: #e6edf1; text-decoration: underline; text-underline-offset: 3px; }
-.short-close { width: 44px; height: 44px; display: grid; place-items: center; flex: none; }
 
 /* ---------- Models ---------- */
 .models { padding: 56px 20px; display: flex; flex-direction: column; gap: 28px; }
@@ -320,8 +284,9 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 
   .hero {
     width: calc(100% - 2 * var(--frame)); border-radius: 24px;
-    /* The demo fills the card with a small inset at every width. */
-    padding: 80px 28px 28px; gap: 32px;
+    /* The demo fills the card with a small inset, but never grows past the
+       1600px content container on large screens. */
+    padding: 80px max(28px, (100% - var(--container)) / 2 - var(--frame)) 28px; gap: 32px;
   }
   .hero .sky-image { height: 1120px; }
   .hero-fade { display: block; position: absolute; inset: auto 0 0; height: 400px; z-index: -1; background: linear-gradient(180deg, #fff0 0%, var(--sky-fade) 100%); }
@@ -358,34 +323,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   .step-copy { padding-inline: 0; gap: 24px; max-width: 632px; margin-inline: auto; width: 100%; }
   .step-copy .feature-body { max-width: 480px !important; }
 
-  /* Desktop panels: 632×476 box with a 560px UI, scaled with --pz */
-  .panel { --pz: 1; zoom: var(--pz); width: 632px; height: 476px; display: grid; place-items: center; border-radius: 24px; flex: none; }
-  .panel-composer { padding: 0; }
-  .ui-card, .ui-composer { width: 560px; }
-  /* Cards without a panel background fill the panel box, so they reach the container edge. */
-  .panel:not(.panel-composer) .ui-card { width: 100%; }
-  .ui-composer { gap: 28px; }
-  .ui-composer-title { font-size: 34px; line-height: 40px; }
-  .ui-composer-box { gap: 40px; padding: 28px; }
-  .ui-composer-query { font-size: 26px; line-height: 36px; }
-  .ui-composer-row { gap: 24px; font-size: 14px; line-height: 18px; }
-  .ui-composer-row .ui-muted:nth-child(2) { flex: none; }
-  .ui-composer-row .ui-grow { display: block; }
-  .ui-send { width: 44px; height: 44px; font-size: 24px; line-height: 30px; }
-  .ui-ranked { padding: 24px; gap: 24px; }
-  .ui-ranked-title { font-size: 19px; line-height: 26px; }
-  .ui-ranked-head, .ui-ranked-row { grid-template-columns: 270px minmax(0, 1fr) auto; }
-  .ui-ranked-head > :last-child, .ui-ranked-row > :last-child { justify-self: end; }
-  .ui-ranked-head { font-size: 13px; line-height: 16px; }
-  .ui-ranked-row { padding-top: 20px; }
-  .ui-ranked-thumb img { width: 150px; height: 84px; border-radius: 8px; }
-  .ui-ranked-views { font-size: 22px; line-height: 28px; }
-  .ui-chip { padding: 8px 12px; font-size: 20px; line-height: 24px; }
-  .ui-analysis { padding: 28px; gap: 24px; }
-  .ui-tabs { border-bottom: 1px solid var(--line); padding-bottom: 20px; font-size: 16px; line-height: 20px; }
-  .ui-feature { padding-top: 20px; gap: 12px; }
-  .ui-feature-row { font-size: 20px; line-height: 26px; }
-  .ui-feature p { font-size: 17px; line-height: 26px; }
+  .shot { border-radius: 20px; }
 
   .section-title { font-size: clamp(44px, 3.9vw, 56px); line-height: 1.0714; }
   .section-body { font-size: 18px; line-height: 28px; }
@@ -428,22 +366,14 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   .shorts { gap: 64px; }
   .shorts .section-copy { flex: 0 1 490px; min-width: 280px; }
   .shorts-track { flex: 0 1 632px; min-width: 0; }
-  .models { gap: clamp(48px, 6.111vw, 88px); }
+  /* Cards on the left, copy on the right (copy still comes first in the DOM and on mobile). */
+  .models { flex-direction: row-reverse; gap: clamp(48px, 6.111vw, 88px); }
   .models .section-copy { flex: 0 1 440px; min-width: 300px; }
   .model-grid { flex: 0 1 672px; min-width: 0; }
   .faq { align-items: flex-start; gap: clamp(48px, 6.111vw, 88px); }
   .faq-title { flex: 0 1 440px; min-width: 300px; }
   .faq-list { flex: 1 1 0; }
 }
-
-/* Panel scale steps for the desktop story column (the panel sits on the
-   container's right edge; the copy column takes the rest). */
-@media (min-width: 1024px) and (min-height: 700px) { .panel { --pz: 0.7; } }
-@media (min-width: 1100px) and (min-height: 700px) { .panel { --pz: 0.76; } }
-@media (min-width: 1200px) and (min-height: 700px) { .panel { --pz: 0.83; } }
-@media (min-width: 1280px) and (min-height: 700px) { .panel { --pz: 0.88; } }
-@media (min-width: 1366px) and (min-height: 700px) { .panel { --pz: 0.94; } }
-@media (min-width: 1440px) and (min-height: 700px) { .panel { --pz: 1; } }
 
 /* Story mode. Each panel sits in a full-viewport sticky box inside its own
    step, so it scrolls in, holds level with the copy, then scrolls out. Step
@@ -454,7 +384,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 @media (min-width: 1024px) and (min-height: 700px) {
   .story {
     --hold: 40svh;
-    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    display: grid; grid-template-columns: minmax(300px, 4fr) minmax(0, 6fr);
     column-gap: clamp(48px, 6.111vw, 88px);
     padding-top: 0; padding-bottom: 0;
   }
@@ -466,5 +396,5 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   .story-step { padding: 0; display: block; height: calc(100vh + var(--hold)); height: calc(100svh + var(--hold)); }
   .story-step:first-child, .story-step:last-child { height: calc(150vh + var(--hold)); height: calc(150svh + var(--hold)); }
   .step-copy { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .story-stage { position: sticky; top: 0; height: 100vh; height: 100svh; align-items: center; justify-content: flex-end; }
+  .story-stage { position: sticky; top: 0; height: 100vh; height: 100svh; align-items: center; }
 }

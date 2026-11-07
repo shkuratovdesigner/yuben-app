@@ -1,11 +1,11 @@
 import { useRef } from 'react';
 import { features } from '../data/site-content';
 import { useFeatureScroll } from '../hooks/use-feature-scroll';
-import { featurePanels } from './feature-panels';
+import { FeatureShot } from './feature-panels';
 
 /**
  * Desktop: one stationary copy slot, vertically centred in a sticky rail.
- * Each real UI panel scrolls in, holds level with the copy, then scrolls on.
+ * Each real app screenshot scrolls in, holds level with the copy, then scrolls on.
  * Every stage gets an equal share of the scroll; the swap is a short cross-blur.
  * Narrow or short screens: three stacked text + panel blocks.
  */
@@ -29,7 +29,6 @@ export function FeatureStory() {
       </div>
       <ol className="story-steps">
         {features.map((f, i) => {
-          const Panel = featurePanels[i];
           return (
             <li key={f.id} className="story-step" data-step={i}>
               <div className="step-copy">
@@ -37,7 +36,7 @@ export function FeatureStory() {
                 <p className="feature-body" style={{ maxWidth: f.bodyWidth }}>{f.body}</p>
               </div>
               <div className="story-stage">
-                <Panel />
+                <FeatureShot index={i} />
               </div>
             </li>
           );

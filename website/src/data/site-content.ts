@@ -29,25 +29,22 @@ export const features = [
     title: 'Start with a question',
     body: 'A topic, a format, and a little curiosity. YuBen takes it from there',
     bodyWidth: 331,
+    shot: { name: 'composer', alt: 'YuBen composer with a research topic typed in and title analysis switched on' },
   },
   {
     id: 'winners',
     title: 'Find the unexpected winners',
     body: 'Small channel. Big response. Those are the videos worth studying',
     bodyWidth: 423,
+    shot: { name: 'ranked', alt: 'YuBen report ranking the highest-performing videos, with views and outperformance multipliers' },
   },
   {
     id: 'ideas',
     title: 'See the idea behind the views',
     body: 'Turn repeated title patterns into a direction for your next video',
     bodyWidth: 358,
+    shot: { name: 'analysis', alt: 'YuBen title analysis listing the common title patterns behind the outliers' },
   },
-] as const;
-
-export const rankedVideos = [
-  { thumb: '/media/thumb-1.jpg', views: '514,382', mult: '43×' },
-  { thumb: '/media/thumb-2.jpg', views: '192,085', mult: '25×' },
-  { thumb: '/media/thumb-3.jpg', views: '1,092,603', mult: '19×' },
 ] as const;
 
 export const shorts = [

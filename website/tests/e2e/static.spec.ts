@@ -30,9 +30,9 @@ test.describe('container @desktop', () => {
         const box = (s: string) => document.querySelector(s)!.getBoundingClientRect();
         const frameL = ['.header-row .brand', '.hero', '.closing', '.footer-brand'].map((s) => box(s).left);
         const frameR = ['.github-header', '.hero', '.closing', '.footer-socials'].map((s) => box(s).right);
-        const sides = ['.story-slot', '.shorts .section-copy', '.models .section-copy', '.faq-title'].map((s) => box(s).left);
-        const ends = ['.story-stage .panel', '.shorts-track', '.model-grid', '.faq-list'].map((s) => box(s).right);
-        return { vw: innerWidth, frameL, frameR, sides, ends, demo: [box('.demo').left, box('.hero').left] };
+        const sides = ['.story-slot', '.shorts .section-copy', '.model-grid', '.faq-title'].map((s) => box(s).left);
+        const ends = ['.story-stage .panel', '.shorts-track', '.models .section-copy', '.faq-list'].map((s) => box(s).right);
+        return { vw: innerWidth, frameL, frameR, sides, ends, demo: [box('.demo').left, box('.hero').left, box('.demo').width] };
       });
       const frame = Math.max(20, m.vw * 0.035);
       const left = Math.max(48, m.vw * 0.08333, (m.vw - 1600) / 2);
@@ -40,7 +40,8 @@ test.describe('container @desktop', () => {
       for (const x of m.frameR) expect(Math.abs(x - (m.vw - frame))).toBeLessThan(1);
       for (const x of m.sides) expect(Math.abs(x - left)).toBeLessThan(1);
       for (const x of m.ends) expect(Math.abs(x - (m.vw - left))).toBeLessThan(1);
-      expect(m.demo[0] - m.demo[1]).toBeCloseTo(28, 0);
+      expect(m.demo[0] - m.demo[1]).toBeGreaterThanOrEqual(27.5); // small inset inside the card
+      expect(m.demo[2]).toBeLessThanOrEqual(1600.5); // never wider than the content container
     }
   });
 

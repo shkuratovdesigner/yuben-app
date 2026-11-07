@@ -93,9 +93,8 @@
 }
 .mobile-menu[data-state='closing'] { animation: fade-out var(--menu-close-dur) var(--ease-ui) both; pointer-events: none; }
 
-/* Short dialog */
-.short-dialog[open] { animation: dialog-in var(--modal-open-dur) var(--ease-smooth-out); }
-.short-dialog[open]::backdrop { animation: fade-in var(--modal-open-dur) var(--ease-smooth-out); }
+/* Short embed fades in where the thumbnail was */
+.short-embed { animation: fade-in var(--modal-open-dur) var(--ease-smooth-out); }
 
 /* Section entrance: only after JS confirmed the observer is running. */
 .reveal-ready .reveal:not(.is-in) { opacity: 0; translate: 0 var(--reveal-rise); }
@@ -106,7 +105,6 @@
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes fade-out { to { opacity: 0; } }
 @keyframes rise-in { from { opacity: 0; transform: translateY(8px); } }
-@keyframes dialog-in { from { opacity: 0; transform: scale(0.96); } }
 
 @media (prefers-reduced-motion: no-preference) {
   html { scroll-behavior: smooth; }
