@@ -22,21 +22,22 @@ test.describe('layout @all', () => {
 });
 
 test.describe('container @desktop', () => {
-  test('sections line up with the logo and GitHub button, max 1400px', async ({ page }) => {
-    for (const width of [1440, 1920]) {
+  test('header and sky cards are full width; content sits in a 1600px container', async ({ page }) => {
+    for (const width of [1440, 2000]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/');
-      const edges = await page.evaluate(() => {
+      const m = await page.evaluate(() => {
         const box = (s: string) => document.querySelector(s)!.getBoundingClientRect();
-        const left = box('.header-row .brand').left;
-        const right = box('.github-header').right;
-        const sides = ['.hero', '.closing', '.story-slot', '.shorts .section-copy', '.models .section-copy', '.faq-title', '.footer-brand'].map((s) => box(s).left);
-        const ends = ['.hero', '.closing', '.story-stage .panel', '.shorts-track', '.model-grid', '.faq-list', '.footer-socials'].map((s) => box(s).right);
-        return { left, right, sides, ends };
+        const sides = ['.demo', '.story-slot', '.shorts .section-copy', '.models .section-copy', '.faq-title'].map((s) => box(s).left);
+        const ends = ['.demo', '.story-stage .panel', '.shorts-track', '.model-grid', '.faq-list'].map((s) => box(s).right);
+        return { vw: innerWidth, brand: box('.header-row .brand').left, gh: box('.github-header').right, hero: [box('.hero').left, box('.hero').right], closing: [box('.closing').left, box('.closing').right], sides, ends };
       });
-      expect(edges.right - edges.left).toBeLessThanOrEqual(1400);
-      for (const x of edges.sides) expect(Math.abs(x - edges.left)).toBeLessThan(1);
-      for (const x of edges.ends) expect(Math.abs(x - edges.right)).toBeLessThan(1);
+      const left = Math.max(48, (m.vw - 1600) / 2);
+      expect(m.brand).toBeCloseTo(48, 0);
+      expect(m.gh).toBeCloseTo(m.vw - 48, 0);
+      for (const card of [m.hero, m.closing]) { expect(card[0]).toBeCloseTo(20, 0); expect(card[1]).toBeCloseTo(m.vw - 20, 0); }
+      for (const x of m.sides) expect(Math.abs(x - left)).toBeLessThan(1);
+      for (const x of m.ends) expect(Math.abs(x - (m.vw - left))).toBeLessThan(1);
     }
   });
 

@@ -307,8 +307,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 
   /* Section inline padding that lands content on the container edges while
      backgrounds stay full-bleed. */
-  .header-row, .story, .shorts, .models, .faq, .site-footer { --pad-x: max(var(--gutter), calc((100% - var(--container)) / 2)); }
-  .header-row { height: 88px; gap: 40px; padding: 0 var(--pad-x); }
+  .story, .shorts, .models, .faq { --pad-x: max(var(--gutter), calc((100% - var(--container)) / 2)); }
+  .header-row { height: 88px; gap: 40px; padding: 0 var(--gutter); }
   .brand { flex: none; gap: 10px; font-size: 24px; line-height: 30px; }
   .brand .logo-mark { width: 27px; height: 27px; }
   .header-nav { display: flex; flex: 1 1 0; justify-content: flex-end; gap: 32px; padding-left: 24px; }
@@ -319,8 +319,9 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   .menu-toggle, .mobile-menu { display: none; }
 
   .hero {
-    width: min(var(--container), calc(100% - 2 * var(--gutter))); border-radius: 24px;
-    padding: 80px clamp(16px, 1.7vw, 24px) clamp(16px, 1.7vw, 24px); gap: 32px;
+    width: calc(100% - 2 * var(--frame)); border-radius: 24px;
+    /* Inner padding puts the demo on the content container edges. */
+    padding: 80px calc(max(var(--gutter), (100% - var(--container)) / 2) - var(--frame)) 28px; gap: 32px;
   }
   .hero .sky-image { height: 1120px; }
   .hero-fade { display: block; position: absolute; inset: auto 0 0; height: 400px; z-index: -1; background: linear-gradient(180deg, #fff0 0%, var(--sky-fade) 100%); }
@@ -410,11 +411,11 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   .faq-icon { width: 24px; height: 24px; }
   .faq-answer { padding: 16px 32px 0 0; font-size: 16px; line-height: 26px; }
 
-  .closing { width: min(var(--container), calc(100% - 2 * var(--gutter))); min-height: 408px; gap: 32px; border-radius: 24px; padding: 64px 40px; }
+  .closing { width: calc(100% - 2 * var(--frame)); min-height: 408px; gap: 32px; border-radius: 24px; padding: 64px 40px; }
   .closing .sky-image { top: -360px; height: 906px; }
   .closing-title { font-size: clamp(48px, 4.45vw, 64px); line-height: 1.0625; }
 
-  .site-footer { flex-direction: row; gap: 32px; padding: 40px var(--pad-x) 48px; }
+  .site-footer { flex-direction: row; gap: 32px; padding: 40px var(--gutter) 48px; }
   .footer-brand { flex: 1 1 0; }
   .footer-links { gap: 32px; }
   .footer-socials { gap: 18px; }
@@ -437,7 +438,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 
 /* Panel scale steps for the desktop story column (the panel sits on the
    container's right edge; the copy column takes the rest). */
-@media (min-width: 1024px) and (min-height: 700px) { .panel { --pz: 0.8; } }
+@media (min-width: 1024px) and (min-height: 700px) { .panel { --pz: 0.78; } }
 @media (min-width: 1100px) and (min-height: 700px) { .panel { --pz: 0.86; } }
 @media (min-width: 1200px) and (min-height: 700px) { .panel { --pz: 0.92; } }
 @media (min-width: 1280px) and (min-height: 700px) { .panel { --pz: 1; } }

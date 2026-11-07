@@ -23,10 +23,13 @@
 
   --sky-image: url('/media/cloud-sky.webp');
 
-  /* Layout: one 1400px container. Its edges are the logo's left edge and the
-     GitHub button's right edge; every section lines up with them. */
-  --container: 1400px;
-  --gutter: 20px;
+  /* Layout (768px and up). Header, footer and the hero/closing sky cards stay
+     full width; only the content inside sits in a 1600px container, whose
+     side gutter matches the header's 48px so content lines up with the logo
+     and GitHub button until the container caps. */
+  --container: 1600px;
+  --gutter: 48px;
+  --frame: 20px; /* sky card distance from the viewport edge */
 
   /* Motion */
   --ease-ui: cubic-bezier(0.23, 1, 0.32, 1);
