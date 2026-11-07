@@ -307,7 +307,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 
   /* Section inline padding that lands content on the container edges while
      backgrounds stay full-bleed. */
-  .story, .shorts, .models, .faq { --pad-x: max(var(--gutter), calc((100% - var(--container)) / 2)); }
+  .story, .shorts, .models, .faq { --pad-x: max(var(--section-gutter), calc((100% - var(--container)) / 2)); }
   .header-row { height: 88px; gap: 40px; padding: 0 var(--gutter); }
   .brand { flex: none; gap: 10px; font-size: 24px; line-height: 30px; }
   .brand .logo-mark { width: 27px; height: 27px; }
@@ -438,10 +438,12 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 
 /* Panel scale steps for the desktop story column (the panel sits on the
    container's right edge; the copy column takes the rest). */
-@media (min-width: 1024px) and (min-height: 700px) { .panel { --pz: 0.78; } }
-@media (min-width: 1100px) and (min-height: 700px) { .panel { --pz: 0.86; } }
-@media (min-width: 1200px) and (min-height: 700px) { .panel { --pz: 0.92; } }
-@media (min-width: 1280px) and (min-height: 700px) { .panel { --pz: 1; } }
+@media (min-width: 1024px) and (min-height: 700px) { .panel { --pz: 0.7; } }
+@media (min-width: 1100px) and (min-height: 700px) { .panel { --pz: 0.76; } }
+@media (min-width: 1200px) and (min-height: 700px) { .panel { --pz: 0.83; } }
+@media (min-width: 1280px) and (min-height: 700px) { .panel { --pz: 0.88; } }
+@media (min-width: 1366px) and (min-height: 700px) { .panel { --pz: 0.94; } }
+@media (min-width: 1440px) and (min-height: 700px) { .panel { --pz: 1; } }
 
 /* Story mode. Each panel sits in a full-viewport sticky box inside its own
    step, so it scrolls in, holds level with the copy, then scrolls out. Step

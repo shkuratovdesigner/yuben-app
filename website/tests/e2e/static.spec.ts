@@ -22,17 +22,17 @@ test.describe('layout @all', () => {
 });
 
 test.describe('container @desktop', () => {
-  test('header and sky cards are full width; content sits in a 1600px container', async ({ page }) => {
+  test('header and sky cards are full width; sections sit in a 1600px container with proportional gutters', async ({ page }) => {
     for (const width of [1440, 2000]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/');
       const m = await page.evaluate(() => {
         const box = (s: string) => document.querySelector(s)!.getBoundingClientRect();
-        const sides = ['.demo', '.story-slot', '.shorts .section-copy', '.models .section-copy', '.faq-title'].map((s) => box(s).left);
-        const ends = ['.demo', '.story-stage .panel', '.shorts-track', '.model-grid', '.faq-list'].map((s) => box(s).right);
+        const sides = ['.story-slot', '.shorts .section-copy', '.models .section-copy', '.faq-title'].map((s) => box(s).left);
+        const ends = ['.story-stage .panel', '.shorts-track', '.model-grid', '.faq-list'].map((s) => box(s).right);
         return { vw: innerWidth, brand: box('.header-row .brand').left, gh: box('.github-header').right, hero: [box('.hero').left, box('.hero').right], closing: [box('.closing').left, box('.closing').right], sides, ends };
       });
-      const left = Math.max(48, (m.vw - 1600) / 2);
+      const left = Math.max(48, m.vw * 0.08333, (m.vw - 1600) / 2);
       expect(m.brand).toBeCloseTo(48, 0);
       expect(m.gh).toBeCloseTo(m.vw - 48, 0);
       for (const card of [m.hero, m.closing]) { expect(card[0]).toBeCloseTo(20, 0); expect(card[1]).toBeCloseTo(m.vw - 20, 0); }
