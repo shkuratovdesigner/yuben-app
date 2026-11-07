@@ -1,0 +1,19 @@
+{
+  "name": "yuben-app",
+  "version": "0.2.0",
+  "description": "Local-first YouTube outlier research. One command installs Python, starts YuBen and opens your browser.",
+  "type": "module",
+  "bin": { "yuben-app": "launcher/cli.mjs" },
+  "engines": { "node": ">=20.19.0" },
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/shkuratovdesigner/yuben-app.git" },
+  "homepage": "https://github.com/shkuratovdesigner/yuben-app#readme",
+  "bugs": "https://github.com/shkuratovdesigner/yuben-app/issues",
+  "files": ["launcher/", "app/"],
+  "scripts": {
+    "test": "node --test launcher/*.test.mjs",
+    "package": "npm --prefix frontend ci && npm --prefix frontend run build && node scripts/package-app.mjs",
+    "pack:app": "npm run package && cd dist/npm && npm pack",
+    "test:package": "node scripts/test-package.mjs"
+  }
+}

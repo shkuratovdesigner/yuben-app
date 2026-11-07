@@ -341,3 +341,19 @@ def test_guard_defaults_to_8000(monkeypatch) -> None:
     monkeypatch.delenv("YUBEN_PORT", raising=False)
     client = _guarded_app()
     assert client.post("/api/thing", headers={"Origin": "http://localhost:8000"}).status_code == 200
+
+
+def test_port_free_allows_restart_after_a_closed_connection() -> None:
+    if yl.is_windows():
+        pytest.skip("POSIX address reuse semantics")
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind(("127.0.0.1", 0))
+    port = server.getsockname()[1]
+    server.listen()
+    client = socket.create_connection(("127.0.0.1", port))
+    conn, _ = server.accept()
+    conn.close()
+    client.close()
+    server.close()
+    assert yl.port_free(port)

@@ -253,6 +253,10 @@ def port_free(port: int, host: str = "127.0.0.1") -> bool:
     if socket.has_ipv6 and _answers(socket.AF_INET6, "::1", port):
         return False
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    if not is_windows():
+        # Match uvicorn on POSIX: a stopped server in TIME_WAIT is reusable.
+        # Never enable address sharing on Windows.
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
         sock.bind((host, port))
     except OSError:
@@ -418,14 +422,19 @@ def cmd_start(args: argparse.Namespace) -> None:
     ensure_installed(args)
     if not args.no_build:
         cmd_build(args)
+    serve(venv_python(), no_browser=args.no_browser)
+
+
+def serve(python: Path, no_browser: bool = False) -> None:
+    """Serve an already-installed app; shared by source and npm launchers."""
     port = pick_port()
     url = "http://localhost:%d" % port
     if port != DEFAULT_PORT and not os.environ.get(PORT_ENV):
         print("Port %d is busy, using %d." % (DEFAULT_PORT, port))
     print("\nYuBen on %s (Ctrl-C to stop)" % url, flush=True)
-    if not args.no_browser:
+    if not no_browser:
         open_when_ready(url, "http://127.0.0.1:%d/api/health" % port)
-    proc = subprocess.Popen(server_command(venv_python(), port), cwd=str(BACKEND), env=child_env(port, serve_spa=True))
+    proc = subprocess.Popen(server_command(python, port), cwd=str(BACKEND), env=child_env(port, serve_spa=True))
     try:
         code = proc.wait()
     except KeyboardInterrupt:

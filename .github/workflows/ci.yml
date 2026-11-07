@@ -149,3 +149,24 @@ jobs:
         # longer matches, or one past its date, fails too — see the script and
         # SECURITY.md § Dependency advisories.
         run: npm run audit
+
+  package:
+    name: Packaged launcher (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm test
+      - run: npm run pack:app
+      - name: Test npm executable entry point
+        run: npx --yes --package ./dist/npm/yuben-app-0.2.0.tgz yuben-app --version
+      - run: npm run test:package
+        timeout-minutes: 12

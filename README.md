@@ -57,12 +57,39 @@ The core signal is **VSR (views ÷ subscribers)**. In the demo run above, a 140k
 
 ## Quickstart
 
-Needs **Python 3.10+** and **Node 20.19+ or 22.12+** (what Vite and oxlint
-require — plain "Node 20" is not enough, and 21.x will not work). Everything
-goes through one launcher, `yuben.py`, which only needs the standard library and
-runs on any Python 3.9+; it finds a 3.10+ for the backend itself.
+Install [Node.js 22 LTS or newer](https://nodejs.org/) if you do not already have it, then run the same command on **macOS, Windows or Linux**:
 
-### macOS
+```bash
+npx https://github.com/shkuratovdesigner/yuben-app/releases/latest/download/yuben-app.tgz
+```
+
+Accept npm's package-install prompt. YuBen downloads a private Python runtime and its dependencies on the first launch, starts locally and opens your browser. No Git clone, manual Python installation or frontend build is needed. First launch needs internet access and can take a few minutes; later launches reuse the installed runtime.
+
+Run the same command to reopen YuBen. Keep the terminal open while using it; **Ctrl+C** stops the server. It starts at `http://localhost:8000`, or the next free port if that is occupied. The app runs on your machine; research connects to YouTube and your chosen model provider.
+
+> **npm registry:** the package is named `yuben-app`. Once its first npm publication is complete, `npx yuben-app@latest` is the shorter equivalent. Until then, use the working GitHub-release command above.
+
+### Options and saved data
+
+Append `--no-browser` to start without opening a tab, or `--help` for options. Set `YUBEN_PORT` to pin a port; a busy pinned port is an error.
+
+History, settings and fallback key files live outside npm's cache:
+
+| Platform | Default data folder |
+|---|---|
+| macOS | `~/Library/Application Support/YuBen/data` |
+| Windows | `%LOCALAPPDATA%\YuBen\data` |
+| Linux | `~/.local/share/yuben/data` (or `$XDG_DATA_HOME/yuben/data`) |
+
+`YUBEN_DATA_DIR` overrides the data folder. `YUBEN_HOME` overrides the private runtime and default data parent. Updating the package or clearing npm's cache does not delete your history.
+
+**Moving from a source checkout:** stop the old server and set `YUBEN_DATA_DIR` to the absolute path of its `backend/.yuben` folder before starting the npx version. This reuses its history and fallback keys without moving or overwriting anything. OS-keychain entries remain available under the same user account. Without this override, the npx version starts with a separate data folder.
+
+Supported packaged targets: Apple Silicon/Intel macOS, x64/ARM64 Windows with `tar` (Windows 10+), and x64/ARM64 glibc Linux with `tar`. Other systems can use the source workflow below.
+
+### Run from source
+
+For contributors or a local checkout, install **Python 3.10+**, **Git**, and **Node 20.19+ or 22.12+**, then:
 
 ```bash
 git clone https://github.com/shkuratovdesigner/yuben-app.git
@@ -70,51 +97,9 @@ cd yuben-app
 python3 yuben.py start
 ```
 
-Or double-click `start.command` in Finder. The stock `python3` is 3.9, which is
-fine for the launcher: it looks for a newer Python on your PATH and in the usual
-Homebrew and python.org folders. No newer Python yet? `brew install python@3.13`
-or the installer from [python.org](https://www.python.org/downloads/). `make start` works too.
+On Windows, use `py yuben.py start`. You can also double-click `start.command` on macOS or `start.cmd` on Windows. Debian/Ubuntu may need the matching `python3-venv` package.
 
-### Windows
-
-Install Python from [python.org](https://www.python.org/downloads/) (it adds the
-`py` launcher) and Node from [nodejs.org](https://nodejs.org), then in PowerShell
-or Command Prompt:
-
-```bat
-git clone https://github.com/shkuratovdesigner/yuben-app.git
-cd yuben-app
-py yuben.py start
-```
-
-Or double-click `start.cmd`. There is no `make` on Windows, and you do not need it.
-
-### Linux
-
-```bash
-git clone https://github.com/shkuratovdesigner/yuben-app.git
-cd yuben-app
-python3 yuben.py start
-```
-
-Debian and Ubuntu need the venv module as a separate package: `sudo apt install python3-venv`
-(or the versioned one, e.g. `python3.12-venv`). `make start` works too.
-
-### What `start` does
-
-The first run installs everything (`python yuben.py install`: a backend venv and
-the frontend's node modules). Every run then builds the frontend, starts the
-server on `http://localhost:8000` and opens your browser. If 8000 is busy it takes
-the next free port and prints it. To pin a port, set `YUBEN_PORT` (for example
-`YUBEN_PORT=8100 python3 yuben.py start`, or `set YUBEN_PORT=8100` first on
-Windows); a busy pinned port is an error rather than a silent switch. The app runs
-entirely on your own machine (nothing is hosted).
-
-That is one process on one URL: the frontend is compiled to static files and served by the backend itself, so there is no Node process running and nothing to proxy.
-
-For development use `python yuben.py dev` (`make dev`) instead, which trades that for hot reload — Vite on `:5173` compiling React, uvicorn running the API on `YUBEN_PORT`, started as a pair (Ctrl-C stops both). You still only open one URL, `http://localhost:5173`; it proxies `/api/*` to the backend's port for you.
-
-Under `dev` the backend has no interface of its own — its port is a JSON API and answers `404` at the root. It serves the built SPA only when `YUBEN_SERVE_SPA=1`, which just `start` sets. That is deliberately not inferred from `frontend/dist/` existing: a leftover build would otherwise let the backend hand you a stale copy of the app mid-development, and debugging a UI you are not running is worse than getting a `404`.
+The source launcher installs dependencies on first run and builds the frontend before serving it. `python yuben.py dev` starts Vite with hot reload on `:5173` and the backend as a pair. The packaged npx version ships the built interface and skips these development steps.
 
 ### Connect YouTube and a model
 
@@ -133,7 +118,7 @@ again. The free quota is 10,000 units a day; a run costs about 1,400.
 ### Your keys stay on your machine
 
 - Everything runs locally — there is no hosted service and no telemetry.
-- Keys are stored in your **OS keychain** (via `keyring`), and the store is **write-only** toward the UI: the frontend can set or test a key but can never read it back. If the keychain is unavailable (headless Linux, CI), it falls back to a `0600` file under `backend/.yuben/`, which is gitignored — never the repo, never a dotfile in your home directory.
+- Keys are stored in your **OS keychain** (via `keyring`), and the store is **write-only** toward the UI: the frontend can set or test a key but can never read it back. If the keychain is unavailable (headless Linux, CI), it falls back to a `0600` file in the [data folder](#options-and-saved-data) (`backend/.yuben/` for source installs). Keys are never included in the distributed package.
 - Each key is only ever sent to its own provider's API — the YouTube key to `googleapis.com`, a model key to that model provider (e.g. `api.anthropic.com`).
 
 ## Model adapters
@@ -178,7 +163,7 @@ the model's own provider is contacted, and nothing is added to History. Add
 
 **When a run fails,** press **Copy diagnostics** on the error screen and paste
 it into your bug report. Every run writes one log to
-`backend/.yuben/diagnostics/<run id>.json` (the last 50 are kept): adapter,
+`<data folder>/diagnostics/<run id>.json` (the last 50 are kept): adapter,
 model, the request settings sent, token usage, stop reason, the first and last
 4 KB of each model answer, and the parse error. The prompt itself is not saved,
 and anything that looks like a key is replaced with `[redacted]` before the
@@ -232,6 +217,20 @@ Before a release, also run the manual [release check](docs/RELEASE_CHECK.md) onc
 per OS: the parts CI can't cover, like real CLIs, real keys and a real browser.
 
 Design and behavior are specified in [docs/PRD.md](docs/PRD.md); the wire format lives in [docs/CONTRACTS.md](docs/CONTRACTS.md); the phased build history is in [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md).
+
+## Building and releasing the npx package
+
+```bash
+npm test
+npm run pack:app
+npm run test:package
+```
+
+`pack:app` builds the frontend and creates `dist/npm/yuben-app-<version>.tgz`. The package contains only allowlisted application sources, contracts, static assets and the launcher. It has no npm install hooks. Python setup happens only when you run it. The launcher verifies a pinned official uv release checksum, provisions Python 3.13 privately and installs hash-locked dependencies.
+
+The CI packaging job tests the tarball on macOS, Windows and Linux, including first launch, relaunch, history, static assets and shutdown. The [release workflow](.github/workflows/release.yml) builds the same tarball and attaches it as `yuben-app.tgz` to a versioned GitHub release. To publish the shorter registry command, an npm maintainer can run `npm publish ./dist/npm/yuben-app-<version>.tgz --access public` after authenticating with npm. Never publish from the repository root; publish the built tarball.
+
+Refresh runtime dependencies with `uv pip compile backend/requirements-runtime.in --universal --python-version 3.13 --generate-hashes --output-file backend/requirements-runtime.txt`, then run the packaging checks again. Keep the uv target checksums in `launcher/uv-release.json` in sync with its pinned release.
 
 ## License
 
