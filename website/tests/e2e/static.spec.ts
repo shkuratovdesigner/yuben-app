@@ -22,22 +22,25 @@ test.describe('layout @all', () => {
 });
 
 test.describe('container @desktop', () => {
-  test('header, footer and sections share a proportional gutter; cards sit wider', async ({ page }) => {
+  test('header, footer and sky cards share one frame; sections sit inside a 1600px container', async ({ page }) => {
     for (const width of [1024, 1440, 2000]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/');
       const m = await page.evaluate(() => {
         const box = (s: string) => document.querySelector(s)!.getBoundingClientRect();
-        const sides = ['.header-row .brand', '.story-slot', '.shorts .section-copy', '.models .section-copy', '.faq-title', '.footer-brand'].map((s) => box(s).left);
-        const ends = ['.github-header', '.story-stage .panel', '.shorts-track', '.model-grid', '.faq-list', '.footer-socials'].map((s) => box(s).right);
-        return { vw: innerWidth, hero: [box('.hero').left, box('.hero').right], closing: [box('.closing').left, box('.closing').right], demo: box('.demo').left, sides, ends };
+        const frameL = ['.header-row .brand', '.hero', '.closing', '.footer-brand'].map((s) => box(s).left);
+        const frameR = ['.github-header', '.hero', '.closing', '.footer-socials'].map((s) => box(s).right);
+        const sides = ['.story-slot', '.shorts .section-copy', '.models .section-copy', '.faq-title'].map((s) => box(s).left);
+        const ends = ['.story-stage .panel', '.shorts-track', '.model-grid', '.faq-list'].map((s) => box(s).right);
+        return { vw: innerWidth, frameL, frameR, sides, ends, demo: [box('.demo').left, box('.hero').left] };
       });
+      const frame = Math.max(20, m.vw * 0.035);
       const left = Math.max(48, m.vw * 0.08333, (m.vw - 1600) / 2);
-      const frame = Math.max(20, m.vw * 0.041667);
+      for (const x of m.frameL) expect(Math.abs(x - frame)).toBeLessThan(1);
+      for (const x of m.frameR) expect(Math.abs(x - (m.vw - frame))).toBeLessThan(1);
       for (const x of m.sides) expect(Math.abs(x - left)).toBeLessThan(1);
       for (const x of m.ends) expect(Math.abs(x - (m.vw - left))).toBeLessThan(1);
-      for (const card of [m.hero, m.closing]) { expect(Math.abs(card[0] - frame)).toBeLessThan(1); expect(Math.abs(card[1] - (m.vw - frame))).toBeLessThan(1); }
-      expect(m.demo).toBeLessThanOrEqual(left + 0.5);
+      expect(m.demo[0] - m.demo[1]).toBeCloseTo(28, 0);
     }
   });
 
