@@ -1,0 +1,42 @@
+# YuBen
+
+> YuBen is a free, open-source (MIT), local-first app for YouTube content research. Type a topic and it finds outlier videos: videos that earn far more views than their channel's subscriber count predicts. It then explains why they won, with a ranked watch list, title-pattern analysis and a plan for your own video. Install and start it with one command: `npx yuben-app@latest`.
+
+Website: https://yubenapp.org
+Made by Evgeny Shkuratov, Product Design Engineer (https://www.shkuratovdesigner.com).
+
+## What it does
+
+- Finds outliers. The core signal is VSR, views divided by subscribers. A small channel that pulls a large audience shows that the idea carried the video, not the audience. Those are the videos worth studying.
+- Filters out noise. Videos with very low engagement (under 1.5 likes per 1,000 views) are treated as bought or ad-driven traffic and dropped from the ranking.
+- Explains the pattern. An AI model writes the summary, watch-list reasoning and title analysis (common features, emotional triggers, hook structures). Optional transcripts support script analysis.
+- Keeps numbers honest. Every video ID, view count and link comes from the YouTube Data API through a deterministic pipeline and is re-checked by the backend. The AI supplies narrative only.
+- Long-form or Shorts, upload window and outperformance tier (any, 2×, 5×, highest) are selectable. Results show as a grid or a sortable table. Runs are saved locally and exportable.
+
+## How to start
+
+1. Install Node.js 22 or newer.
+2. Run `npx yuben-app@latest` on macOS, Windows or Linux. It installs a private Python, starts YuBen and opens the browser.
+3. Add a YouTube Data API key and choose an AI provider.
+
+A typical run uses about 1,400 of YouTube's 10,000 free daily API units.
+
+## AI providers
+
+Anthropic API, OpenAI API, Google Gemini, OpenRouter, Ollama (local, no key), and coding CLIs you already have, such as Claude Code, Codex, Cursor and opencode. Your provider's usual costs may apply.
+
+## Privacy
+
+YuBen runs on your machine. Your API keys and research history stay there (local SQLite, keys in the system keychain).
+
+## FAQ
+
+- What do I need to get started? Node.js, a YouTube API key, and your preferred AI provider.
+- Can I use my own AI model? Yes: paste an Anthropic, OpenAI, Gemini or OpenRouter key, run a local Ollama model with no key, or use a coding CLI such as Claude Code.
+- Is YuBen free and open source? Yes. MIT-licensed, and it runs on your machine.
+
+## Links
+
+- [Source code and docs](https://github.com/shkuratovdesigner/yuben-app): README, model adapters, release notes
+- [npm package](https://www.npmjs.com/package/yuben-app): `yuben-app`
+- [Author](https://www.shkuratovdesigner.com): Evgeny Shkuratov

@@ -1,0 +1,28 @@
+# YuBen · https://yubenapp.org
+# Everything here may be crawled, cited and summarised by search engines and AI assistants.
+# Fast plain-text read for agents: /llms.txt
+
+User-agent: *
+Allow: /
+
+# Search and AI answer crawlers, named so a default policy elsewhere cannot exclude them.
+User-agent: Googlebot
+User-agent: Google-Extended
+User-agent: Bingbot
+User-agent: Applebot
+User-agent: Applebot-Extended
+User-agent: DuckDuckBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: GPTBot
+User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Meta-ExternalAgent
+User-agent: MistralAI-User
+User-agent: CCBot
+Allow: /
+
+Sitemap: https://yubenapp.org/sitemap.xml
