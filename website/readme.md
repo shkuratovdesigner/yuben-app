@@ -19,7 +19,7 @@ npm run test:e2e     # Playwright, Chromium + WebKit, desktop + mobile (uses the
 
 ## Hosting
 
-Static site. Deployment root `website/`, build command `npm run build`, output `dist/`. Not deployed; no domain is configured, so the page emits no canonical or absolute Open Graph URLs. Add them once a domain exists.
+Static site. Deployment root `website/`, build command `npm run build`, output `dist/`. Live at https://yubenapp.org (Vercel project `yuben`, Git-connected to the `yuben-website` repo's `main`; `www` redirects to the apex). `index.html` sets the canonical URL and absolute Open Graph/Twitter URLs for that domain; update them if the domain changes.
 
 ## How it is built
 
@@ -37,6 +37,7 @@ Static site. Deployment root `website/`, build command `npm run build`, output `
 |---|---|
 | `public/media/yuben-demo-light.mp4` | `ventures/portfolio/assets/cases-videos/yuben-demo-light-web-sound.mp4`, copied unchanged (SHA-1 `d14df8aa191c4afa4db96f080abfd21eb256f201`; 1440×750, 60 fps, 26.075 s, music and effects included) |
 | `public/media/yuben-demo-light-poster.webp` | `ventures/portfolio/assets/cases-videos/yuben-demo-light-poster.webp`, unchanged |
+| `public/media/og-image.jpg` | Share image: the poster above scaled to 1210×630 and centre-cropped to 1200×630 (ffmpeg lanczos, JPEG q3) |
 | `public/media/cloud-sky.webp`, `cloud-sky-768.webp` | WebP derivatives (q82 full size, q80 768px) of `ventures/yuben/assets/website-2026-11-07/cloud-sky.png`; original kept. Static until an animated cloud asset is supplied: replace `--sky-image` in `src/styles/tokens.css` or swap `.sky-image` for a video |
 | `public/media/app-{composer,ranked,analysis}-{760,1264,1800}.webp` | Light-theme captures of the local YuBen app at 2x (2026-11-08, `scripts/capture-app-screenshots.mjs`). Composer with the query of the saved report "I Built My Own AI App From Scratch" (`r_24ef5e27…`), that report's ranked grid, and the title analysis of "Autonomous AI Agents" (`r_7226df8f…`), the nearest report with title analysis. To refresh: run the app (`YUBEN_PORT=8077 python3 yuben.py start --no-browser` in the repo root), then `node scripts/capture-app-screenshots.mjs` and re-export. |
 | `public/media/short-*.jpg`, `model-*.svg`, `social-*.svg` | `ventures/yuben/assets/website-2026-11-07/` (social icons are the colour versions) |
