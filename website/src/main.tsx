@@ -8,5 +8,11 @@ import './styles/tokens.css';
 import './styles/site.css';
 import './styles/motion.css';
 import { App } from './app';
+import { initAnalytics } from './lib/analytics';
 
 hydrateRoot(document.getElementById('root')!, <StrictMode><App /></StrictMode>);
+
+// Load the analytics tag after the page has loaded so it never competes with the demo video.
+const startAnalytics = () => initAnalytics(import.meta.env.PROD);
+if (document.readyState === 'complete') startAnalytics();
+else window.addEventListener('load', startAnalytics, { once: true });

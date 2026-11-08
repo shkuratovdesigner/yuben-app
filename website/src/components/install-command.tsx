@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { command } from '../data/site-content';
 import { CheckIcon, CopyIcon } from './icons';
+import { trackCommandCopy, type CommandPlacement } from '../lib/analytics';
 
 type Status = 'idle' | 'copied' | 'failed';
 
 /** Rounded command field. Shows success only after the clipboard write resolves. */
-export function InstallCommand({ id }: { id: string }) {
+export function InstallCommand({ id, placement }: { id: string; placement: CommandPlacement }) {
   const [status, setStatus] = useState<Status>('idle');
   const codeRef = useRef<HTMLElement>(null);
   const timer = useRef<number | undefined>(undefined);
@@ -34,6 +35,7 @@ export function InstallCommand({ id }: { id: string }) {
     } catch {
       ok = false;
     }
+    trackCommandCopy(placement, ok);
     if (current !== attempt.current) return;
     setStatus(ok ? 'copied' : 'failed');
     if (!ok) selectCommand();

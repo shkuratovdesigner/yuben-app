@@ -21,6 +21,10 @@ npm run test:e2e     # Playwright, Chromium + WebKit, desktop + mobile (uses the
 
 Static site. Deployment root `website/`, build command `npm run build`, output `dist/`. Live at https://yubenapp.org (Vercel project `yuben`, Git-connected to the `yuben-website` repo's `main`; `www` redirects to the apex). `index.html` sets the canonical URL and absolute Open Graph/Twitter URLs for that domain; update them if the domain changes.
 
+## Analytics
+
+Google Analytics 4, account Shkuratov.designer (177282538), property YuBen, web stream "YuBen website" (16296377401), measurement ID `G-T6YE8VXL6B`, Armenia time. `src/lib/analytics.ts` loads gtag after page load, only in production builds on `yubenapp.org` / `www.yubenapp.org` (never localhost, previews or `*.vercel.app`). Page location excludes query strings; Google signals and ad personalisation are off. Enhanced measurement (page views, scrolls, outbound clicks and more) is on in the stream. Custom event: `copy_install_command` with `placement` (`hero` | `closing`) and `copied` (true, or false when the browser blocked the clipboard).
+
 ## How it is built
 
 - React 19 + TypeScript + Vite, plain CSS. `src/entry-server.tsx` renders the page at build time (`scripts/prerender.mjs`); the client hydrates it. All content is readable with JavaScript off.

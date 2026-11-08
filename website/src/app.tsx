@@ -24,7 +24,7 @@ export function App() {
             </h1>
             <p className="hero-sub">Find YouTube outliers, spot the patterns, and make something worth watching</p>
           </div>
-          <InstallCommand id="hero-command" />
+          <InstallCommand id="hero-command" placement="hero" />
           <DemoVideo />
         </section>
 
@@ -73,7 +73,7 @@ export function App() {
         <section className="closing sky reveal" aria-labelledby="closing-title">
           <div className="sky-image" aria-hidden="true" />
           <h2 id="closing-title" className="closing-title">Your next video <br className="only-m" />starts here</h2>
-          <InstallCommand id="closing-command" />
+          <InstallCommand id="closing-command" placement="closing" />
         </section>
       </main>
 
