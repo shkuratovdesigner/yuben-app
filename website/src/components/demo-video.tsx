@@ -76,10 +76,30 @@ export function DemoVideo() {
     const events = { playing: onPlaying, pause: onPause, volumechange: onVolume, waiting: onWaiting, error: onError };
     Object.entries(events).forEach(([name, fn]) => video.addEventListener(name, fn));
 
-    // Above the fold, so the source loads as soon as it is near the viewport.
+    // The 4.5 MB source waits until the page has loaded and gone idle, so it never
+    // competes with the first paint; the poster shows until then. A press on Play
+    // loads it at once.
+    let near = false;
+    let pageReady = false;
+    const hasIdle = 'requestIdleCallback' in window;
+    let graceTimer = 0;
+    let idleHandle = 0;
+    const markReady = () => {
+      const run = () => { pageReady = true; if (near) { load(); sync(); } };
+      // A short grace period after load keeps the video's bandwidth away from the
+      // first paint on slow connections.
+      graceTimer = window.setTimeout(() => {
+        if (hasIdle) idleHandle = window.requestIdleCallback(run, { timeout: 2000 });
+        else run();
+      }, 1200);
+    };
+    if (document.readyState === 'complete') markReady();
+    else window.addEventListener('load', markReady, { once: true });
+
     const viewport = new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting && entry.intersectionRatio >= 0.1;
-      if (entry.isIntersecting) load();
+      near = entry.isIntersecting;
+      if (near && pageReady) load();
       sync();
     }, { threshold: [0, 0.1], rootMargin: '200px 0px' });
     viewport.observe(video);
@@ -94,6 +114,9 @@ export function DemoVideo() {
       active = false;
       pause();
       viewport.disconnect();
+      window.removeEventListener('load', markReady);
+      window.clearTimeout(graceTimer);
+      if (hasIdle && idleHandle) window.cancelIdleCallback(idleHandle);
       document.removeEventListener('visibilitychange', sync);
       motion.removeEventListener('change', onMotion);
       window.removeEventListener(OTHER_MEDIA_EVENT, onOther);

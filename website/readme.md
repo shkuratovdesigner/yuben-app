@@ -32,7 +32,18 @@ Static site. Deployment root `website/`, build command `npm run build`, output `
 
 Google Analytics 4, account Shkuratov.designer (177282538), property YuBen, web stream "YuBen website" (16296377401), measurement ID `G-T6YE8VXL6B`, Armenia time. `src/lib/analytics.ts` loads gtag after page load, only in production builds on `yubenapp.org` / `www.yubenapp.org` (never localhost, previews or `*.vercel.app`). Page location excludes query strings; Google signals and ad personalisation are off. Enhanced measurement (page views, scrolls, outbound clicks and more) is on in the stream. Custom event: `copy_install_command` with `placement` (`hero` | `closing`) and `copied` (true, or false when the browser blocked the clipboard).
 
-## How it is built
+## Performance
+
+Measured with Lighthouse 13 on 2026-11-08 (local production build): mobile 94–95, desktop 100; accessibility, best practices and SEO 100. Before this pass the live site scored 54 / 88.
+
+- The hero sky (the largest paint) is preloaded per breakpoint with `fetchpriority="high"`; the demo poster is preloaded at normal priority.
+- The 4.5 MB demo video starts downloading 1.2 s after `load` plus an idle callback, so it never shares bandwidth with the first paint; the poster shows until then, autoplay follows, and pressing Play loads it at once.
+- The stylesheet is inlined into `index.html` by `scripts/prerender.mjs` (no render-blocking request).
+- Fonts are trimmed to the weights the page renders: Newsreader 400 (optical size kept) and Inter 400–500, via `scripts/pin-fonts.py`, which also writes `src/styles/fonts.css`. Rendering was compared against the previous build: SSIM 1.000 on every text section at 1440 and 390 px. Re-run the script after upgrading the font packages, and widen the limits if a new weight is used.
+- Images: Shorts thumbnails are portrait WebP crops at native resolution; the demo poster is WebP q90 (SSIM 0.9966 against the lossless original); screenshot `sizes` match the measured layout.
+- Google Analytics loads in an idle callback after `load`.
+
+
 
 - React 19 + TypeScript + Vite, plain CSS. `src/entry-server.tsx` renders the page at build time (`scripts/prerender.mjs`); the client hydrates it. All content is readable with JavaScript off.
 - `src/data/site-content.ts` holds the copy, links and media paths. Desktop and mobile copy differ slightly in Paper; `only-d` / `only-m` spans keep both exact.
@@ -47,9 +58,10 @@ Google Analytics 4, account Shkuratov.designer (177282538), property YuBen, web 
 | File | Source |
 |---|---|
 | `public/media/yuben-demo-light.mp4` | `ventures/portfolio/assets/cases-videos/yuben-demo-light-web-sound.mp4`, copied unchanged (SHA-1 `d14df8aa191c4afa4db96f080abfd21eb256f201`; 1440×750, 60 fps, 26.075 s, music and effects included) |
-| `public/media/yuben-demo-light-poster.webp` | `ventures/portfolio/assets/cases-videos/yuben-demo-light-poster.webp`, unchanged |
+| `public/media/yuben-demo-light-poster.webp` | `ventures/portfolio/assets/cases-videos/yuben-demo-light-poster.webp` (lossless), re-encoded 2026-11-08 with `cwebp -q 90 -m 6 -sharp_yuv`: 346 KB to 89 KB, SSIM 0.9966 |
 | `public/media/og-yuben-2026-11-08.jpg` | Share image supplied by Evgeny on 2026-11-08 (1734×907 WebP, kept at `ai-os/ventures/yuben/assets/website-2026-11-07/og-share-source-2026-11-08.webp`), scaled to 1205×630 and centre-cropped to 1200×630 (ffmpeg lanczos, JPEG q2). Replaces the earlier poster-based `og-image.jpg` |
 | `public/media/cloud-sky.webp`, `cloud-sky-768.webp` | WebP derivatives (q82 full size, q80 768px) of `ventures/yuben/assets/website-2026-11-07/cloud-sky.png`; original kept. Static until an animated cloud asset is supplied: replace `--sky-image` in `src/styles/tokens.css` or swap `.sky-image` for a video |
 | `public/media/app-{composer,ranked,analysis}-{760,1264,1800}.webp` | Light-theme captures of the local YuBen app at 2x (2026-11-08, `scripts/capture-app-screenshots.mjs`). Composer with the query of the saved report "I Built My Own AI App From Scratch" (`r_24ef5e27…`), that report's ranked grid, and the title analysis of "Autonomous AI Agents" (`r_7226df8f…`), the nearest report with title analysis. To refresh: run the app (`YUBEN_PORT=8077 python3 yuben.py start --no-browser` in the repo root), then `node scripts/capture-app-screenshots.mjs` and re-export. |
-| `public/media/short-*.jpg`, `model-*.svg`, `social-*.svg` | `ventures/yuben/assets/website-2026-11-07/` (social icons are the colour versions) |
+| `public/media/short-*.webp` | Centre 405×720 portrait crops of the 1280×720 YouTube thumbnails in `ventures/yuben/assets/website-2026-11-07/` (the area the 9:16 cards show), WebP q90 |
+| `public/media/model-*.svg`, `social-*.svg` | `ventures/yuben/assets/website-2026-11-07/` (social icons are the colour versions) |
 | `src/data/stars.json` | Last known GitHub star count; refreshed by `npm run build`, kept on failure |

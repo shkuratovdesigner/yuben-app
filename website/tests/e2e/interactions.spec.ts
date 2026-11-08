@@ -153,7 +153,7 @@ test.describe('header @desktop', () => {
     const nav = page.getByRole('navigation', { name: 'Main' });
     await expect(nav.getByRole('link', { name: 'Features' })).toHaveAttribute('href', '#features');
     await expect(nav.getByRole('link', { name: 'Docs' })).toHaveAttribute('href', 'https://github.com/shkuratovdesigner/yuben-app#readme');
-    await expect(page.getByRole('link', { name: /YuBen on GitHub, \d+ stars/ }).first()).toHaveAttribute('href', 'https://github.com/shkuratovdesigner/yuben-app');
+    await expect(page.getByRole('link', { name: /GitHub \d+ stars/ }).first()).toHaveAttribute('href', 'https://github.com/shkuratovdesigner/yuben-app');
     await expect(page.locator('.menu-toggle')).toBeHidden();
   });
 });

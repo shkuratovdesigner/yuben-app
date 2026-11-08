@@ -12,7 +12,8 @@ export function FeatureShot({ index }: { index: number }) {
       <img
         src={src(1264)}
         srcSet={`${src(760)} 760w, ${src(1264)} 1264w, ${src(1800)} 1800w`}
-        sizes="(min-width: 1024px) 60vw, 100vw"
+        // Matches the rendered width (measured 2026-11-08): capped at 905px by the 1600px container.
+        sizes="(min-width: 1960px) 905px, (min-width: 1024px) 46vw, (min-width: 768px) 83vw, calc(100vw - 42px)"
         width={1264}
         height={843}
         alt={shot.alt}

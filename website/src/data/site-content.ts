@@ -48,8 +48,8 @@ export const features = [
 ] as const;
 
 export const shorts = [
-  { id: 'R24JLVqW9pg', thumb: '/media/short-r24jlvqw9pg.jpg', label: 'Play the first YuBen Short' },
-  { id: 'opb18eNVrn0', thumb: '/media/short-opb18envrn0.jpg', label: 'Play the second YuBen Short' },
+  { id: 'R24JLVqW9pg', thumb: '/media/short-r24jlvqw9pg.webp', label: 'Play the first YuBen Short' },
+  { id: 'opb18eNVrn0', thumb: '/media/short-opb18envrn0.webp', label: 'Play the second YuBen Short' },
 ] as const;
 
 export const models = [

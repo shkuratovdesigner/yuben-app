@@ -14,6 +14,10 @@ if (!graph.some((n) => n['@type'] === 'FAQPage' && n.mainEntity.length > 0)) thr
 const html = template
   .replace('<!--structured-data-->', () => jsonLd)
   .replace('<!--app-html-->', () => render());
-await writeFile(new URL('dist/index.html', root), html);
+// Inline the stylesheet (about 7 KB compressed) so the first paint needs no extra request.
+const cssLink = html.match(/<link rel="stylesheet"[^>]*href="(\/assets\/[^"]+\.css)"[^>]*>/);
+if (!cssLink) throw new Error('Stylesheet link not found');
+const css = await readFile(new URL(`dist${cssLink[1]}`, root), 'utf8');
+await writeFile(new URL('dist/index.html', root), html.replace(cssLink[0], () => `<style>${css}</style>`));
 await rm(new URL('.ssr', root), { recursive: true, force: true });
 console.log('prerendered dist/index.html');

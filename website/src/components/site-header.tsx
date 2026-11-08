@@ -6,12 +6,14 @@ const EXIT_MS = 180;
 
 function GitHubButton({ className = '', size = 18 }: { className?: string; size?: number }) {
   return (
-    <a className={`btn-gray github-btn ${className}`} href={repoUrl} aria-label={`YuBen on GitHub, ${starCount} stars`}>
+    // The accessible name is the visible text ("GitHub 19") plus a hidden " stars".
+    <a className={`btn-gray github-btn ${className}`} href={repoUrl}>
       <GitHubIcon size={size} />
-      <span className="github-label">GitHub</span>
+      <span className="github-label">GitHub</span>{' '}
       <span className="github-stars">
         <StarIcon size={size} />
         <span className="tabular">{starCount}</span>
+        <span className="sr-only"> stars</span>
       </span>
     </a>
   );

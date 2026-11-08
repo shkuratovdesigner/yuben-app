@@ -88,7 +88,7 @@ export function App() {
           {socials.map((s) => (
             <li key={s.label}>
               <a href={s.href} aria-label={s.label} style={{ '--w': `${s.w}px`, '--mw': `${s.mw}px` } as React.CSSProperties}>
-                <img src={s.icon} alt="" />
+                <img src={s.icon} alt="" loading="lazy" decoding="async" />
               </a>
             </li>
           ))}
