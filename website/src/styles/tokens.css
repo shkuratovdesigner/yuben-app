@@ -17,8 +17,8 @@
   --chip-bg: #f6ead9;
   --chip-ink: #b45309;
 
-  --font-serif: 'Newsreader Variable', 'Newsreader', Georgia, serif;
-  --font-sans: 'Inter Variable', 'Inter', system-ui, sans-serif;
+  --font-serif: 'Newsreader Variable', 'Newsreader Fallback', Georgia, serif;
+  --font-sans: 'Inter Variable', 'Inter Fallback', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
 
   --sky-image: url('/media/cloud-sky.webp');

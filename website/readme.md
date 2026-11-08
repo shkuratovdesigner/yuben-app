@@ -34,11 +34,12 @@ Google Analytics 4, account Shkuratov.designer (177282538), property YuBen, web 
 
 ## Performance
 
-Measured with Lighthouse 13 on 2026-11-08 (local production build): mobile 94–95, desktop 100; accessibility, best practices and SEO 100. Before this pass the live site scored 54 / 88.
+Measured with Lighthouse 13 on 2026-11-08 against production: mobile 100, desktop 99–100; accessibility, best practices and SEO 100. Before this pass the live site scored 54 / 88.
 
 - The hero sky (the largest paint) is preloaded per breakpoint with `fetchpriority="high"`; the demo poster is preloaded at normal priority.
 - The 4.5 MB demo video starts downloading 1.2 s after `load` plus an idle callback, so it never shares bandwidth with the first paint; the poster shows until then, autoplay follows, and pressing Play loads it at once.
 - The stylesheet is inlined into `index.html` by `scripts/prerender.mjs` (no render-blocking request).
+- No layout shift while fonts load (CLS ≤ 0.001 at 360–1920 px on slow 4G): `src/styles/fonts.css` adds metric-matched fallbacks (Georgia, Georgia Italic, Arial with `size-adjust` and ascent/descent overrides), and the hero's italic line is its own block so mixed font states cannot stretch a line.
 - Fonts are trimmed to the weights the page renders: Newsreader 400 (optical size kept) and Inter 400–500, via `scripts/pin-fonts.py`, which also writes `src/styles/fonts.css`. Rendering was compared against the previous build: SSIM 1.000 on every text section at 1440 and 390 px. Re-run the script after upgrading the font packages, and widen the limits if a new weight is used.
 - Images: Shorts thumbnails are portrait WebP crops at native resolution; the demo poster is WebP q90 (SSIM 0.9966 against the lossless original); screenshot `sizes` match the measured layout.
 - Google Analytics loads in an idle callback after `load`.

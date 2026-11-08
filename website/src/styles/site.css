@@ -144,7 +144,9 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .hero-title {
   font: 400 40px/43px var(--font-serif); letter-spacing: -0.03em;
 }
-.hero-title em { font-style: italic; }
+/* Its own block, so while only one Newsreader style has loaded the mixed fonts
+   cannot stretch a shared line box and shift the hero (CLS). */
+.hero-title em { display: block; font-style: italic; }
 .hero-sub { color: var(--muted); font-size: 16px; line-height: 25px; }
 
 /* Demo */
